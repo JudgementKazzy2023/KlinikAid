@@ -1,26 +1,24 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNowStrict } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
 import { Document } from "@/types";
 import type { DetectedClinicTest } from "@/lib/documents/detectRequestedTests";
-import { 
-  FileText, 
-  CheckCircle2, 
-  XCircle, 
-  AlertCircle, 
-  Sparkles, 
-  Clock, 
-  User, 
-  ArrowRight,
+import {
+  FileText,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  Sparkles,
   Database,
-  Search
+  Search,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
 interface ReceptionKanbanProps {
@@ -42,10 +40,17 @@ type ColumnId = "submitted" | "ai_verified" | "staff_review" | "approved" | "rej
 interface Column {
   id: ColumnId;
   title: string;
+  /** Shorter label for the mobile tab bar. */
+  shortTitle: string;
   description: string;
-  color: string;
+  /** Colour of the thin bar on top of the column. */
+  bar: string;
   icon: React.ReactNode;
+  completed: boolean;
 }
+
+/** Cards rendered per column before "Load more". Every document stays in state and reachable. */
+const PAGE_SIZE = 20;
 
 export default function ReceptionKanban({
   initialDocuments,
@@ -55,6 +60,15 @@ export default function ReceptionKanban({
   const supabase = createClient();
   const [documents, setDocuments] = useState<Document[]>(initialDocuments);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showCompleted, setShowCompleted] = useState(false);
+  const [visible, setVisible] = useState<Record<ColumnId, number>>({
+    submitted: PAGE_SIZE,
+    ai_verified: PAGE_SIZE,
+    staff_review: PAGE_SIZE,
+    approved: PAGE_SIZE,
+    rejected: PAGE_SIZE,
+  });
+  const [activeTab, setActiveTab] = useState<ColumnId>("submitted");
 
   // Helper to categorize document into Kanban columns
   const getColumn = (doc: Document): ColumnId => {
@@ -206,115 +220,237 @@ export default function ReceptionKanban({
     {
       id: "submitted",
       title: "Submitted",
+      shortTitle: "Submitted",
       description: "Direct patient web uploads waiting for processing",
-      color: "bg-slate-100/80 dark:bg-slate-900/40 border-t-slate-400 dark:border-t-slate-600",
+      bar: "bg-slate-400",
       icon: <Database className="h-4 w-4 text-slate-500" />,
+      completed: false,
     },
     {
       id: "ai_verified",
       title: "AI Verified",
+      shortTitle: "AI verified",
       description: "Processed by AI with high confidence score (≥85%)",
-      color: "bg-emerald-50/50 dark:bg-emerald-950/10 border-t-emerald-500 dark:border-t-emerald-600",
-      icon: <Sparkles className="h-4 w-4 text-emerald-500" />,
+      bar: "bg-primary",
+      icon: <Sparkles className="h-4 w-4 text-primary" />,
+      completed: false,
     },
     {
       id: "staff_review",
       title: "Staff Review",
+      shortTitle: "Review",
       description: "Needs receptionist verification due to lower confidence (<85%)",
-      color: "bg-amber-50/50 dark:bg-amber-950/10 border-t-amber-500 dark:border-t-amber-600",
-      icon: <AlertCircle className="h-4 w-4 text-amber-500" />,
+      bar: "bg-amber-500",
+      icon: <AlertCircle className="h-4 w-4 text-amber-600" />,
+      completed: false,
     },
     {
       id: "approved",
       title: "Approved",
+      shortTitle: "Approved",
       description: "Validated and patient successfully routed to triage queue",
-      color: "bg-teal-50/50 dark:bg-teal-950/10 border-t-teal-600 dark:border-t-teal-700",
-      icon: <CheckCircle2 className="h-4 w-4 text-teal-600" />,
+      bar: "bg-primary",
+      icon: <CheckCircle2 className="h-4 w-4 text-primary" />,
+      completed: true,
     },
     {
       id: "rejected",
       title: "Rejected",
+      shortTitle: "Rejected",
       description: "Returned to patient due to legibility or mismatch issues",
-      color: "bg-rose-50/50 dark:bg-rose-950/10 border-t-rose-500 dark:border-t-rose-600",
-      icon: <XCircle className="h-4 w-4 text-rose-500" />,
+      bar: "bg-rose-500",
+      icon: <XCircle className="h-4 w-4 text-rose-600" />,
+      completed: true,
     },
   ];
 
-  // Helper to render OCR badge
-  const renderOcrBadge = (doc: Document) => {
-    if (doc.file_type === "template") {
-      return (
-        <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400 dark:border-blue-900/10 font-bold">
-          Structured Form
-        </Badge>
-      );
-    }
+  const loadMore = (id: ColumnId) =>
+    setVisible((prev) => ({ ...prev, [id]: prev[id] + PAGE_SIZE }));
 
+  // Horizontal scroll affordance: fade + button on whichever side has more columns.
+  const scroller = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const measure = useCallback(() => {
+    const el = scroller.current;
+    if (!el) return;
+    setEdges({
+      left: el.scrollLeft > 4,
+      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+    });
+  }, []);
+  useEffect(() => {
+    const el = scroller.current;
+    if (!el) return;
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measure, showCompleted, documents.length, searchQuery]);
+  const nudge = (dir: 1 | -1) =>
+    scroller.current?.scrollBy({ left: dir * 320, behavior: "smooth" });
+
+  const shortAge = (iso: string) =>
+    formatDistanceToNowStrict(new Date(iso))
+      .replace(/ seconds?/, " s")
+      .replace(/ minutes?/, " min")
+      .replace(/ hours?/, " h")
+      .replace(/ days?/, " d")
+      .replace(/ months?/, " mo")
+      .replace(/ years?/, " y");
+
+  const pill = (doc: Document) => {
+    const base = "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium leading-4";
+    if (doc.file_type === "template") {
+      return <span className={cn(base, "bg-sky-100 text-sky-800")}>Structured form</span>;
+    }
     const metadata = doc.extracted_metadata as { ocr_confidence_score?: number } | null;
     const score = metadata?.ocr_confidence_score;
-
     if (score === undefined || score === null) {
-      return (
-        <Badge variant="outline" className="bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 font-medium">
-          Web Upload
-        </Badge>
-      );
+      return <span className={cn(base, "bg-slate-200/70 text-slate-700")}>Web upload</span>;
     }
+    if (score >= 85) return <span className={cn(base, "bg-emerald-100 text-emerald-800")}>AI {score}%</span>;
+    if (score >= 70) return <span className={cn(base, "bg-amber-100 text-amber-800")}>AI {score}%</span>;
+    return <span className={cn(base, "bg-rose-100 text-rose-800")}>AI {score}%</span>;
+  };
 
-    if (score >= 85) {
-      return (
-        <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white font-medium">
-          AI {score}%
-        </Badge>
-      );
-    }
-
-    if (score >= 70) {
-      return (
-        <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-medium">
-          AI {score}%
-        </Badge>
-      );
-    }
-
+  const renderCard = (doc: Document, colId: ColumnId) => {
+    const metadata = doc.extracted_metadata as { selected_tests?: DetectedClinicTest[] } | null;
+    const tests = Array.isArray(metadata?.selected_tests) ? metadata.selected_tests : [];
+    const shown = tests.slice(0, 2);
+    const extra = tests.length - shown.length;
+    const name = doc.patient ? `${doc.patient.first_name} ${doc.patient.last_name}`.trim() : "";
     return (
-      <Badge className="bg-rose-500 hover:bg-rose-600 text-white font-medium">
-        AI {score}%
-      </Badge>
+      <li key={doc.id}>
+        <Link
+          href={`/reception/queue/${doc.id}`}
+          className={cn(
+            "group block rounded-md border border-slate-200 bg-white px-3 py-2 transition-colors hover:border-slate-400",
+            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary",
+            colId === "staff_review" && "border-l-[3px] border-l-amber-500"
+          )}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span
+              className={cn(
+                "min-w-0 truncate text-[13px] font-semibold",
+                name ? "text-slate-900 group-hover:text-primary" : "font-medium text-slate-500"
+              )}
+              title={name || "Unknown patient"}
+            >
+              {name || "Unknown patient"}
+            </span>
+            {pill(doc)}
+          </div>
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-600">
+            <FileText className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+            <span className="min-w-0 flex-1 truncate" title={doc.file_name}>{doc.file_name}</span>
+            <span className="shrink-0 tabular-nums text-slate-500" title={`${formatDistanceToNowStrict(new Date(doc.created_at))} ago`}>
+              {shortAge(doc.created_at)}
+            </span>
+          </div>
+          {shown.length > 0 && (
+            <div className="mt-1.5 flex items-center gap-1 overflow-hidden">
+              {shown.map((t) => (
+                <span key={t.id} className="max-w-[120px] truncate rounded-full border border-slate-200 bg-slate-50 px-2 text-[11px] leading-5 text-slate-700" title={t.label}>
+                  {t.label}
+                </span>
+              ))}
+              {extra > 0 && (
+                <span
+                  className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 text-[11px] leading-5 text-slate-600"
+                  title={tests.slice(2).map((t) => t.label).join(", ")}
+                >
+                  +{extra}
+                </span>
+              )}
+            </div>
+          )}
+        </Link>
+      </li>
     );
   };
 
+  const renderList = (col: Column) => {
+    const list = columnsData[col.id];
+    const shownCount = Math.min(visible[col.id], list.length);
+    const remaining = list.length - shownCount;
+    return (
+      <>
+        {list.length === 0 ? (
+          <p className="rounded-md border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-slate-500">
+            {searchQuery ? "No matches" : "No documents"}
+          </p>
+        ) : (
+          <ul className="space-y-2">{list.slice(0, shownCount).map((doc) => renderCard(doc, col.id))}</ul>
+        )}
+        {remaining > 0 && (
+          <button
+            type="button"
+            onClick={() => loadMore(col.id)}
+            className="mt-2 w-full rounded-md border border-slate-300 bg-white py-2 text-xs font-medium text-slate-700 hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+          >
+            Show {Math.min(PAGE_SIZE, remaining)} more
+            <span className="ml-1 text-slate-500">({remaining} not yet shown)</span>
+          </button>
+        )}
+      </>
+    );
+  };
+
+  const completedCount = columnsData.approved.length + columnsData.rejected.length;
+  const desktopColumns = columns.filter((c) => !c.completed || showCompleted);
+  const activeCol = columns.find((c) => c.id === activeTab) ?? columns[0];
+
   return (
-    <div className="space-y-6">
-      {/* Search and Filters */}
-      <div className="flex flex-col sm:flex-row items-center gap-4 bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
-        <div className="relative w-full sm:max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      {/* Search */}
+      <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative w-full sm:max-w-sm">
+          <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
           <Input
-            placeholder="Search patient name, file name, type..."
+            placeholder="Search patient, file name, type…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-slate-50/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 focus:bg-white dark:focus:bg-slate-950 transition-colors"
+            className="h-10 bg-white pl-9 text-sm"
+            aria-label="Search the queue"
           />
         </div>
-        <div className="text-xs text-slate-500 dark:text-slate-400 font-medium sm:ml-auto">
-          Showing {filteredDocuments.length} of {documents.length} loaded
+        <div className="flex items-center gap-3 sm:ml-auto">
+          <span className="whitespace-nowrap text-xs text-slate-600 tabular-nums">
+            Showing {filteredDocuments.length} of {documents.length} loaded
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowCompleted((v) => !v)}
+            aria-expanded={showCompleted}
+            className="hidden items-center gap-1.5 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary md:inline-flex"
+          >
+            {showCompleted ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            Recently completed
+            <span className="rounded-full bg-slate-100 px-1.5 text-[11px] tabular-nums text-slate-700">{completedCount}</span>
+          </button>
         </div>
       </div>
 
-      {/* Truncation disclosure.
-          The board loads under server-side caps, so the row count on screen is
-          not the number of documents that exist. That gap is stated here rather
-          than left for reception to infer, because a board that looks complete
-          while omitting referrals is how a referral is never actioned. */}
+      {/* Truncation disclosure. The board loads under server-side caps, so the row count
+          on screen is not the number of documents that exist. That gap is stated here
+          rather than left for reception to infer: a board that looks complete while
+          omitting referrals is how a referral is never actioned. Collapsed to one line;
+          the full statement is one click away. */}
       {anythingOmitted ? (
-        <div
-          role="status"
-          className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200"
-        >
-          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <div className="space-y-1">
-            <p className="font-semibold">This board is showing a capped view.</p>
+        <details role="status" className="group shrink-0 rounded-md border border-amber-200 bg-amber-50 text-xs text-amber-900">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-medium">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">
+              Capped view:{" "}
+              {[
+                actionableOmitted ? `${actionableOmitted} awaiting-action not listed` : null,
+                completedOmitted ? `${completedOmitted} completed not listed` : null,
+              ].filter(Boolean).join(", ")}
+            </span>
+            <span className="shrink-0 underline underline-offset-2 group-open:hidden">Details</span>
+          </summary>
+          <div className="space-y-1 px-3 pb-3 pl-9">
             <ul className="list-disc space-y-0.5 pl-4">
               {actionableOmitted ? (
                 <li>
@@ -333,18 +469,15 @@ export default function ReceptionKanban({
                 </li>
               ) : null}
             </ul>
-            <p className="text-amber-800/80 dark:text-amber-300/80">
+            <p className="text-amber-800">
               Every pending document{" "}
               {actionableOmitted ? "up to the cap" : "currently"} is loaded, so
               nothing awaiting triage has been dropped from the top of the queue.
             </p>
           </div>
-        </div>
+        </details>
       ) : totalsUnknown ? (
-        <div
-          role="status"
-          className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-300"
-        >
+        <div role="status" className="flex shrink-0 items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
             The total document count could not be read, so this board cannot
@@ -354,111 +487,96 @@ export default function ReceptionKanban({
         </div>
       ) : null}
 
-      {/* Kanban Board Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-5 gap-5 h-[calc(100vh-240px)] min-h-[600px] overflow-x-auto pb-4">
-        {columns.map((col) => {
-          const list = columnsData[col.id];
-          return (
-            <div
-              key={col.id}
-              className={`flex flex-col rounded-xl border border-slate-200/80 dark:border-slate-800/80 p-3.5 space-y-3 min-w-[260px] h-full ${col.color} border-t-2`}
-            >
-              {/* Column Header */}
-              <div className="flex items-center justify-between pb-2 border-b border-slate-200/50 dark:border-slate-800/50">
-                <div className="flex items-center gap-2">
-                  {col.icon}
-                  <span className="font-bold text-sm text-slate-800 dark:text-slate-200 tracking-tight">
-                    {col.title}
-                  </span>
-                </div>
-                <Badge variant="secondary" className="px-2 py-0.5 rounded-full font-semibold text-xs bg-slate-200/60 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                  {list.length}
-                </Badge>
-              </div>
-
-              {/* Column Description */}
-              <div className="text-[10px] text-slate-400 dark:text-slate-500 leading-normal pb-1 font-medium">
-                {col.description}
-              </div>
-
-              {/* Cards Container */}
-              <div className="flex-1 space-y-3 overflow-y-auto pr-1 select-none">
-                {list.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-24 border border-dashed border-slate-200 dark:border-slate-800/50 rounded-lg text-slate-400 dark:text-slate-600 text-xs">
-                    No documents
-                  </div>
-                ) : (
-                  list.map((doc) => {
-                    const isStaffReview = col.id === "staff_review";
-                    const metadata = doc.extracted_metadata as { selected_tests?: DetectedClinicTest[] } | null;
-                    const selectedTests = Array.isArray(metadata?.selected_tests) ? metadata.selected_tests : [];
-
-                    return (
-                      <Link
-                        key={doc.id}
-                        href={`/reception/queue/${doc.id}`}
-                        className="block group focus:outline-none"
-                      >
-                        <Card
-                          className={`border-slate-200/80 dark:border-slate-800/80 shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 cursor-pointer ${
-                            isStaffReview ? "border-l-4 border-l-amber-500" : ""
-                          }`}
-                        >
-                          <CardHeader className="p-3 pb-2 space-y-1.5">
-                            <div className="flex justify-between items-start gap-1">
-                              <CardTitle className="text-xs font-bold text-slate-900 dark:text-slate-100 group-hover:text-primary dark:group-hover:text-accentBlue-400 transition-colors line-clamp-1">
-                                {doc.patient
-                                  ? `${doc.patient.first_name} ${doc.patient.last_name}`
-                                  : "Unknown Patient"}
-                              </CardTitle>
-                              {renderOcrBadge(doc)}
-                            </div>
-                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400 font-medium">
-                              <Clock className="h-3 w-3" />
-                              <span>{formatDistanceToNow(new Date(doc.created_at))} ago</span>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="p-3 pt-0 space-y-2">
-                            <div className="text-[11px] font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1">
-                              <FileText className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
-                              <span className="truncate max-w-[150px]">{doc.file_name}</span>
-                            </div>
-
-                            {selectedTests.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5">
-                                {selectedTests.map((test) => (
-                                  <Badge
-                                    key={test.id}
-                                    variant="outline"
-                                    className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/25 dark:text-emerald-300 text-[10px] px-1.5 py-0"
-                                  >
-                                    {test.label}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                             
-                            <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-900 pt-2 text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-                              <span className="flex items-center gap-1">
-                                <User className="h-2.5 w-2.5" />
-                                <span className="truncate max-w-[100px]">
-                                  {doc.uploader?.full_name || "System"}
-                                </span>
-                              </span>
-                              <span className="text-xs text-primary group-hover:translate-x-1 transition-transform dark:text-accentBlue-400">
-                                <ArrowRight className="h-3.5 w-3.5" />
-                              </span>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </Link>
-                    );
-                  })
+      {/* Mobile: one status at a time */}
+      <div className="flex min-h-0 flex-1 flex-col md:hidden">
+        <div role="tablist" aria-label="Queue status" className="-mx-1 flex shrink-0 gap-1 overflow-x-auto px-1 pb-2">
+          {columns.map((col) => {
+            const selected = col.id === activeCol.id;
+            return (
+              <button
+                key={col.id}
+                role="tab"
+                type="button"
+                aria-selected={selected}
+                onClick={() => setActiveTab(col.id)}
+                className={cn(
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium",
+                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary",
+                  selected ? "border-primary bg-primary text-primary-foreground" : "border-slate-300 bg-white text-slate-700"
                 )}
-              </div>
-            </div>
-          );
-        })}
+              >
+                {col.shortTitle}
+                <span className={cn("tabular-nums", selected ? "text-primary-foreground/85" : "text-slate-500")}>{columnsData[col.id].length}</span>
+              </button>
+            );
+          })}
+        </div>
+        <section role="tabpanel" aria-label={activeCol.title} className="min-h-0 flex-1 overflow-y-auto rounded-lg bg-slate-900/[0.035] p-2">
+          <p className="px-1 pb-2 text-xs text-slate-600">{activeCol.description}</p>
+          {renderList(activeCol)}
+        </section>
+      </div>
+
+      {/* Desktop board: fixed-width columns in a snapping horizontal scroller */}
+      <div className="relative hidden min-h-0 flex-1 md:block">
+        <div
+          ref={scroller}
+          onScroll={measure}
+          tabIndex={0}
+          aria-label="Queue board, scroll horizontally for more columns"
+          className="flex h-full snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden scroll-smooth pb-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+        >
+          {desktopColumns.map((col) => {
+            const list = columnsData[col.id];
+            if (list.length === 0) {
+              return (
+                <div
+                  key={col.id}
+                  className="relative flex w-12 shrink-0 snap-start flex-col items-center overflow-hidden rounded-lg bg-slate-900/[0.035] py-3"
+                  title={`${col.title}: ${searchQuery ? "no matches" : "no documents"}. ${col.description}`}
+                >
+                  <span className={cn("absolute inset-x-0 top-0 h-[3px]", col.bar)} />
+                  <span className="mt-1">{col.icon}</span>
+                  <span className="mt-2 text-xs tabular-nums text-slate-500">0</span>
+                  <span className="mt-3 text-xs font-medium text-slate-600 [text-orientation:mixed] [writing-mode:vertical-rl]">{col.title}</span>
+                </div>
+              );
+            }
+            return (
+              <section
+                key={col.id}
+                aria-label={`${col.title}, ${list.length} documents`}
+                className="relative flex w-[300px] shrink-0 snap-start flex-col overflow-hidden rounded-lg bg-slate-900/[0.035]"
+              >
+                <span className={cn("absolute inset-x-0 top-0 h-[3px]", col.bar)} />
+                <header className="flex shrink-0 items-center gap-2 px-3 pb-2 pt-3.5" title={col.description}>
+                  {col.icon}
+                  <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{col.title}</h2>
+                  <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200">
+                    {list.length}
+                  </span>
+                </header>
+                <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">{renderList(col)}</div>
+              </section>
+            );
+          })}
+        </div>
+        {edges.left && (
+          <>
+            <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-background to-transparent" />
+            <button type="button" onClick={() => nudge(-1)} aria-label="Scroll board left" className="absolute left-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm hover:border-slate-400">
+              <ChevronRight className="h-4 w-4 rotate-180" />
+            </button>
+          </>
+        )}
+        {edges.right && (
+          <>
+            <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent" />
+            <button type="button" onClick={() => nudge(1)} aria-label="Scroll board right" className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm hover:border-slate-400">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
