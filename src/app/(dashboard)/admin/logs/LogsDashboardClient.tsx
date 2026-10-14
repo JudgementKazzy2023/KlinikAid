@@ -27,6 +27,7 @@ import LogEventBadge from "@/components/LogEventBadge";
 import DataLoadError from "@/components/DataLoadError";
 import { fetchJson, type ApiError } from "@/lib/fetch-json";
 import { formatPhTime } from "@/lib/utils";
+import { isInvertedRange } from "@/lib/logs/system-log-query";
 import { 
   Loader2, 
   Download, 
@@ -42,7 +43,7 @@ import {
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { startOfISOWeek, parseISO } from "date-fns";
-import { toZonedTime, format as formatTz } from "date-fns-tz";
+import { toZonedTime, format as formatTz, formatInTimeZone } from "date-fns-tz";
 
 interface ProfileItem {
   id: string;
@@ -163,6 +164,9 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
   const [filterStartDate, setFilterStartDate] = useState<string>("");
   const [filterEndDate, setFilterEndDate] = useState<string>("");
   const [filterSearch, setFilterSearch] = useState<string>("");
+  // The search box is applied on submit, not per keystroke. Keeping the applied
+  // term separate means paging uses the search the table is actually showing.
+  const [appliedSearch, setAppliedSearch] = useState<string>("");
 
   // ----------------------------------------------------
   // TAB 2: CHATBOT AUDIT STATE
@@ -196,26 +200,48 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
   // FETCH LOGICS
   // ----------------------------------------------------
 
+  // Filters shared by the table and the CSV export, so the export always
+  // contains what the table is filtered to.
+  const systemStartIso = filterStartDate ? new Date(filterStartDate).toISOString() : null;
+  const systemEndIso = (() => {
+    if (!filterEndDate) return null;
+    // Enforce full day boundary
+    const end = new Date(filterEndDate);
+    end.setHours(23, 59, 59, 999);
+    return end.toISOString();
+  })();
+  // An end date before the start date matches nothing by construction. Saying
+  // so is more useful than "No system events match selected filters".
+  const systemRangeInverted = isInvertedRange(systemStartIso, systemEndIso);
+
+  const systemFilterParams = () => {
+    const params = new URLSearchParams();
+    if (filterEventType !== "all") params.set("eventType", filterEventType);
+    if (filterUserId !== "all") params.set("userId", filterUserId);
+    if (systemStartIso) params.set("startDate", systemStartIso);
+    if (systemEndIso) params.set("endDate", systemEndIso);
+    // Description search is done by the API across the whole trail. It used to
+    // be sent as `eventType` (an exact match that never hit) and then applied
+    // to the already-empty page on the client, so no search ever matched.
+    if (appliedSearch) params.set("search", appliedSearch);
+    return params;
+  };
+
   // Fetch System Logs (Paginated & Filtered)
   const fetchSystemLogs = async () => {
+    if (systemRangeInverted) {
+      setSystemLogs([]);
+      setSystemTotal(0);
+      setSystemError(null);
+      return;
+    }
+
     setSystemLoading(true);
     setSystemError(null);
 
-    const params = new URLSearchParams({
-      page: systemPage.toString(),
-      limit: "15",
-    });
-
-    if (filterEventType !== "all") params.set("eventType", filterEventType);
-    if (filterUserId !== "all") params.set("userId", filterUserId);
-    if (filterStartDate) params.set("startDate", new Date(filterStartDate).toISOString());
-    if (filterEndDate) {
-      // Enforce full day boundary
-      const end = new Date(filterEndDate);
-      end.setHours(23, 59, 59, 999);
-      params.set("endDate", end.toISOString());
-    }
-    if (filterSearch.trim()) params.set("eventType", filterSearch.trim());
+    const params = systemFilterParams();
+    params.set("page", systemPage.toString());
+    params.set("limit", "15");
 
     const outcome = await fetchJson<{
       logs?: SystemLog[];
@@ -234,14 +260,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
       return;
     }
 
-    // Client-side text filter for description search
-    let logs: SystemLog[] = outcome.data?.logs || [];
-    if (filterSearch.trim()) {
-      logs = logs.filter(log =>
-        log.description.toLowerCase().includes(filterSearch.toLowerCase())
-      );
-    }
-    setSystemLogs(logs);
+    setSystemLogs(outcome.data?.logs || []);
     setSystemTotal(outcome.data?.total || 0);
   };
 
@@ -333,13 +352,18 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
       fetchCostTracker();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, systemPage, chatPage, filterEventType, filterUserId, filterStartDate, filterEndDate]);
+  }, [activeTab, systemPage, chatPage, filterEventType, filterUserId, filterStartDate, filterEndDate, appliedSearch]);
 
-  // Handle Search Input Change with local trigger
+  // Apply the search term; the effect above refetches when it changes.
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const term = filterSearch.trim();
+    if (term === appliedSearch && systemPage === 1) {
+      fetchSystemLogs();
+      return;
+    }
+    setAppliedSearch(term);
     setSystemPage(1);
-    fetchSystemLogs();
   };
 
   // ----------------------------------------------------
@@ -348,20 +372,17 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
   const handleCsvExport = () => {
     startExport(async () => {
       try {
-        const params = new URLSearchParams({
-          download: "true",
-        });
-        if (filterEventType !== "all") params.set("eventType", filterEventType);
-        if (filterUserId !== "all") params.set("userId", filterUserId);
-        if (filterStartDate) params.set("startDate", new Date(filterStartDate).toISOString());
-        if (filterEndDate) {
-          const end = new Date(filterEndDate);
-          end.setHours(23, 59, 59, 999);
-          params.set("endDate", end.toISOString());
+        if (systemRangeInverted) {
+          toast.error("The end date is before the start date, so there is nothing to export.");
+          return;
         }
+
+        const params = systemFilterParams();
+        params.set("download", "true");
 
         const exportOutcome = await fetchJson<{
           logs?: SystemLog[];
+          total?: number;
           truncated?: boolean;
         }>(`/api/admin/logs/system?${params.toString()}`);
 
@@ -371,9 +392,8 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
         }
 
         const logs: SystemLog[] = exportOutcome.data?.logs || [];
-        if (exportOutcome.data?.truncated) {
-          toast.warning("Truncated export: Only the first 10,000 logs were fetched.");
-        }
+        const exportTotal = exportOutcome.data?.total ?? logs.length;
+        const truncated = Boolean(exportOutcome.data?.truncated) || logs.length < exportTotal;
 
         // CSV formatting
         const headers = ["Timestamp (PHT)", "User", "Role", "Event Type", "Description", "IP Address"];
@@ -389,7 +409,9 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
         };
 
         const rows = logs.map((log) => {
-          const timestamp = formatPhTime(log.created_at);
+          // Full timestamp to the second: a date alone loses the order of
+          // events within a day, which is most of what an audit trail is for.
+          const timestamp = formatInTimeZone(new Date(log.created_at), "Asia/Manila", "yyyy-MM-dd HH:mm:ss");
           const userName = log.profiles?.full_name ?? "System"; // Left join null protection (Revision E)
           const userRole = log.profiles?.role ?? "";
           
@@ -399,7 +421,9 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
             sanitizeCell(userRole),
             sanitizeCell(log.event_type),
             sanitizeCell(log.description),
-            sanitizeCell(log.ip_address || "127.0.0.1"),
+            // No recorded address exports as blank. It used to export as
+            // 127.0.0.1, which states an origin the log never captured.
+            sanitizeCell(log.ip_address),
           ].join(",");
         });
 
@@ -413,7 +437,13 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
         link.click();
         document.body.removeChild(link);
         
-        toast.success("CSV file downloaded successfully!");
+        if (truncated) {
+          toast.warning(
+            `Partial export: ${logs.length.toLocaleString()} of ${exportTotal.toLocaleString()} matching events (newest first). Narrow the filters to export the rest.`
+          );
+        } else {
+          toast.success(`Exported all ${logs.length.toLocaleString()} matching events.`);
+        }
         
         // Refresh system logs list to show the new EXPORT_SYSTEM_LOGS record
         setTimeout(() => fetchSystemLogs(), 500);
@@ -683,6 +713,12 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
                     <TableRow>
                       <TableCell colSpan={5} className="p-6">
                         <DataLoadError what="the system audit trail" error={systemError} />
+                      </TableCell>
+                    </TableRow>
+                  ) : systemRangeInverted ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-48 text-center text-amber-600 dark:text-amber-400">
+                        The end date is before the start date. Adjust the range to see events.
                       </TableCell>
                     </TableRow>
                   ) : systemLogs.length === 0 ? (
