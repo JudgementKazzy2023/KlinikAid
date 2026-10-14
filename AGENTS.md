@@ -24,6 +24,7 @@ put its values in a file that gets tracked.
 | Lint | `npm run lint` |
 | Build | `npm run build` |
 | Unit tests | `npm test` (`npx vitest run`; `--watch` via `npm run test:watch`) |
+| Live RLS posture | `npm run test:rls` — anon key vs the real project; needs `.env.local`, not part of `npm test` |
 
 **`npm run review` is broken** — it invokes `node scripts/review.js` and no `scripts/`
 directory exists. Don't rely on it.
