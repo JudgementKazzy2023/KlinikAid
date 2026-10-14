@@ -319,9 +319,8 @@ CREATE POLICY "Admins can view system logs"
   ON public.system_logs FOR SELECT 
   USING (public.user_has_permission(auth.uid(), 'system_logs.read'));
 
-CREATE POLICY "Authenticated users can insert system logs" 
-  ON public.system_logs FOR INSERT 
-  WITH CHECK (auth.uid() IS NOT NULL);
+-- No INSERT policy: audit rows are written only by the server with the service
+-- role (src/lib/logger.ts) and by SECURITY DEFINER functions. See migration_24.
 
 -- 7. Chatbot Logs Policies
 CREATE POLICY "Admins can view chatbot logs" 
