@@ -128,9 +128,11 @@ export default async function ReceptionQueuePage() {
   ] as Document[];
 
   return (
-    <div className="space-y-6">
+    // Fills the viewport under the shell's padding (and the mobile top bar below md) so the
+    // board scrolls inside its columns and the page itself stays one screen tall.
+    <div className="flex h-[calc(100dvh-7.25rem)] min-h-[480px] flex-col gap-6 md:h-[calc(100dvh-4rem)]">
       {/* Page Header */}
-      <div>
+      <div className="shrink-0">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
           Reception Queue & Documents
         </h1>
