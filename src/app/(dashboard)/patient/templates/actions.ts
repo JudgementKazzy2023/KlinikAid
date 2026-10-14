@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/logger";
 import { revalidatePath } from "next/cache";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
@@ -153,8 +154,10 @@ export async function submitTemplateDocumentAction(
       submitted_at: new Date().toISOString()
     };
 
-    // 4. Save into documents table
-    const { data: docRow, error: insertError } = await supabase
+    // 4. Save into documents table. Service role, not the patient's session:
+    // patients hold no INSERT policy on documents (migration_23), so the
+    // identity fields injected above cannot be replaced by a direct REST insert.
+    const { data: docRow, error: insertError } = await createAdminClient()
       .from("documents")
       .insert({
         patient_id: patient.id,
