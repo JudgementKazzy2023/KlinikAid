@@ -11,7 +11,7 @@
 -- public.user_has_permission() (18 policy calls) and public.profiles.role_id,
 -- and neither is defined below. To rebuild a database from scratch, run this
 -- file and then apply every migration in src/lib/db/ in order:
---     migration_07.sql ... migration_22.sql
+--     migration_07.sql ... migration_23.sql
 -- The migration files are the source of truth for what the live database
 -- actually contains; this file is documentation and a partial starting point.
 -- Known still-absent here: match_documents() (m07), the patient-documents
@@ -279,14 +279,10 @@ CREATE POLICY "Patients can view own documents"
   ON public.documents FOR SELECT 
   USING (uploader_id = auth.uid() OR patient_id IN (SELECT id FROM public.patients WHERE profile_id = auth.uid()));
 
-CREATE POLICY "Patients can insert own documents" 
-  ON public.documents FOR INSERT 
-  WITH CHECK (uploader_id = auth.uid());
-
-CREATE POLICY "Patients can update own pending documents" 
-  ON public.documents FOR UPDATE 
-  USING (uploader_id = auth.uid() AND status = 'pending')
-  WITH CHECK (uploader_id = auth.uid() AND status = 'pending');
+-- Patients have NO INSERT or UPDATE policy on documents (migration_23). An
+-- uploader_id-only check let a patient file documents under another patient,
+-- insert them pre-approved, and rewrite them after submit. Patient submissions
+-- are inserted by server actions through the service-role client instead.
 
 CREATE POLICY "Patients can delete own pending documents"
   ON public.documents FOR DELETE
@@ -319,9 +315,8 @@ CREATE POLICY "Admins can view system logs"
   ON public.system_logs FOR SELECT 
   USING (public.user_has_permission(auth.uid(), 'system_logs.read'));
 
-CREATE POLICY "Authenticated users can insert system logs" 
-  ON public.system_logs FOR INSERT 
-  WITH CHECK (auth.uid() IS NOT NULL);
+-- No INSERT policy: audit rows are written only by the server with the service
+-- role (src/lib/logger.ts) and by SECURITY DEFINER functions. See migration_24.
 
 -- 7. Chatbot Logs Policies
 CREATE POLICY "Admins can view chatbot logs" 
@@ -334,9 +329,16 @@ CREATE POLICY "Users can view and insert own chatbot logs"
   WITH CHECK (user_id = auth.uid());
 
 -- 8. RAG Documents Policies
+-- Deliberately public: the clinic-information corpus behind the patient chatbot,
+-- readable by anon with no session. embedding is withheld by column privileges
+-- below, not by this policy (migration_23).
 CREATE POLICY "Anyone can read RAG documents" 
   ON public.rag_documents FOR SELECT 
   USING (true);
+
+REVOKE SELECT ON public.rag_documents FROM anon, authenticated;
+GRANT SELECT (id, title, content, metadata, created_at)
+  ON public.rag_documents TO anon, authenticated;
 
 CREATE POLICY "Admins can manage RAG documents" 
   ON public.rag_documents FOR ALL 

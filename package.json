@@ -9,7 +9,8 @@
     "lint": "next lint",
     "review": "node scripts/review.js",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:rls": "vitest run --config vitest.rls.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

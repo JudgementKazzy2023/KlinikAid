@@ -12,5 +12,7 @@ export default defineConfig({
     // of React and DOM dependencies, which is what makes them testable at all.
     environment: "node",
     include: ["src/**/*.test.ts"],
+    // *.live.test.ts hits the real database; see vitest.rls.config.ts.
+    exclude: ["**/node_modules/**", "src/**/*.live.test.ts"],
   },
 });
