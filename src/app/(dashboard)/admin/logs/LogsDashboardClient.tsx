@@ -272,6 +272,17 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
     setSystemTotal(outcome.data?.total || 0);
   };
 
+  // The post-export refresh fires after the export finishes, by which time the
+  // filters or page may have changed. Calling the `fetchSystemLogs` captured at
+  // click time would fetch the old filters -- and, as the newest ticket, would
+  // overwrite the current results with them. The ref always holds this render's.
+  const latestFetchSystemLogs = useRef(fetchSystemLogs);
+  latestFetchSystemLogs.current = fetchSystemLogs;
+  const exportRefreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (exportRefreshTimer.current) clearTimeout(exportRefreshTimer.current);
+  }, []);
+
   // Fetch Chatbot Logs
   const fetchChatbotLogs = async (forceStats = false) => {
     setChatLoading(true);
@@ -454,7 +465,8 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
         }
         
         // Refresh system logs list to show the new EXPORT_SYSTEM_LOGS record
-        setTimeout(() => fetchSystemLogs(), 500);
+        if (exportRefreshTimer.current) clearTimeout(exportRefreshTimer.current);
+        exportRefreshTimer.current = setTimeout(() => latestFetchSystemLogs.current(), 500);
       } catch (err) {
         console.error(err);
         toast.error("Failed to complete CSV export.");
