@@ -53,6 +53,29 @@ describe("parseSystemLogQuery", () => {
     expect(errorOf(qs)).toMatch(msg);
   });
 
+  // Date.parse rolls these over instead of rejecting them: 2026-02-30 becomes
+  // 2 March and T24:00 becomes the next midnight, so the filter would silently
+  // cover a different day than the one asked for.
+  it.each([
+    "startDate=2026-02-30",
+    "startDate=2026-02-31T10:00:00Z",
+    "startDate=2025-02-29",
+    "startDate=2026-04-31",
+    "startDate=2026-02-28T24:00:00Z",
+  ])("rejects the impossible date %s rather than rolling it over", (qs) => {
+    expect(errorOf(qs)).toMatch(/^startDate/);
+  });
+
+  it("rejects an impossible endDate", () => {
+    expect(errorOf("endDate=2026-06-31")).toMatch(/^endDate/);
+  });
+
+  it("accepts real edge-of-calendar dates", () => {
+    const r = parse("startDate=2024-02-29&endDate=2026-12-31T23:59:59.999Z");
+    expect(r.ok && r.query.startDate).toBe("2024-02-29T00:00:00.000Z");
+    expect(r.ok && r.query.endDate).toBe("2026-12-31T23:59:59.999Z");
+  });
+
   it("normalises valid dates to ISO", () => {
     const r = parse("startDate=2026-10-01&endDate=2026-10-05T15:59:59.999Z");
     expect(r.ok && r.query.startDate).toBe("2026-10-01T00:00:00.000Z");

@@ -37,11 +37,21 @@ export type ParsedSystemLogQuery =
 const POSITIVE_INT = /^[1-9]\d*$/;
 // A calendar date, optionally followed by a time. `Date.parse` alone accepts
 // strings like "1" (read as the year 2001), so the shape is checked first.
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}(?:[T ][\d:.]+(?:Z|[+-]\d{2}:?\d{2})?)?$/;
+const ISO_DATE =
+  /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function parseDate(raw: string): string | null {
-  if (!ISO_DATE.test(raw)) return null;
+  const m = ISO_DATE.exec(raw);
+  if (!m) return null;
+  // `Date.parse` rolls impossible fields over instead of rejecting them:
+  // 2026-02-30 becomes 2 March and T24:00 becomes the next midnight. The
+  // filter would then cover a day nobody asked for, so check the fields.
+  const [year, month, day] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const calendar = new Date(Date.UTC(year, month - 1, day));
+  if (calendar.getUTCMonth() !== month - 1 || calendar.getUTCDate() !== day) return null;
+  if (m[4] !== undefined && (Number(m[4]) > 23 || Number(m[5]) > 59)) return null;
+  if (m[6] !== undefined && Number(m[6]) > 59) return null;
   const ms = Date.parse(raw);
   return Number.isNaN(ms) ? null : new Date(ms).toISOString();
 }
