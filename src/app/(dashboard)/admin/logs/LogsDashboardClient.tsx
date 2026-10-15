@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useRef, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -167,6 +167,11 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
   // The search box is applied on submit, not per keystroke. Keeping the applied
   // term separate means paging uses the search the table is actually showing.
   const [appliedSearch, setAppliedSearch] = useState<string>("");
+  // Each system-log fetch takes a ticket; only the newest may write the table.
+  // Without this, a slow unfiltered load that resolves after a search request
+  // overwrites the search results, and the table shows rows that do not match
+  // the filters on screen.
+  const systemRequestSeq = useRef(0);
 
   // ----------------------------------------------------
   // TAB 2: CHATBOT AUDIT STATE
@@ -229,10 +234,12 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
 
   // Fetch System Logs (Paginated & Filtered)
   const fetchSystemLogs = async () => {
+    const ticket = ++systemRequestSeq.current;
     if (systemRangeInverted) {
       setSystemLogs([]);
       setSystemTotal(0);
       setSystemError(null);
+      setSystemLoading(false);
       return;
     }
 
@@ -248,6 +255,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
       total?: number;
     }>(`/api/admin/logs/system?${params.toString()}`);
 
+    if (ticket !== systemRequestSeq.current) return;
     setSystemLoading(false);
 
     if (outcome.kind === "failed") {
