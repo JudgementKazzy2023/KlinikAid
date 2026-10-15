@@ -66,9 +66,12 @@ one instead: `classifyRead` and `fetchJson` return unions whose failure branch h
 member, so reading the payload without handling the failure is a `tsc` error. `tsc --noEmit`
 is therefore part of the contract, not just a type check.
 
-There are **no credentials for any role in the repo**, so the auth-gated pages cannot be
-driven in a browser. Unauthenticated requests 307 to `/login`; that is as far as you can
-verify without a session. Say so in a PR rather than implying a page was exercised.
+There are **no credentials for any role in the repo**, and none are needed: verify
+auth-gated pages yourself with throwaway accounts. The `verify-and-report` skill
+(`~/.claude/skills/verify-and-report/`, outside the repo) creates a tagged account for any
+role, with or without MFA, drives the T3 Code browser, and deletes the account afterwards.
+Run it before reporting a change as done. "Not tested in a browser" is not an acceptable
+line in a PR or report: test it, or name the specific blocker and what you tried.
 
 ## Reading data without confusing a failure for an empty result
 
