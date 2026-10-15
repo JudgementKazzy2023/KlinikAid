@@ -750,7 +750,8 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
                           {log.description}
                         </TableCell>
                         <TableCell className="font-mono text-xs text-slate-400 whitespace-nowrap">
-                          {log.ip_address || "127.0.0.1"}
+                          {/* Same rule as the export: no recorded address is shown as such. */}
+                          {log.ip_address ?? <span title="No address was recorded for this event">—</span>}
                         </TableCell>
                       </TableRow>
                     ))
