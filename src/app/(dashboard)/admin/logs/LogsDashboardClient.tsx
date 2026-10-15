@@ -27,7 +27,7 @@ import LogEventBadge from "@/components/LogEventBadge";
 import DataLoadError from "@/components/DataLoadError";
 import { fetchJson, type ApiError } from "@/lib/fetch-json";
 import { formatPhTime } from "@/lib/utils";
-import { isInvertedRange } from "@/lib/logs/system-log-query";
+import { isInvertedRange, phtDayEnd, phtDayStart } from "@/lib/logs/system-log-query";
 import { 
   Loader2, 
   Download, 
@@ -207,14 +207,9 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
 
   // Filters shared by the table and the CSV export, so the export always
   // contains what the table is filtered to.
-  const systemStartIso = filterStartDate ? new Date(filterStartDate).toISOString() : null;
-  const systemEndIso = (() => {
-    if (!filterEndDate) return null;
-    // Enforce full day boundary
-    const end = new Date(filterEndDate);
-    end.setHours(23, 59, 59, 999);
-    return end.toISOString();
-  })();
+  // A picked date is a whole PHT day, matching the times the table shows.
+  const systemStartIso = filterStartDate ? phtDayStart(filterStartDate) : null;
+  const systemEndIso = filterEndDate ? phtDayEnd(filterEndDate) : null;
   // An end date before the start date matches nothing by construction. Saying
   // so is more useful than "No system events match selected filters".
   const systemRangeInverted = isInvertedRange(systemStartIso, systemEndIso);

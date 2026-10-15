@@ -5,6 +5,8 @@ import {
   containsPattern,
   isInvertedRange,
   parseSystemLogQuery,
+  phtDayEnd,
+  phtDayStart,
 } from "./system-log-query";
 
 const parse = (qs: string) => parseSystemLogQuery(new URLSearchParams(qs));
@@ -115,6 +117,31 @@ describe("containsPattern", () => {
     expect(containsPattern("100%")).toBe("%100\\%%");
     expect(containsPattern("LOGIN_")).toBe("%LOGIN\\_%");
     expect(containsPattern("a\\b")).toBe("%a\\\\b%");
+  });
+});
+
+describe("phtDayStart / phtDayEnd", () => {
+  // `new Date("2026-10-14")` is UTC midnight, i.e. 08:00 in Manila, so picking
+  // Oct 14 used to drop that day's first eight hours from the filter.
+  it("covers the whole Manila calendar day", () => {
+    expect(phtDayStart("2026-10-14")).toBe("2026-10-13T16:00:00.000Z");
+    expect(phtDayEnd("2026-10-14")).toBe("2026-10-14T15:59:59.999Z");
+  });
+
+  it("does not depend on the browser's timezone", () => {
+    const tz = process.env.TZ;
+    try {
+      process.env.TZ = "America/Los_Angeles";
+      expect(phtDayStart("2026-10-14")).toBe("2026-10-13T16:00:00.000Z");
+      expect(phtDayEnd("2026-10-14")).toBe("2026-10-14T15:59:59.999Z");
+    } finally {
+      process.env.TZ = tz;
+    }
+  });
+
+  it("yields bounds the API accepts", () => {
+    const r = parse(`startDate=${phtDayStart("2026-10-14")}&endDate=${phtDayEnd("2026-10-14")}`);
+    expect(r.ok).toBe(true);
   });
 });
 

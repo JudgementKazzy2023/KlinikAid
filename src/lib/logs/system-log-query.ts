@@ -56,6 +56,22 @@ function parseDate(raw: string): string | null {
   return Number.isNaN(ms) ? null : new Date(ms).toISOString();
 }
 
+/**
+ * First and last instant of a `yyyy-MM-dd` day in Manila, as ISO strings.
+ *
+ * The log viewer and CSV show times in PHT, so a picked date means a PHT day.
+ * `new Date("2026-10-14")` is UTC midnight -- 08:00 in Manila -- which silently
+ * dropped the first eight hours of the chosen start day. The Philippines has no
+ * DST, so a fixed offset is exact.
+ */
+export function phtDayStart(day: string): string {
+  return new Date(`${day}T00:00:00.000+08:00`).toISOString();
+}
+
+export function phtDayEnd(day: string): string {
+  return new Date(`${day}T23:59:59.999+08:00`).toISOString();
+}
+
 /** True when both bounds are present and the start falls after the end. */
 export function isInvertedRange(start: string | null, end: string | null): boolean {
   if (!start || !end) return false;
