@@ -114,8 +114,10 @@ export async function POST(request: Request) {
     if (!patient_id) {
       return errorResponse("patient_id is required", 400);
     }
-    if (!test_type) {
-      return errorResponse("test_type is required", 400);
+    // Checked for every department, not only laboratory: a non-lab submission
+    // passes test_type straight into the insert.
+    if (typeof test_type !== "string" || !test_type.trim()) {
+      return errorResponse("test_type is required and must be a string", 400);
     }
     if (!results || !Array.isArray(results) || results.length === 0) {
       return errorResponse("results array is required and must not be empty", 400);

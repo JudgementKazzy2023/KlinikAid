@@ -98,6 +98,14 @@ describe("validateLabPanel", () => {
     refusal(() => validateLabPanel("Urinalysis", [{ test_name: "Hemoglobin", test_value: "14" }], "male"));
   });
 
+  it.each([[{}], [{ toString: 1 }], [Object.create(null)], [["Lipid Profile"]], [5], [null]])(
+    "refuses a non-string panel %j with a ValidationError, not a TypeError",
+    (testType) => {
+      const error = refusal(() => validateLabPanel(testType, [{ test_name: "Cholesterol", test_value: "180" }], "male"));
+      expect(error.message).toContain("test_type must be a string");
+    }
+  );
+
   it("does not treat Object.prototype keys as panels", () => {
     refusal(() => validateLabPanel("toString", [{ test_name: "Hemoglobin", test_value: "14" }], "male"));
   });

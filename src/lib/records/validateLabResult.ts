@@ -87,9 +87,16 @@ export function validateLabPanel(
   results: unknown,
   gender: string | null | undefined
 ): ValidatedPanelResult[] {
-  if (typeof testType !== "string" || !isLabPanel(testType)) {
+  // Never String() a non-string here: `{"toString": 1}` is valid JSON, and
+  // String() on it throws a TypeError, which surfaced as a 500.
+  if (typeof testType !== "string") {
     throw new ValidationError(
-      `"${String(testType)}" is not a lab panel. Expected one of: ${Object.keys(LAB_TEST_GROUPS).join(", ")}.`
+      `test_type must be a string. Expected one of: ${Object.keys(LAB_TEST_GROUPS).join(", ")}.`
+    );
+  }
+  if (!isLabPanel(testType)) {
+    throw new ValidationError(
+      `"${testType}" is not a lab panel. Expected one of: ${Object.keys(LAB_TEST_GROUPS).join(", ")}.`
     );
   }
 
