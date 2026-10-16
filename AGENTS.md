@@ -24,6 +24,7 @@ put its values in a file that gets tracked.
 | Lint | `npm run lint` |
 | Build | `npm run build` |
 | Unit tests | `npm test` (`npx vitest run`; `--watch` via `npm run test:watch`) |
+| Live RLS posture | `npm run test:rls` — anon key vs the real project; needs `.env.local`, not part of `npm test` |
 
 **`npm run review` is broken** — it invokes `node scripts/review.js` and no `scripts/`
 directory exists. Don't rely on it.
@@ -65,9 +66,12 @@ one instead: `classifyRead` and `fetchJson` return unions whose failure branch h
 member, so reading the payload without handling the failure is a `tsc` error. `tsc --noEmit`
 is therefore part of the contract, not just a type check.
 
-There are **no credentials for any role in the repo**, so the auth-gated pages cannot be
-driven in a browser. Unauthenticated requests 307 to `/login`; that is as far as you can
-verify without a session. Say so in a PR rather than implying a page was exercised.
+There are **no credentials for any role in the repo**, and none are needed: verify
+auth-gated pages yourself with throwaway accounts. The `verify-and-report` skill
+(`~/.claude/skills/verify-and-report/`, outside the repo) creates a tagged account for any
+role, with or without MFA, drives the T3 Code browser, and deletes the account afterwards.
+Run it before reporting a change as done. "Not tested in a browser" is not an acceptable
+line in a PR or report: test it, or name the specific blocker and what you tried.
 
 ## Reading data without confusing a failure for an empty result
 
@@ -163,6 +167,12 @@ without that symlink `next build` fails on the missing env vars.
 - RLS is the only boundary: `anon` holds full table privileges on all public tables, so
   every table depends on its policies being correct.
 
-`SECURITY-FIX-REVIEW.md` in the repo root is a retrospective on 13 direct-to-master
-commits. Its §3 lists what was **not** verified and §5 lists residual risk — read it
-before assuming a fix is complete.
+## The repo is public: security material stays local
+
+Security reviews, audits and vulnerability write-ups go in `private/` (gitignored), never
+in a tracked file. Keep PR descriptions, commit messages and issue comments for security
+fixes to what changed. Leave out reproduction steps and lists of what is still open.
+
+`private/SECURITY-FIX-REVIEW.md`, on this machine only, is a retrospective on 13
+direct-to-master commits. Its §3 lists what was **not** verified and §5 lists residual
+risk — read it before assuming a fix is complete.

@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/logger";
 import { extractDocumentText } from "@/lib/documents/extractDocumentText";
 import { detectRequestedTests, selectDetectedTests } from "@/lib/documents/detectRequestedTests";
@@ -278,7 +279,10 @@ export async function confirmSubmitDocumentAction(assessmentId: string, selected
     ...(extractedMetadata ? { extracted_metadata: extractedMetadata } : {}),
   };
 
-  const { data: docRow, error: insertError } = await supabase
+  // Service role, not the patient's session: patients hold no INSERT policy on
+  // documents (migration_23), so patient_id, uploader_id and status can only be
+  // the ones derived above from the authenticated user.
+  const { data: docRow, error: insertError } = await createAdminClient()
     .from("documents")
     .insert(documentInsert)
     .select()

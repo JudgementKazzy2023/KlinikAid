@@ -3,7 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
-import { getTotpFactors } from "@/lib/auth/mfa";
+import { findOwnedTotpFactor } from "@/lib/auth/mfa";
 import { headers } from "next/headers";
 
 export async function verifyMfaFactorAction(factorId: string, code: string) {
@@ -22,14 +22,14 @@ export async function verifyMfaFactorAction(factorId: string, code: string) {
     // listFactors only ever returns the caller's own factors, so an id that is
     // not in that list does not belong to this user — previously the id came
     // straight from the request body and was challenged without that check.
+    // The factor being enrolled is still `unverified` here, so ownership must
+    // not be conditioned on status.
     const { data: factorsData, error: factorsError } = await supabase.auth.mfa.listFactors();
     if (factorsError) {
       return { error: `Failed to retrieve MFA factors: ${factorsError.message}` };
     }
 
-    const ownedFactor = getTotpFactors(factorsData).find(
-      (factor) => factor.id === factorId && factor.status === "verified",
-    );
+    const ownedFactor = findOwnedTotpFactor(factorsData, factorId);
 
     if (!ownedFactor) {
       await logEvent(

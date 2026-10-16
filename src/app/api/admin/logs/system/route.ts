@@ -3,8 +3,52 @@ import { errorResponse, handleRouteError, successResponse } from "@/lib/api-resp
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { requirePermission } from "@/lib/auth/helpers";
+import {
+  MAX_EXPORT_ROWS,
+  containsPattern,
+  parseSystemLogQuery,
+  type SystemLogQuery,
+} from "@/lib/logs/system-log-query";
 
 export const dynamic = "force-dynamic";
+
+const LOG_COLUMNS = `
+  id,
+  user_id,
+  event_type,
+  description,
+  ip_address,
+  metadata,
+  created_at,
+  profiles (
+    full_name,
+    role
+  )
+`;
+
+// PostgREST answers 416 / PGRST103 when the requested offset is past the last
+// row. That is an empty page, not a server fault.
+const RANGE_NOT_SATISFIABLE = "PGRST103";
+
+function filteredQuery(
+  supabase: ReturnType<typeof createClient>,
+  q: SystemLogQuery,
+  columns: string,
+  head = false
+) {
+  let query = supabase
+    .from("system_logs")
+    .select(columns, { count: "exact", head });
+
+  if (q.eventType) query = query.eq("event_type", q.eventType);
+  if (q.userId) query = query.eq("user_id", q.userId);
+  if (q.startDate) query = query.gte("created_at", q.startDate);
+  if (q.endDate) query = query.lte("created_at", q.endDate);
+  if (q.search) query = query.ilike("description", containsPattern(q.search));
+  return query;
+}
+
+type FilteredQuery = ReturnType<typeof filteredQuery>;
 
 export async function GET(request: Request) {
   // 1. Authenticate session & check role (Standing Rule #1 & #2)
@@ -17,95 +61,121 @@ export async function GET(request: Request) {
 
   try {
     await requirePermission("system_logs.read");
-    const { searchParams } = new URL(request.url);
-    const eventType = searchParams.get("eventType");
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
-    const userId = searchParams.get("userId");
-    const download = searchParams.get("download") === "true";
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const limit = parseInt(searchParams.get("limit") || "20", 10);
 
-    // Build the query
-    let query = supabase
-      .from("system_logs")
-      .select(`
-        id,
-        user_id,
-        event_type,
-        description,
-        ip_address,
-        metadata,
-        created_at,
-        profiles (
-          full_name,
-          role
-        )
-      `, { count: "exact" });
+    const parsed = parseSystemLogQuery(new URL(request.url).searchParams);
+    if (!parsed.ok) {
+      return errorResponse(parsed.error, 400);
+    }
+    const q = parsed.query;
 
-    // Apply filters
-    if (eventType) {
-      query = query.eq("event_type", eventType);
-    }
-    if (userId) {
-      query = query.eq("user_id", userId);
-    }
-    if (startDate) {
-      query = query.gte("created_at", startDate);
-    }
-    if (endDate) {
-      query = query.lte("created_at", endDate);
+    const baseQuery = (columns: string, head = false) => filteredQuery(supabase, q, columns, head);
+
+    if (q.download) {
+      return await exportLogs(q, baseQuery, async (exported, total) => {
+        // Log mutation event for export (Standing Rule #5)
+        const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0] || null;
+        const filters = {
+          eventType: q.eventType,
+          startDate: q.startDate,
+          endDate: q.endDate,
+          userId: q.userId,
+          search: q.search,
+        };
+        await logEvent(
+          supabase,
+          user.id,
+          SYSTEM_EVENT_TYPES.EXPORT_SYSTEM_LOGS,
+          `Exported ${exported} of ${total} system log rows as CSV. Filters: ${JSON.stringify(filters)}`,
+          ipAddress,
+          { filters, exported, total }
+        );
+      });
     }
 
-    // Sort by timestamp descending
-    query = query.order("created_at", { ascending: false });
+    // Normal paginated request
+    const from = (q.page - 1) * q.limit;
+    const to = from + q.limit - 1;
+    const { data, count, error } = await baseQuery(LOG_COLUMNS)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, to);
 
-    let finalData = [];
-    let count = 0;
-    let truncated = false;
-
-    if (download) {
-      // Fetch up to 10,000 records for export
-      const limitVal = 10000;
-      query = query.range(0, limitVal - 1);
-      const { data, count: totalCount, error: queryError } = await query;
-      if (queryError) throw queryError;
-      
-      finalData = data || [];
-      count = totalCount || 0;
-      if (finalData.length >= limitVal) {
-        truncated = true;
-      }
-
-      // Log mutation event for export (Standing Rule #5)
-      const ipAddress = request.headers.get("x-forwarded-for")?.split(",")[0] || "127.0.0.1";
-      await logEvent(
-        supabase,
-        user.id,
-        SYSTEM_EVENT_TYPES.EXPORT_SYSTEM_LOGS,
-        `Exported system logs as CSV. Filters: ${JSON.stringify({ eventType, startDate, endDate, userId })}`,
-        ipAddress,
-        { filters: { eventType, startDate, endDate, userId } }
-      );
-    } else {
-      // Normal paginated request
-      const from = (page - 1) * limit;
-      const to = from + limit - 1;
-      query = query.range(from, to);
-      const { data, count: totalCount, error: queryError } = await query;
-      if (queryError) throw queryError;
-
-      finalData = data || [];
-      count = totalCount || 0;
+    if (error?.code === RANGE_NOT_SATISFIABLE) {
+      // Past the end: still report the true total so the pager stays honest.
+      const { count: total, error: countError } = await baseQuery("id", true);
+      if (countError) throw countError;
+      return successResponse({ logs: [], total: total ?? 0, page: q.page, limit: q.limit, truncated: false });
     }
+    if (error) throw error;
 
     return successResponse({
-      logs: finalData,
-      total: count,
-      page,
-      truncated,
+      logs: data ?? [],
+      total: count ?? 0,
+      page: q.page,
+      limit: q.limit,
+      truncated: false,
     });
   } catch (error: unknown) {
     return handleRouteError(error, "Failed to fetch system logs.");
   }
+}
+
+/**
+ * Collects every matching row up to MAX_EXPORT_ROWS.
+ *
+ * A single `range(0, 9999)` was capped by PostgREST's max-rows (1,000) without
+ * any error, and `truncated` was only set at 10,000 rows -- so a 4,238-row trail
+ * exported as 1,000 rows with no warning (#64). Rows are now read in chunks,
+ * advancing by however many the server actually returned, so the result does
+ * not depend on what max-rows is set to.
+ *
+ * The export is pinned to the rows that existed when it started (`id <=` the
+ * highest id seen then). New events -- including this export's own audit row --
+ * sort to the top and would otherwise shift every later offset, duplicating rows
+ * across chunk boundaries.
+ */
+async function exportLogs(
+  q: SystemLogQuery,
+  baseQuery: (columns: string, head?: boolean) => FilteredQuery,
+  recordExport: (exported: number, total: number) => Promise<void>
+) {
+  const CHUNK = 1000;
+
+  const { data: newest, error: newestError } = await baseQuery("id")
+    .order("id", { ascending: false })
+    .limit(1);
+  if (newestError) throw newestError;
+
+  // `columns` is a runtime string, so supabase-js cannot infer the row shape.
+  const ceiling = (newest as unknown as { id: number }[] | null)?.[0]?.id;
+  const logs: unknown[] = [];
+  let total = 0;
+
+  if (ceiling !== undefined) {
+    while (logs.length < MAX_EXPORT_ROWS) {
+      const from = logs.length;
+      const to = Math.min(from + CHUNK, MAX_EXPORT_ROWS) - 1;
+      const { data, count, error } = await baseQuery(LOG_COLUMNS)
+        .lte("id", ceiling)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to);
+      if (error) throw error;
+
+      total = count ?? total;
+      if (!data || data.length === 0) break;
+      logs.push(...data);
+      if (logs.length >= total) break;
+    }
+  }
+
+  await recordExport(logs.length, total);
+
+  return successResponse({
+    logs,
+    total,
+    exported: logs.length,
+    page: 1,
+    truncated: logs.length < total,
+  });
 }

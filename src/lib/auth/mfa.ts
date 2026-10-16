@@ -27,3 +27,18 @@ export function getTotpFactors(factors: MfaFactorsResponse | null | undefined): 
 export function getPhoneFactors(factors: MfaFactorsResponse | null | undefined): MfaFactor[] {
   return Array.isArray(factors?.phone) ? factors.phone : [];
 }
+
+/**
+ * Finds the caller's TOTP factor with this id, whatever its status.
+ *
+ * `listFactors` only returns the caller's own factors, so an id match is the
+ * ownership proof. Status must not be part of the match: during enrolment the
+ * factor is `unverified` until `mfa.verify` succeeds, and it only appears in
+ * `all` (supabase-js puts verified factors alone in `totp`).
+ */
+export function findOwnedTotpFactor(
+  factors: MfaFactorsResponse | null | undefined,
+  factorId: string,
+): MfaFactor | undefined {
+  return getTotpFactors(factors).find((factor) => factor.id === factorId);
+}

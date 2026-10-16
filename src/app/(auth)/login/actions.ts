@@ -84,6 +84,16 @@ export async function loginAction(
 
     if (profileError || !profile) {
       await supabase.auth.signOut();
+      // user_id stays null: it references profiles(id), and the missing profile
+      // row is the event being recorded, so the auth id goes in metadata.
+      await logEvent(
+        supabase,
+        null,
+        SYSTEM_EVENT_TYPES.LOGIN_FAILED,
+        `Password accepted for ${email} but no readable profile row was found`,
+        ipAddress,
+        { auth_user_id: user.id, profile_error: profileError?.code ?? null }
+      );
       return { error: "User profile not found. Please contact your administrator." };
     }
 
