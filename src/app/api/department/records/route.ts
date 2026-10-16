@@ -4,7 +4,7 @@ import { hasPermission, requireAnyPermission } from "@/lib/auth/helpers";
 import { ValidationError, errorResponse, handleRouteError, successResponse } from "@/lib/api-response";
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
-import { validateLabPanel } from "@/lib/records/validateLabResult";
+import { resultValueText, validateLabPanel } from "@/lib/records/validateLabResult";
 
 export async function GET(request: Request) {
   const supabase = createClient();
@@ -167,11 +167,14 @@ export async function POST(request: Request) {
             notes: notes || null
           }))
         : results.map((res) => {
-            if (!res?.test_name) {
+            if (typeof res?.test_name !== "string" || !res.test_name) {
               throw new ValidationError("Each result must have a test_name");
             }
-            if (res.test_value === undefined || res.test_value === null) {
-              throw new ValidationError(`test_value is required for test ${res.test_name}`);
+            const testValue = resultValueText(res.test_value);
+            if (testValue === null) {
+              throw new ValidationError(
+                `test_value for ${res.test_name} is required and must be a string or a number`
+              );
             }
 
             return {
@@ -180,7 +183,7 @@ export async function POST(request: Request) {
               department: dept,
               test_type,
               test_name: res.test_name,
-              test_value: String(res.test_value),
+              test_value: testValue,
               unit: res.unit || null,
               reference_range_min: null,
               reference_range_max: null,

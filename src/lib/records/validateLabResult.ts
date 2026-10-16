@@ -16,6 +16,19 @@ export interface ValidatedPanelResult extends ValidatedLabResult {
 const STRICT_NUMBER_REGEX = /^-?\d+(\.\d+)?$/;
 
 /**
+ * The text of a submitted result value, or null if its type is not one a
+ * client can legitimately send (a string, or a finite JSON number).
+ *
+ * Check this before coercing: `{"toString": 1}` is valid JSON, and String() on
+ * it throws a TypeError, which surfaced as a 500 instead of a 400.
+ */
+export function resultValueText(raw: unknown): string | null {
+  if (typeof raw === "string") return raw;
+  if (typeof raw === "number" && Number.isFinite(raw)) return String(raw);
+  return null;
+}
+
+/**
  * Validates one lab value and works out whether it is flagged.
  *
  * Two different ranges apply, and they mean different things:
@@ -37,7 +50,11 @@ export function validateLabResult(
     throw new ValidationError(`${testName} is not a recognised lab parameter.`);
   }
 
-  const value = String(rawValue ?? "").trim();
+  const text = resultValueText(rawValue);
+  if (text === null) {
+    throw new ValidationError(`${testName}: test_value must be a number or a string of digits.`);
+  }
+  const value = text.trim();
   if (!STRICT_NUMBER_REGEX.test(value)) {
     throw new ValidationError(
       `${testName}: "${value}" is not a valid number. Enter digits with an optional decimal point, e.g. 95 or 13.2.`

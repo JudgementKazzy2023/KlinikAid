@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ValidationError, handleRouteError } from "@/lib/api-response";
 import { LAB_REFERENCE_RANGES, LAB_TEST_GROUPS } from "@/lib/constants";
-import { validateLabPanel, validateLabResult } from "./validateLabResult";
+import { resultValueText, validateLabPanel, validateLabResult } from "./validateLabResult";
 
 /**
  * Issue #61: the only numeric rule was "looks like a number". FBS -5 and 99999
@@ -30,6 +30,21 @@ describe("validateLabResult", () => {
 
   it.each(["1e3", "abc", "", "12,5", "Infinity"])("refuses non-numeric %j with a 400, not a 500", (value) => {
     refusal(() => validateLabResult(FBS, value, "male"));
+  });
+
+  // `{"toString": 1}` is valid JSON, and String() on it throws a TypeError:
+  // these used to answer 500.
+  it.each([[{ toString: 1 }], [{}], [Object.create(null)], [["90"]], [true], [null], [undefined]])(
+    "refuses a test_value of type %j with a 400, not a 500",
+    (value) => {
+      const error = refusal(() => validateLabResult(FBS, value, "male"));
+      expect(error.message).toContain("test_value must be a number or a string of digits");
+    }
+  );
+
+  it("accepts a JSON number as well as a numeric string", () => {
+    expect(validateLabResult(FBS, 92, "male").test_value).toBe("92");
+    expect(validateLabResult(FBS, " 92.5 ", "male").test_value).toBe("92.5");
   });
 
   it("still saves and flags a value outside the reference range but inside the plausible range", () => {
@@ -114,6 +129,11 @@ describe("validateLabPanel", () => {
     refusal(() => validateLabPanel(FBS, results, "male"));
   });
 
+  it("refuses a panel whose test_value is an object, without coercing it", () => {
+    const error = refusal(() => validateLabPanel(FBS, [{ test_name: FBS, test_value: { toString: 1 } }], "male"));
+    expect(error.message).toContain(FBS);
+  });
+
   it("refuses the whole panel when any one value is impossible", () => {
     refusal(() =>
       validateLabPanel(
@@ -148,4 +168,19 @@ describe("a ValidationError reaching a route", () => {
     expect(body.success).toBe(false);
     expect(body.message).toBe(error.message);
   });
+});
+
+describe("resultValueText", () => {
+  it("passes strings through untouched and stringifies finite numbers", () => {
+    expect(resultValueText("Clear lung fields ")).toBe("Clear lung fields ");
+    expect(resultValueText("")).toBe("");
+    expect(resultValueText(13.2)).toBe("13.2");
+  });
+
+  it.each([[{ toString: 1 }], [{}], [[1]], [true], [null], [undefined], [NaN], [Infinity]])(
+    "returns null for %j instead of coercing it",
+    (value) => {
+      expect(resultValueText(value)).toBeNull();
+    }
+  );
 });
