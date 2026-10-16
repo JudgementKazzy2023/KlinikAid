@@ -9,9 +9,9 @@ import { classifyRead } from "@/lib/read-outcome";
 export const dynamic = "force-dynamic";
 
 interface PatientAnalyticsPageProps {
-  params: {
+  params: Promise<{
     patientId: string;
-  };
+  }>;
 }
 
 interface RecordData {
@@ -32,13 +32,12 @@ interface RecordData {
   department: string;
 }
 
-export default async function PatientAnalyticsPage({
-  params
-}: PatientAnalyticsPageProps) {
+export default async function PatientAnalyticsPage(props: PatientAnalyticsPageProps) {
+  const params = await props.params;
   // Guard access: only admin and medical_specialist roles
   await requirePermission("specialist.analytics");
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { patientId } = params;
 
   // 1. Fetch patient details from specialist_patients

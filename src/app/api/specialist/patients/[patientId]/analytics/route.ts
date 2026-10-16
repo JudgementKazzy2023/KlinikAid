@@ -4,11 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/helpers";
 import { errorResponse, handleRouteError, successResponse } from "@/lib/api-response";
 
-export async function GET(
-  request: Request,
-  { params }: { params: { patientId: string } }
-) {
-  const supabase = createClient();
+export async function GET(request: Request, props: { params: Promise<{ patientId: string }> }) {
+  const params = await props.params;
+  const supabase = await createClient();
   const { patientId } = params;
 
   // Rule 1 check: calling getUser() as the literal first line

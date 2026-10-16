@@ -1,6 +1,6 @@
 # KlinikAid — agent notes
 
-Clinical laboratory information system. Next.js 14 (App Router), TypeScript strict,
+Clinical laboratory information system. Next.js 15 (App Router, React 19), TypeScript strict,
 Supabase (Postgres + Auth + RLS), Tailwind. Multi-role: admin, receptionist,
 department_staff, medical_specialist, patient.
 
@@ -36,8 +36,8 @@ A clean `master` is:
 ```
 npx tsc --noEmit   -> exit 0
 npm run lint       -> no warnings or errors
-npm run build      -> Compiled successfully, 37/37 static pages
-npm test           -> 24 passed (2 files)
+npm run build      -> Compiled successfully, 13/13 static pages
+npm test           -> 105 passed (8 files)
 ```
 
 `next build` runs ESLint, so **a lint error fails the build**.

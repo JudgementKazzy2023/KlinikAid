@@ -50,7 +50,7 @@ function getFileExtension(fileName: string, fileType: string) {
   return "jpg";
 }
 
-async function getPatientForCurrentUser(supabase: ReturnType<typeof createClient>, userId: string) {
+async function getPatientForCurrentUser(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
   const { data: patient, error: patientError } = await supabase
     .from("patients")
     .select("id")
@@ -96,7 +96,7 @@ function isPoorQualityOcrText(text: string) {
 
 export async function assessDocumentQualityAction(formData: FormData) {
   // Standing Rule 1: supabase.auth.getUser() first line
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
@@ -201,7 +201,7 @@ export async function assessDocumentQualityAction(formData: FormData) {
 
 export async function confirmSubmitDocumentAction(assessmentId: string, selectedTestIds?: string[]) {
   // Standing Rule 1: supabase.auth.getUser() first line
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
@@ -334,7 +334,7 @@ export async function confirmSubmitDocumentAction(assessmentId: string, selected
 
 export async function discardAssessedDocumentAction(assessmentId: string) {
   // Standing Rule 1: supabase.auth.getUser() first line
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {

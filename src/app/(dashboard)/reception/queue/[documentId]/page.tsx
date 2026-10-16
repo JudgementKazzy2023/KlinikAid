@@ -9,15 +9,16 @@ import { Document } from "@/types";
 export const dynamic = "force-dynamic";
 
 interface DocumentDetailsPageProps {
-  params: {
+  params: Promise<{
     documentId: string;
-  };
+  }>;
 }
 
-export default async function DocumentDetailsPage({ params }: DocumentDetailsPageProps) {
+export default async function DocumentDetailsPage(props: DocumentDetailsPageProps) {
+  const params = await props.params;
   // 1. Authenticate user and enforce receptionist/admin roles (Rule 1 & Rule 2)
   await requirePermission("documents.manage");
-  const supabase = createClient();
+  const supabase = await createClient();
   const { documentId } = params;
 
   // 2. Fetch document with patient and uploader profiles
