@@ -59,6 +59,13 @@ begin
     return false;
   end if;
 
+  -- Callers (policies, the app, archive_specialist_patient) only ever ask about
+  -- the session user; only service_role may ask about someone else.
+  if p_user_id is distinct from auth.uid()
+     and coalesce(auth.role(), '') <> 'service_role' then
+    return false;
+  end if;
+
   select exists (
     select 1
     from public.profiles pr
