@@ -160,6 +160,9 @@ ALTER TABLE public.chatbot_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rag_documents ENABLE ROW LEVEL SECURITY;
 
 -- Helper functions for RLS checks (prevents recursion)
+-- NOTE: migration_25 redefines both of these, and user_has_permission(), to
+-- return nothing for a staff session that has not completed TOTP (aal1). Apply
+-- it after this file; the definitions below are the pre-25 versions.
 CREATE OR REPLACE FUNCTION public.get_auth_user_role()
 RETURNS text AS $$
   SELECT role FROM public.profiles WHERE id = auth.uid();
