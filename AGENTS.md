@@ -167,6 +167,12 @@ without that symlink `next build` fails on the missing env vars.
 - RLS is the only boundary: `anon` holds full table privileges on all public tables, so
   every table depends on its policies being correct.
 
-`SECURITY-FIX-REVIEW.md` in the repo root is a retrospective on 13 direct-to-master
-commits. Its §3 lists what was **not** verified and §5 lists residual risk — read it
-before assuming a fix is complete.
+## The repo is public: security material stays local
+
+Security reviews, audits and vulnerability write-ups go in `private/` (gitignored), never
+in a tracked file. Keep PR descriptions, commit messages and issue comments for security
+fixes to what changed. Leave out reproduction steps and lists of what is still open.
+
+`private/SECURITY-FIX-REVIEW.md`, on this machine only, is a retrospective on 13
+direct-to-master commits. Its §3 lists what was **not** verified and §5 lists residual
+risk — read it before assuming a fix is complete.
