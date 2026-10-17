@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { privacyConsentError } from "@/lib/auth/privacy-consent";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/logger";
 import { extractDocumentText } from "@/lib/documents/extractDocumentText";
@@ -101,6 +102,11 @@ export async function assessDocumentQualityAction(formData: FormData) {
 
   if (authError || !user) {
     return { success: false, error: "Unauthorized: Please log in." };
+  }
+
+  const consentError = await privacyConsentError(supabase, user.id);
+  if (consentError) {
+    return { success: false, error: consentError };
   }
 
   const { patient, error: patientError } = await getPatientForCurrentUser(supabase, user.id);
@@ -206,6 +212,11 @@ export async function confirmSubmitDocumentAction(assessmentId: string, selected
 
   if (authError || !user) {
     return { success: false, error: "Unauthorized: Please log in." };
+  }
+
+  const consentError = await privacyConsentError(supabase, user.id);
+  if (consentError) {
+    return { success: false, error: consentError };
   }
 
   if (!validateAssessmentId(assessmentId)) {

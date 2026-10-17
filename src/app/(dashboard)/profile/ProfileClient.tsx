@@ -29,6 +29,7 @@ interface ProfileClientProps {
 }
 
 export default function ProfileClient({ user, patient }: ProfileClientProps) {
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [contactNumber, setContactNumber] = useState(patient?.contactNumber || "");
@@ -46,6 +47,7 @@ export default function ProfileClient({ user, patient }: ProfileClientProps) {
     setError(null);
 
     const formData = new FormData();
+    formData.append("currentPassword", currentPassword);
     formData.append("password", password);
     formData.append("confirmPassword", confirmPassword);
 
@@ -55,7 +57,12 @@ export default function ProfileClient({ user, patient }: ProfileClientProps) {
         if (result.error) {
           setError(result.error);
         } else if (result.success) {
-          toast.success("Password changed successfully!");
+          if (result.warning) {
+            toast.warning(result.warning);
+          } else {
+            toast.success("Password changed. Other sessions have been signed out.");
+          }
+          setCurrentPassword("");
           setPassword("");
           setConfirmPassword("");
         }
@@ -234,12 +241,31 @@ export default function ProfileClient({ user, patient }: ProfileClientProps) {
                 )}
 
                 <div className="space-y-2">
+                  <Label htmlFor="currentPassword">Current Password</Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Input
+                      id="currentPassword"
+                      type="password"
+                      autoComplete="current-password"
+                      placeholder="••••••••"
+                      className="pl-10"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      disabled={isPending}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="password">New Password</Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="password"
                       type="password"
+                      autoComplete="new-password"
                       placeholder="Minimum 8 characters"
                       className="pl-10"
                       value={password}
@@ -260,6 +286,7 @@ export default function ProfileClient({ user, patient }: ProfileClientProps) {
                     <Input
                       id="confirmPassword"
                       type="password"
+                      autoComplete="new-password"
                       placeholder="••••••••"
                       className="pl-10"
                       value={confirmPassword}

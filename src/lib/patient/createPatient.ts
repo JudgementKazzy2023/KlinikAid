@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/logger";
 import crypto from "crypto";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
+import { EMAIL_UNVERIFIED, MUST_CHANGE_PASSWORD } from "@/lib/auth/temporary-password";
 
 export interface CreatePatientInput {
   email: string;
@@ -54,6 +55,8 @@ export async function createPatient(
       const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
         email,
         password: passwordUsed,
+        // Required for password sign-in on this project. The address is still
+        // unchecked, which EMAIL_UNVERIFIED below records.
         email_confirm: true,
         // Role belongs in app_metadata, not user_metadata: the signup trigger grants
         // privilege from app_metadata only, since user_metadata is caller-writable.
@@ -61,8 +64,13 @@ export async function createPatient(
         user_metadata: {
           full_name: fullName,
         },
+        //
+        // The receptionist sees this password, so the patient must replace it at
+        // first sign-in (see src/lib/auth/temporary-password.ts).
         app_metadata: {
           role: "patient",
+          [MUST_CHANGE_PASSWORD]: true,
+          [EMAIL_UNVERIFIED]: true,
         },
       });
 

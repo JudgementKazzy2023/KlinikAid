@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { privacyConsentError } from "@/lib/auth/privacy-consent";
 import { revalidatePath } from "next/cache";
 import { hasPermission } from "@/lib/auth/helpers";
 
@@ -16,6 +17,11 @@ export async function getSignedUrlAction(documentId: string) {
 
   if (authError || !user) {
     return { success: false, error: "Unauthorized: Please log in." };
+  }
+
+  const consentError = await privacyConsentError(supabase, user.id);
+  if (consentError) {
+    return { success: false, error: consentError };
   }
 
   // 1. Fetch document record

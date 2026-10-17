@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/helpers";
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
-import { validateLabResult } from "@/lib/records/validateLabResult";
+import { validateLabPanel } from "@/lib/records/validateLabResult";
 import { revalidatePath } from "next/cache";
 
 export interface RecordResult {
@@ -49,23 +49,24 @@ export async function createSpecialistRecordAction(
       return { success: false, error: "Unauthorized: Patient does not belong to your private roster." };
     }
 
-    // 2. Map results, validate numeric values, and calculate flagged states server-side.
-    const recordsToInsert = payload.results.map((r) => {
-      const validated = validateLabResult(r.test_name, r.test_value, patient.gender);
-
-      return {
-        specialist_patient_id: patientId,
-        specialist_id: profile.id,
-        test_type: payload.test_type,
-        test_name: r.test_name,
-        test_value: validated.test_value,
-        unit: validated.unit,
-        reference_range_min: validated.reference_range_min,
-        reference_range_max: validated.reference_range_max,
-        is_flagged: validated.is_flagged,
-        notes: payload.notes || null,
-      };
-    });
+    // 2. Validate the panel, its parameters and their values, and calculate
+    // flagged states server-side. A ValidationError's message is returned below.
+    const recordsToInsert = validateLabPanel(
+      payload.test_type,
+      payload.results,
+      patient.gender
+    ).map((validated) => ({
+      specialist_patient_id: patientId,
+      specialist_id: profile.id,
+      test_type: payload.test_type,
+      test_name: validated.test_name,
+      test_value: validated.test_value,
+      unit: validated.unit,
+      reference_range_min: validated.reference_range_min,
+      reference_range_max: validated.reference_range_max,
+      is_flagged: validated.is_flagged,
+      notes: payload.notes || null,
+    }));
 
     const { error: insertError } = await supabase
       .from("specialist_records")

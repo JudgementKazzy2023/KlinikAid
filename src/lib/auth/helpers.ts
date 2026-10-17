@@ -40,15 +40,29 @@ export async function getCurrentUser(): Promise<{
 }
 
 /**
- * Server guard: Enforces that the active user possesses one of the allowed roles.
- * Returns the profile if successful, otherwise throws an error.
+ * Session plus profile, rejecting a deactivated account. Deactivation does not
+ * end an access token that was already issued, so every guard checks the flag.
  */
-export async function requireRole(allowedRoles: UserRole[]): Promise<Profile> {
+async function requireActiveSession(): Promise<{ user: User; profile: Profile }> {
   const { user, profile } = await getCurrentUser();
 
   if (!user || !profile) {
     throw new AuthError(401, "UNAUTHORIZED: Session not found");
   }
+
+  if (!profile.is_active) {
+    throw new AuthError(403, "FORBIDDEN: Account is deactivated");
+  }
+
+  return { user, profile };
+}
+
+/**
+ * Server guard: Enforces that the active user possesses one of the allowed roles.
+ * Returns the profile if successful, otherwise throws an error.
+ */
+export async function requireRole(allowedRoles: UserRole[]): Promise<Profile> {
+  const { profile } = await requireActiveSession();
 
   if (!allowedRoles.includes(profile.role)) {
     throw new AuthError(403, `FORBIDDEN: User role '${profile.role}' does not match required roles`);
@@ -146,11 +160,7 @@ export async function getDefaultLandingPath(userId: string, profile: Pick<Profil
 }
 
 export async function requirePermission(permissionName: string): Promise<Profile> {
-  const { user, profile } = await getCurrentUser();
-
-  if (!user || !profile) {
-    throw new AuthError(401, "UNAUTHORIZED: Session not found");
-  }
+  const { user, profile } = await requireActiveSession();
 
   const allowed = await hasPermission(user.id, permissionName);
   if (!allowed) {
@@ -161,11 +171,7 @@ export async function requirePermission(permissionName: string): Promise<Profile
 }
 
 export async function requireAnyPermission(permissionNames: string[]): Promise<Profile> {
-  const { user, profile } = await getCurrentUser();
-
-  if (!user || !profile) {
-    throw new AuthError(401, "UNAUTHORIZED: Session not found");
-  }
+  const { user, profile } = await requireActiveSession();
 
   const allowed = await hasAnyPermission(user.id, permissionNames);
   if (!allowed) {

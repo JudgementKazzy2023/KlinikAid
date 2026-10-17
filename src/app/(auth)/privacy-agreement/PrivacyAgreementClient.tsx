@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useTransition } from "react";
-import { acceptPrivacyAction } from "./actions";
-import { logoutAction } from "@/app/(auth)/logout/actions";
+import { acceptPrivacyAction, declinePrivacyAction } from "./actions";
 import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ export default function PrivacyAgreementClient() {
   const [isPending, startTransition] = useTransition();
   const [isDisagreeing, startDisagreeTransition] = useTransition();
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
+  const [confirmingDecline, setConfirmingDecline] = useState(false);
   const [acknowledgements, setAcknowledgements] = useState({
     readAgreement: false,
     consentProcessing: false,
@@ -28,7 +28,7 @@ export default function PrivacyAgreementClient() {
   const handleDisagree = () => {
     startDisagreeTransition(async () => {
       try {
-        await logoutAction();
+        await declinePrivacyAction();
       } catch (err: unknown) {
         toast.error(err instanceof Error ? err.message : "Failed to sign out.");
       }
@@ -226,22 +226,58 @@ export default function PrivacyAgreementClient() {
                   "Accept & Continue"
                 )}
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleDisagree}
-                disabled={isPending || isDisagreeing}
-                className="w-full text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-all"
-              >
-                {isDisagreeing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing Out...
-                  </>
-                ) : (
-                  "I Do Not Agree"
-                )}
-              </Button>
+              {confirmingDecline ? (
+                <div
+                  role="alert"
+                  className="w-full rounded-md border border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20 p-3 space-y-3 text-xs text-amber-900 dark:text-amber-200"
+                >
+                  <p className="font-semibold">If you do not agree, you cannot use KlinikAid online.</p>
+                  <p>
+                    Without your consent we cannot process your data, so you will be signed out. Your account is
+                    kept: you can sign in again at any time to read and accept the agreement. For services without
+                    an online account, please visit or contact the Bloodcare reception desk.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setConfirmingDecline(false)}
+                      disabled={isDisagreeing}
+                      className="flex-1"
+                    >
+                      Go Back
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleDisagree}
+                      disabled={isDisagreeing}
+                      className="flex-1"
+                    >
+                      {isDisagreeing ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Signing Out...
+                        </>
+                      ) : (
+                        "Decline & Sign Out"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setConfirmingDecline(true)}
+                  disabled={isPending}
+                  className="w-full text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-200 dark:hover:bg-slate-800 transition-all"
+                >
+                  I Do Not Agree
+                </Button>
+              )}
             </CardFooter>
           </form>
         </Card>

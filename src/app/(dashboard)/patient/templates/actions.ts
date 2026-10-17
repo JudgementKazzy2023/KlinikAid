@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { privacyConsentError } from "@/lib/auth/privacy-consent";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/logger";
 import { revalidatePath } from "next/cache";
@@ -91,6 +92,11 @@ export async function submitTemplateDocumentAction(
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return { success: false, error: "Unauthorized: Please log in." };
+    }
+
+    const consentError = await privacyConsentError(supabase, user.id);
+    if (consentError) {
+      return { success: false, error: consentError };
     }
 
     // 2. Get corresponding patient record along with profile information

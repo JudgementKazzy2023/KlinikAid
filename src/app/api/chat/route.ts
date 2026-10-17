@@ -1,6 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { errorResponse, successResponse } from "@/lib/api-response";
 import { classifyRead } from "@/lib/read-outcome";
+import {
+  checkPrivacyConsent,
+  PRIVACY_CONSENT_CHECK_FAILED_MESSAGE,
+  PRIVACY_CONSENT_REQUIRED_MESSAGE,
+} from "@/lib/auth/privacy-consent";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import crypto from "crypto";
 
@@ -31,6 +36,15 @@ export async function POST(request: Request) {
 
   if (authError || !user) {
     return errorResponse("Unauthorized: Please sign in to chat.", 401);
+  }
+
+  // Consent gate (RA 10173): before the message reaches Gemini or chatbot_logs.
+  const consent = await checkPrivacyConsent(supabase, user.id);
+  if (consent.kind === "failed") {
+    return errorResponse(PRIVACY_CONSENT_CHECK_FAILED_MESSAGE, 503, consent.error);
+  }
+  if (consent.kind === "not_accepted") {
+    return errorResponse(PRIVACY_CONSENT_REQUIRED_MESSAGE, 403);
   }
 
   try {
