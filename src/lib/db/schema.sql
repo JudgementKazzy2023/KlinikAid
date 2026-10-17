@@ -163,6 +163,7 @@ ALTER TABLE public.rag_documents ENABLE ROW LEVEL SECURITY;
 -- NOTE: migration_25 redefines both of these, and user_has_permission(), to
 -- return nothing for a staff session that has not completed TOTP (aal1). Apply
 -- it after this file; the definitions below are the pre-25 versions.
+-- migration_28 then makes all three return nothing for an inactive profile.
 CREATE OR REPLACE FUNCTION public.get_auth_user_role()
 RETURNS text AS $$
   SELECT role FROM public.profiles WHERE id = auth.uid();
@@ -190,7 +191,7 @@ CREATE POLICY "Users can read own profile"
 CREATE POLICY "Users can update own profile details" 
   ON public.profiles FOR UPDATE 
   TO authenticated
-  USING (auth.uid() = id)
+  USING (auth.uid() = id AND is_active IS TRUE)
   WITH CHECK (
     auth.uid() = id
     -- IS NOT DISTINCT FROM, not =, so a NULL held by a NULL-holder stays legal
