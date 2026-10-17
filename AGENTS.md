@@ -36,8 +36,8 @@ A clean `master` is:
 ```
 npx tsc --noEmit   -> exit 0
 npm run lint       -> no warnings or errors
-npm run build      -> Compiled successfully, 13/13 static pages
-npm test           -> 105 passed (8 files)
+npm run build      -> Compiled successfully, 14/14 static pages
+npm test           -> 188 passed (13 files)
 ```
 
 `next build` runs ESLint, so **a lint error fails the build**.
