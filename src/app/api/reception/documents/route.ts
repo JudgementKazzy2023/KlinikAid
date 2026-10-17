@@ -5,7 +5,7 @@ import { errorResponse, handleRouteError, successResponse } from "@/lib/api-resp
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const supabase = createClient();
+  const supabase = await createClient();
   
   // 1. Session check - literal first operation (Rule 1)
   const { data: { user }, error: authError } = await supabase.auth.getUser();

@@ -48,7 +48,7 @@ export async function changePasswordAction(
   prevState: ChangePasswordResult | null,
   formData: FormData
 ): Promise<ChangePasswordResult> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // 1. Get active session user
   const { data: { user } } = await supabase.auth.getUser();
@@ -99,7 +99,7 @@ export async function changePasswordAction(
     const { error: signOutError } = await supabase.auth.signOut({ scope: "others" });
 
     // 5. Log the audit event
-    const reqHeaders = headers();
+    const reqHeaders = await headers();
     const ipAddress = reqHeaders.get("x-forwarded-for")?.split(",")[0] || null;
 
     await logEvent(
@@ -136,7 +136,7 @@ export async function updatePatientDetailsAction(
   prevState: UpdatePatientDetailsResult | null,
   formData: FormData
 ): Promise<UpdatePatientDetailsResult> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -191,7 +191,7 @@ export async function updatePatientDetailsAction(
       return { success: false, error: "Unable to update patient details." };
     }
 
-    const reqHeaders = headers();
+    const reqHeaders = await headers();
     const ipAddress = reqHeaders.get("x-forwarded-for")?.split(",")[0] || null;
 
     await logEvent(

@@ -7,18 +7,19 @@ import DataLoadError from "@/components/DataLoadError";
 import { classifyRead } from "@/lib/read-outcome";
 
 interface PageProps {
-  params: {
+  params: Promise<{
     patientId: string;
-  };
+  }>;
 }
 
 export const dynamic = "force-dynamic";
 
-export default async function SpecialistRecordEntryPage({ params }: PageProps) {
+export default async function SpecialistRecordEntryPage(props: PageProps) {
+  const params = await props.params;
   const profile = await requirePermission("specialist.records");
   const { patientId } = params;
 
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // Fetch specialist private patient demographics
   const lookup = classifyRead(

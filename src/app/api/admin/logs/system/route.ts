@@ -31,7 +31,7 @@ const LOG_COLUMNS = `
 const RANGE_NOT_SATISFIABLE = "PGRST103";
 
 function filteredQuery(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   q: SystemLogQuery,
   columns: string,
   head = false
@@ -52,7 +52,7 @@ type FilteredQuery = ReturnType<typeof filteredQuery>;
 
 export async function GET(request: Request) {
   // 1. Authenticate session & check role (Standing Rule #1 & #2)
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {

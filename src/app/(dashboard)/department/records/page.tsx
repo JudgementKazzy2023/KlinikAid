@@ -9,9 +9,9 @@ import { Department } from "@/types";
 export const dynamic = "force-dynamic";
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     department?: string;
-  };
+  }>;
 }
 
 interface QueuePatient {
@@ -41,8 +41,9 @@ interface DbQueueItem {
   patient: QueuePatient | null;
 }
 
-export default async function DepartmentRecordsPage({ searchParams }: PageProps) {
-  const supabase = createClient();
+export default async function DepartmentRecordsPage(props: PageProps) {
+  const searchParams = await props.searchParams;
+  const supabase = await createClient();
   const { user, profile } = await getCurrentUser();
 
   if (!user || !profile) {

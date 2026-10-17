@@ -25,7 +25,7 @@ interface RosterPage {
 }
 
 export async function GET(request: Request) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // Rule 1 check: calling getUser() as the literal first line
   const { data: { user }, error: authError } = await supabase.auth.getUser();

@@ -12,7 +12,7 @@ import { hasPermission } from "@/lib/auth/helpers";
  */
 export async function getSignedUrlAction(documentId: string) {
   // Standing Rule 1: supabase.auth.getUser() first line
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
@@ -80,7 +80,7 @@ export async function getSignedUrlAction(documentId: string) {
  */
 export async function deletePendingDocumentAction(docId: string) {
   // Standing Rule 1: supabase.auth.getUser() first line
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {

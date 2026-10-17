@@ -56,7 +56,7 @@ const DOCUMENT_SELECT = `
 export default async function ReceptionQueuePage() {
   // 1. Authenticate user and enforce roles (Rule 1 & Rule 2)
   await requirePermission("documents.manage");
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // 2. Fetch the board as two bounded reads, plus the true totals for each so
   //    the client can disclose anything the caps left out.

@@ -10,16 +10,18 @@ import { Department } from "@/types";
 export const dynamic = "force-dynamic";
 
 interface PageProps {
-  params: {
+  params: Promise<{
     patientId: string;
-  };
-  searchParams: {
+  }>;
+  searchParams: Promise<{
     department?: string;
-  };
+  }>;
 }
 
-export default async function RecordEntryPage({ params, searchParams }: PageProps) {
-  const supabase = createClient();
+export default async function RecordEntryPage(props: PageProps) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
+  const supabase = await createClient();
   const { patientId } = params;
   const { user, profile } = await getCurrentUser();
 

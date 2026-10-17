@@ -7,7 +7,7 @@ import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { resultValueText, validateLabPanel } from "@/lib/records/validateLabResult";
 
 export async function GET(request: Request) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   try {
     const profile = await requireAnyPermission(["records.manage", "records.manage.own_dept"]);
@@ -94,7 +94,7 @@ interface DepartmentRecordRow {
 }
 
 export async function POST(request: Request) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // 1. Session Check
   const { data: { user }, error: authError } = await supabase.auth.getUser();

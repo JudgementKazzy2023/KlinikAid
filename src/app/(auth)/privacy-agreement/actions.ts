@@ -12,7 +12,7 @@ export interface AcceptPrivacyResult {
 }
 
 export async function acceptPrivacyAction(): Promise<AcceptPrivacyResult> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
@@ -45,8 +45,8 @@ export async function acceptPrivacyAction(): Promise<AcceptPrivacyResult> {
  * that says why, instead of a bare /login that reads as a crash.
  */
 export async function declinePrivacyAction(): Promise<never> {
-  const supabase = createClient();
-  const ipAddress = headers().get("x-forwarded-for")?.split(",")[0] || null;
+  const supabase = await createClient();
+  const ipAddress = (await headers()).get("x-forwarded-for")?.split(",")[0] || null;
   const { data: { user } } = await supabase.auth.getUser();
 
   if (user) {

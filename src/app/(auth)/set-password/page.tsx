@@ -7,7 +7,7 @@ import SetPasswordClient from "./SetPasswordClient";
 export const dynamic = "force-dynamic";
 
 export default async function SetPasswordPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {

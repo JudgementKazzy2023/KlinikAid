@@ -32,7 +32,7 @@ export async function setPasswordAction(
   const password = formData.get("password") as string;
   const confirmPassword = formData.get("confirmPassword") as string;
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -81,7 +81,7 @@ export async function setPasswordAction(
     return { error: updateError.message || "Failed to set the new password." };
   }
 
-  const ipAddress = headers().get("x-forwarded-for")?.split(",")[0] || null;
+  const ipAddress = (await headers()).get("x-forwarded-for")?.split(",")[0] || null;
   await logEvent(
     admin,
     user.id,

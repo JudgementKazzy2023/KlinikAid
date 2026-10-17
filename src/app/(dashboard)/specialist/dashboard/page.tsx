@@ -11,7 +11,7 @@ export default async function SpecialistDashboardPage() {
   // Guard route for medical_specialist or admin
   await requirePermission("specialist.patients");
 
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // 1. Fetch total count of patients from specialist_patients
   const totalPatientsResult = await supabase
