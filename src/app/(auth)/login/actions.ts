@@ -7,6 +7,15 @@ import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { getTotpFactors } from "@/lib/auth/mfa";
 import { getDefaultLandingPath } from "@/lib/auth/helpers";
 import { SET_PASSWORD_PATH, mustChangePassword } from "@/lib/auth/temporary-password";
+import {
+  beginLoginAttempt,
+  claimTotpCode,
+  clearLoginAttempts,
+  lockedOutMessage,
+  refundLoginAttempt,
+} from "@/lib/auth/login-attempts";
+
+const LIMITER_UNAVAILABLE = "Sign-in is temporarily unavailable. Please try again shortly.";
 
 export interface LoginResult {
   error?: string;
@@ -43,7 +52,7 @@ export async function loginAction(
   try {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
-    const totpCode = formData.get("totpCode") as string;
+    const totpCode = ((formData.get("totpCode") as string | null) ?? "").replace(/\s+/g, "");
 
     if (!email || !password) {
       return { error: "Email and password are required." };
@@ -51,7 +60,27 @@ export async function loginAction(
 
     const supabase = createClient();
     const reqHeaders = headers();
-    const ipAddress = reqHeaders.get("x-forwarded-for")?.split(",")[0] || null;
+    const ipAddress = reqHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+
+    // 0. Count this submission against (email, IP) before the password is
+    // checked: the code step re-submits the password too, so this one counter
+    // limits password guesses and TOTP guesses alike (#59).
+    const gate = await beginLoginAttempt(email, ipAddress);
+    if (gate.kind === "failed") {
+      console.error("Login attempt limiter unavailable:", gate.error);
+      return { error: LIMITER_UNAVAILABLE };
+    }
+    if (gate.kind === "locked") {
+      await logEvent(
+        supabase,
+        null,
+        SYSTEM_EVENT_TYPES.LOGIN_FAILED,
+        `Sign-in refused for email: ${email} - too many attempts from this address`,
+        ipAddress,
+        { reason: "locked_out", retry_after: gate.retryAfter.toISOString() }
+      );
+      return { error: lockedOutMessage(gate.retryAfter) };
+    }
 
     // 1. Authenticate with password
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -123,6 +152,9 @@ export async function loginAction(
     if (mfaData.nextLevel === "aal2" && mfaData.currentLevel === "aal1") {
       // If we didn't receive a TOTP code, prompt the user for it
       if (!totpCode) {
+        // Reaching the code prompt proved the password; don't let it use up
+        // one of the user's code attempts.
+        await refundLoginAttempt(email, ipAddress);
         return {
           status: "mfa_required",
         };
@@ -169,7 +201,29 @@ export async function loginAction(
         );
         return { error: "Invalid verification code. Please try again." };
       }
+
+      // GoTrue accepts a code for as long as its window lasts, however many
+      // times it is presented. Record it so it completes one sign-in only.
+      const claim = await claimTotpCode(totpFactor.id, totpCode);
+      if (claim.kind !== "claimed") {
+        await supabase.auth.signOut();
+        if (claim.kind === "failed") {
+          console.error("TOTP replay check unavailable:", claim.error);
+          return { error: LIMITER_UNAVAILABLE };
+        }
+        await logEvent(
+          supabase,
+          user.id,
+          SYSTEM_EVENT_TYPES.LOGIN_FAILED,
+          `Reused MFA code rejected for user ${profile.full_name}`,
+          ipAddress,
+          { reason: "totp_replay" }
+        );
+        return { error: "That code has already been used. Wait for the next code and try again." };
+      }
     }
+
+    await clearLoginAttempts(email, ipAddress);
 
     // 5. Successful login audit log
     await logEvent(
