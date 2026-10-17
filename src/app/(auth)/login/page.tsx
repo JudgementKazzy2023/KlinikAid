@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { loginAction } from "./actions";
+import { loginAction, resendConfirmationAction } from "./actions";
 import { createClient } from "@/lib/supabase/client";
 import { safeRedirectPath } from "@/lib/auth/safe-redirect";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
@@ -26,12 +26,16 @@ function LoginForm() {
   const [totpCode, setTotpCode] = useState("");
   const [mfaRequired, setMfaRequired] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailUnconfirmed, setEmailUnconfirmed] = useState(false);
+  const [resendNotice, setResendNotice] = useState<string | null>(null);
 
   const [isPending, startTransition] = useTransition();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
+    setEmailUnconfirmed(false);
+    setResendNotice(null);
 
     startTransition(async () => {
       const formData = new FormData();
@@ -51,6 +55,7 @@ function LoginForm() {
 
         if (result.error) {
           setError(result.error);
+          setEmailUnconfirmed(result.status === "email_unconfirmed");
           return;
         }
 
@@ -65,6 +70,17 @@ function LoginForm() {
         }
       } catch {
         setError("Sign-in could not be completed. Please check your connection and try again.");
+      }
+    });
+  };
+
+  const handleResendConfirmation = () => {
+    startTransition(async () => {
+      try {
+        const { message } = await resendConfirmationAction(email);
+        setResendNotice(message);
+      } catch {
+        setResendNotice("A new link could not be requested. Please try again.");
       }
     });
   };
@@ -135,7 +151,25 @@ function LoginForm() {
                 <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/50">
                   <ShieldAlert className="h-4 w-4" />
                   <AlertTitle>Sign-in Error</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription>
+                    {error}
+                    {emailUnconfirmed && (
+                      <div className="mt-2">
+                        {resendNotice ? (
+                          <p>{resendNotice}</p>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={handleResendConfirmation}
+                            disabled={isPending}
+                            className="font-medium underline"
+                          >
+                            Send a new confirmation link
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </AlertDescription>
                 </Alert>
               )}
 

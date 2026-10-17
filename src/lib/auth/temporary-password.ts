@@ -8,13 +8,6 @@ import type { User } from "@supabase/supabase-js";
  */
 export const MUST_CHANGE_PASSWORD = "must_change_password";
 
-/**
- * Receptionist-created accounts are created confirmed, because this project
- * refuses password sign-in for an unconfirmed email. Nobody has checked the
- * address, though, and this flag records that.
- */
-export const EMAIL_UNVERIFIED = "email_unverified";
-
 export const SET_PASSWORD_PATH = "/set-password";
 
 export function mustChangePassword(user: Pick<User, "app_metadata"> | null | undefined): boolean {
