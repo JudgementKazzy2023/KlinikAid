@@ -136,6 +136,9 @@ export default function NewPatientModal() {
               <p className="text-xs text-slate-500 max-w-xs">
                 A profile has been registered. Provide the temporary credentials to the patient.
               </p>
+              <p className="text-xs text-slate-500 max-w-xs">
+                A confirmation link was emailed to the patient. They must open it before they can sign in.
+              </p>
             </div>
 
             <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-100 dark:border-slate-800 space-y-3">
