@@ -1,5 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { errorResponse } from "@/lib/api-response";
+import {
+  SET_PASSWORD_PATH,
+  isAllowedWithTemporaryPassword,
+  mustChangePassword,
+} from "@/lib/auth/temporary-password";
 
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, supabase } = await updateSession(request);
@@ -29,6 +35,16 @@ export async function middleware(request: NextRequest) {
 
   // 2. Authenticated user logic
   if (user) {
+    // A temporary password was seen by the receptionist who set it, so the
+    // session it opens may only replace it. API routes get a 403 rather than
+    // a redirect their fetch callers would follow into an HTML page.
+    if (mustChangePassword(user) && !isAllowedWithTemporaryPassword(path)) {
+      if (path.startsWith("/api/")) {
+        return errorResponse("Set a new password before continuing.", 403);
+      }
+      return NextResponse.redirect(new URL(SET_PASSWORD_PATH, request.url));
+    }
+
     // Redirect already logged-in users away from login page to their dashboard
     if (request.method === "GET" && (path === "/login" || path === "/")) {
       const { data: profile } = await supabase
