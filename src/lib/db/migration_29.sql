@@ -53,7 +53,7 @@ create policy "Users can update own profile details"
   on public.profiles
   for update
   to authenticated
-  using (auth.uid() = id)
+  using (auth.uid() = id and is_active is true)
   with check (
     auth.uid() = id
     -- IS NOT DISTINCT FROM, not =, so a NULL held by a NULL-holder stays legal
