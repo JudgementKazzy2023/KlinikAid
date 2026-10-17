@@ -136,13 +136,16 @@ export default function NewPatientModal() {
               <p className="text-xs text-slate-500 max-w-xs">
                 A profile has been registered. Give the patient these temporary credentials. They will be asked to choose their own password when they first sign in, and this one will stop working.
               </p>
+              <p className="text-xs text-slate-500 max-w-xs">
+                A confirmation link was emailed to the patient. They must open it before they can sign in.
+              </p>
             </div>
 
             <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-100 dark:border-slate-800 space-y-3">
               <div className="space-y-1">
                 <span className="text-[10px] uppercase font-bold text-slate-400">Patient Email</span>
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{formData.email}</p>
-                <p className="text-[11px] text-amber-600 dark:text-amber-400">Not verified. Confirm the address with the patient.</p>
+                <p className="text-[11px] text-amber-600 dark:text-amber-400">Awaiting email confirmation. Ask the patient to open the emailed link.</p>
               </div>
               
               <div className="space-y-1">

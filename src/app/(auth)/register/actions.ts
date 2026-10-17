@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createPatient } from "@/lib/patient/createPatient";
+import { sendEmailConfirmation } from "@/lib/auth/email-confirmation";
 import { PASSWORD_REQUIREMENT_TEXT, validateAge, validatePassword, validateName, CONTACT_REQUIREMENT_TEXT, validateContactNumber } from "@/lib/validation";
 import { z } from "zod";
 
@@ -26,8 +27,6 @@ const registerSchema = z.object({
 export interface RegisterResult {
   error?: string;
   success?: boolean;
-  redirectUrl?: string;
-  emailPending?: boolean;
   registeredEmail?: string;
 }
 
@@ -87,25 +86,17 @@ export async function registerAction(
     false // Self-registration pathway
   );
 
-  if (!res.success || res.error) {
-    if (res.error?.toLowerCase().includes("already registered")) {
-      return {
-        error:
-          "An account already exists for this email. Please sign in instead, or use Forgot password if you cannot access the account.",
-      };
-    }
+  // A duplicate address gets the same answer as a new one, so this form cannot be
+  // used to test which addresses have accounts. Resending is a no-op for a
+  // confirmed account and a fresh link for one that never confirmed.
+  if (res.emailExists) {
+    await sendEmailConfirmation(client, email);
+    return { success: true, registeredEmail: email };
+  }
 
+  if (!res.success || res.error) {
     return { error: res.error || "Signup failed." };
   }
 
-  // Branch C — confirm-email pending (Confirm email ON, valid signUp)
-  if (res.emailPending) {
-    return { success: true, emailPending: true, registeredEmail: email };
-  }
-
-  // Branch D — session present (Confirm email OFF)
-  return {
-    success: true,
-    redirectUrl: "/login?registered=true",
-  };
+  return { success: true, registeredEmail: email };
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useTransition, Suspense } from "react";
-import { useRouter } from "next/navigation";
 import { registerAction } from "./actions";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +14,6 @@ import { PASSWORD_REQUIREMENT_TEXT, validateAge, validatePassword } from "@/lib/
 import TermsAndConditionsModal from "@/components/TermsAndConditionsModal";
 
 function RegisterForm() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [emailPending, setEmailPending] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -65,14 +63,8 @@ function RegisterForm() {
           return;
         }
 
-        if (result.emailPending && result.registeredEmail) {
-          setError(null);
+        if (result.success && result.registeredEmail) {
           setEmailPending(result.registeredEmail);
-          return;
-        }
-
-        if (result.success && result.redirectUrl) {
-          router.push(result.redirectUrl);
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
@@ -109,13 +101,18 @@ function RegisterForm() {
                   Check your email
                 </h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  We sent a confirmation link to{" "}
-                  <strong className="text-slate-700 dark:text-slate-300">{emailPending}</strong>.
+                  If{" "}
+                  <strong className="text-slate-700 dark:text-slate-300">{emailPending}</strong>{" "}
+                  is not already registered, we sent it a confirmation link.
                 </p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Confirm to activate your account, then{" "}
+                  Open the link to activate your account, then{" "}
                   <Link href="/login" className="text-accentBlue-600 hover:underline font-medium">
                     log in here
+                  </Link>
+                  . Already have an account? Sign in, or use{" "}
+                  <Link href="/forgot-password" className="text-accentBlue-600 hover:underline font-medium">
+                    Forgot password
                   </Link>
                   .
                 </p>

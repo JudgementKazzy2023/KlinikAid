@@ -26,6 +26,8 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- Drop existing triggers if they exist
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 DROP FUNCTION IF EXISTS public.handle_new_user();
+DROP TRIGGER IF EXISTS on_auth_user_email_confirmed ON auth.users;
+DROP FUNCTION IF EXISTS public.sync_email_verified_at();
 
 -- Drop existing tables (in order of dependencies)
 DROP TABLE IF EXISTS public.rag_documents CASCADE;
@@ -46,6 +48,7 @@ CREATE TABLE public.profiles (
   employee_type text,
   is_active boolean DEFAULT true NOT NULL,
   accepted_privacy_at timestamp with time zone NULL,
+  email_verified_at timestamp with time zone NULL, -- set from auth.users.email_confirmed_at (m27)
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -200,7 +203,8 @@ CREATE POLICY "Users can update own profile details"
     AND role_id     IS NOT DISTINCT FROM (SELECT p.role_id     FROM public.profiles p WHERE p.id = auth.uid())
     AND department  IS NOT DISTINCT FROM (SELECT p.department  FROM public.profiles p WHERE p.id = auth.uid())
     AND is_active   IS NOT DISTINCT FROM (SELECT p.is_active   FROM public.profiles p WHERE p.id = auth.uid())
-  ); -- block role, role_id, department and is_active hijacking
+    AND email_verified_at IS NOT DISTINCT FROM (SELECT p.email_verified_at FROM public.profiles p WHERE p.id = auth.uid())
+  ); -- block role, role_id, department, is_active and email_verified_at hijacking
 
 -- Privileged columns stay writable by staff who actually hold profiles.manage,
 -- which is what the admin routes rely on.
@@ -426,6 +430,26 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Copy Auth's email confirmation into profiles.email_verified_at (m27).
+CREATE OR REPLACE FUNCTION public.sync_email_verified_at()
+RETURNS trigger AS $$
+BEGIN
+  UPDATE public.profiles
+     SET email_verified_at = new.email_confirmed_at
+   WHERE id = new.id
+     AND email_verified_at IS NULL;
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+REVOKE ALL ON FUNCTION public.sync_email_verified_at() FROM public, anon, authenticated;
+
+CREATE TRIGGER on_auth_user_email_confirmed
+  AFTER UPDATE OF email_confirmed_at ON auth.users
+  FOR EACH ROW
+  WHEN (old.email_confirmed_at IS NULL AND new.email_confirmed_at IS NOT NULL)
+  EXECUTE FUNCTION public.sync_email_verified_at();
 
 -- Daily token usage aggregation function
 CREATE OR REPLACE FUNCTION public.get_daily_token_usage(start_date TIMESTAMPTZ)
