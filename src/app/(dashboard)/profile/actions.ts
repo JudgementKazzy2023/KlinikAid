@@ -2,6 +2,7 @@
 
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import { privacyConsentError } from "@/lib/auth/privacy-consent";
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { PASSWORD_REQUIREMENT_TEXT, validatePassword, validateContactNumber, CONTACT_REQUIREMENT_TEXT } from "@/lib/validation";
@@ -140,6 +141,11 @@ export async function updatePatientDetailsAction(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return { success: false, error: "Unauthorized. Please log in again." };
+  }
+
+  const consentError = await privacyConsentError(supabase, user.id);
+  if (consentError) {
+    return { success: false, error: consentError };
   }
 
   const contactNumber = ((formData.get("contactNumber") as string) || "").trim();
