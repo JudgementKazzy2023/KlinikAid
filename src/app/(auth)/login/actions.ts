@@ -6,6 +6,7 @@ import { headers } from "next/headers";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { getTotpFactors } from "@/lib/auth/mfa";
 import { getDefaultLandingPath } from "@/lib/auth/helpers";
+import { sendEmailConfirmation } from "@/lib/auth/email-confirmation";
 import { SET_PASSWORD_PATH, mustChangePassword } from "@/lib/auth/temporary-password";
 import {
   beginLoginAttempt,
@@ -19,7 +20,7 @@ const LIMITER_UNAVAILABLE = "Sign-in is temporarily unavailable. Please try agai
 
 export interface LoginResult {
   error?: string;
-  status?: "mfa_required";
+  status?: "mfa_required" | "email_unconfirmed";
   success?: boolean;
   redirectUrl?: string;
 }
@@ -97,6 +98,13 @@ export async function loginAction(
         `Failed password login attempt for email: ${email} - ${authError.message}`,
         ipAddress
       );
+      // Auth only says this after the password matched, so it reveals nothing new.
+      if (authError.code === "email_not_confirmed") {
+        return {
+          status: "email_unconfirmed",
+          error: "Confirm your email address before signing in. Open the link we emailed you, or send a new one.",
+        };
+      }
       return { error: getSafeAuthErrorMessage(authError.message) };
     }
 
@@ -244,4 +252,17 @@ export async function loginAction(
     console.error("Login action unexpected error:", err);
     return { error: "An unexpected sign-in error occurred. Please try again." };
   }
+}
+
+/**
+ * Sends a new signup confirmation link. The answer is the same whatever the
+ * address, so it cannot be used to test which addresses have accounts.
+ */
+export async function resendConfirmationAction(email: string): Promise<{ message: string }> {
+  if (email) {
+    await sendEmailConfirmation(createClient(), email);
+  }
+  return {
+    message: "If this address has an unconfirmed account, a new confirmation link is on its way.",
+  };
 }
