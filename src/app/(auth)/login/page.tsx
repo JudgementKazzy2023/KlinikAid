@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { Lock, Mail, Loader2, KeyRound, ShieldAlert, CheckCircle } from "lucide-react";
+import { Lock, Mail, Loader2, KeyRound, ShieldAlert, CheckCircle, Info } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -19,6 +19,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectPath = safeRedirectPath(searchParams.get("redirect"));
   const isResetSuccess = searchParams.get("reset") === "success";
+  const isPrivacyDeclined = searchParams.get("notice") === "privacy_declined";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -114,6 +115,18 @@ function LoginForm() {
                   <AlertTitle className="font-semibold">Password Reset Success</AlertTitle>
                   <AlertDescription className="text-xs">
                     Your password has been successfully updated. You can now sign in with your new credentials.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {isPrivacyDeclined && (
+                <Alert className="bg-amber-50 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/50 text-amber-900 dark:text-amber-200">
+                  <Info className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                  <AlertTitle className="font-semibold">You have been signed out</AlertTitle>
+                  <AlertDescription className="text-xs">
+                    You did not accept the Data Privacy Agreement, so KlinikAid cannot process your data online.
+                    Your account has not been deleted. Sign in again whenever you are ready to accept it, or contact
+                    the Bloodcare reception desk for assistance.
                   </AlertDescription>
                 </Alert>
               )}
