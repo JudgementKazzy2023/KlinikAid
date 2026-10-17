@@ -134,7 +134,7 @@ export default function NewPatientModal() {
               <CheckCircle2 className="h-12 w-12 text-emerald-500 animate-bounce" />
               <h3 className="text-lg font-bold text-slate-900 dark:text-white">Account Created Successfully</h3>
               <p className="text-xs text-slate-500 max-w-xs">
-                A profile has been registered. Provide the temporary credentials to the patient.
+                A profile has been registered. Give the patient these temporary credentials. They will be asked to choose their own password when they first sign in, and this one will stop working.
               </p>
               <p className="text-xs text-slate-500 max-w-xs">
                 A confirmation link was emailed to the patient. They must open it before they can sign in.
@@ -145,6 +145,7 @@ export default function NewPatientModal() {
               <div className="space-y-1">
                 <span className="text-[10px] uppercase font-bold text-slate-400">Patient Email</span>
                 <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{formData.email}</p>
+                <p className="text-[11px] text-amber-600 dark:text-amber-400">Awaiting email confirmation. Ask the patient to open the emailed link.</p>
               </div>
               
               <div className="space-y-1">

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { logEvent } from "@/lib/logger";
 import crypto from "crypto";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
+import { MUST_CHANGE_PASSWORD } from "@/lib/auth/temporary-password";
 import { sendEmailConfirmation } from "@/lib/auth/email-confirmation";
 
 export interface CreatePatientInput {
@@ -73,6 +74,7 @@ export async function createPatient(
       },
       app_metadata: {
         role: "patient",
+        ...(isReceptionistCreated ? { [MUST_CHANGE_PASSWORD]: true } : {}),
       },
     });
 

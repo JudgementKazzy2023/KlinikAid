@@ -7,6 +7,7 @@ import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { getTotpFactors } from "@/lib/auth/mfa";
 import { getDefaultLandingPath } from "@/lib/auth/helpers";
 import { sendEmailConfirmation } from "@/lib/auth/email-confirmation";
+import { SET_PASSWORD_PATH, mustChangePassword } from "@/lib/auth/temporary-password";
 import {
   beginLoginAttempt,
   claimTotpCode,
@@ -242,7 +243,9 @@ export async function loginAction(
     );
 
     // 6. Return success and route destination
-    const redirectUrl = await getDefaultLandingPath(user.id, profile);
+    const redirectUrl = mustChangePassword(user)
+      ? SET_PASSWORD_PATH
+      : await getDefaultLandingPath(user.id, profile);
 
     return { success: true, redirectUrl };
   } catch (err) {
