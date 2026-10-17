@@ -9,15 +9,31 @@
 --   user_has_permission()  -> false
 --   get_auth_user_role()   -> null
 --   get_auth_user_dept()   -> null
--- Own-row policies (auth.uid() = id) are unchanged, so a deactivated user can
+-- Own-row SELECT remains available, so a deactivated user can
 -- still read its own profile, which is how the dashboard layout recognises the
 -- account and redirects to /login?error=account_deactivated.
 --
+-- Own-row UPDATE requires an active profile.
 -- ORDERING: none. Nothing relies on an inactive profile holding permissions.
 --
 -- ROLLBACK: re-run the three function definitions from migration_25.
 
 begin;
+
+DROP POLICY "Users can update own profile details" ON public.profiles;
+CREATE POLICY "Users can update own profile details"
+  ON public.profiles FOR UPDATE
+  TO authenticated
+  USING (auth.uid() = id AND is_active IS TRUE)
+  WITH CHECK (
+    auth.uid() = id
+    -- IS NOT DISTINCT FROM, not =, so a NULL held by a NULL-holder stays legal
+    -- while a change from NULL to a real value is still blocked.
+    AND role        IS NOT DISTINCT FROM (SELECT p.role        FROM public.profiles p WHERE p.id = auth.uid())
+    AND role_id     IS NOT DISTINCT FROM (SELECT p.role_id     FROM public.profiles p WHERE p.id = auth.uid())
+    AND department  IS NOT DISTINCT FROM (SELECT p.department  FROM public.profiles p WHERE p.id = auth.uid())
+    AND is_active   IS NOT DISTINCT FROM (SELECT p.is_active   FROM public.profiles p WHERE p.id = auth.uid())
+  );
 
 create or replace function public.user_has_permission(p_user_id uuid, p_permission_name text)
 returns boolean

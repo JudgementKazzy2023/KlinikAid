@@ -191,7 +191,7 @@ CREATE POLICY "Users can read own profile"
 CREATE POLICY "Users can update own profile details" 
   ON public.profiles FOR UPDATE 
   TO authenticated
-  USING (auth.uid() = id)
+  USING (auth.uid() = id AND is_active IS TRUE)
   WITH CHECK (
     auth.uid() = id
     -- IS NOT DISTINCT FROM, not =, so a NULL held by a NULL-holder stays legal
