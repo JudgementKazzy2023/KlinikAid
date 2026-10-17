@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission, requireAnyPermission } from "@/lib/auth/helpers";
-import { errorResponse, handleRouteError, successResponse } from "@/lib/api-response";
+import { ValidationError, errorResponse, handleRouteError, successResponse } from "@/lib/api-response";
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
-import { validateLabResult } from "@/lib/records/validateLabResult";
+import { resultValueText, validateLabPanel } from "@/lib/records/validateLabResult";
 
 export async function GET(request: Request) {
   const supabase = createClient();
@@ -79,6 +79,20 @@ interface TestResultInput {
   is_flagged?: boolean;
 }
 
+interface DepartmentRecordRow {
+  patient_id: string;
+  recorder_id: string;
+  department: string;
+  test_type: string;
+  test_name: string;
+  test_value: string;
+  unit: string | null;
+  reference_range_min: number | null;
+  reference_range_max: number | null;
+  is_flagged: boolean;
+  notes: string | null;
+}
+
 export async function POST(request: Request) {
   const supabase = createClient();
 
@@ -100,8 +114,10 @@ export async function POST(request: Request) {
     if (!patient_id) {
       return errorResponse("patient_id is required", 400);
     }
-    if (!test_type) {
-      return errorResponse("test_type is required", 400);
+    // Checked for every department, not only laboratory: a non-lab submission
+    // passes test_type straight into the insert.
+    if (typeof test_type !== "string" || !test_type.trim()) {
+      return errorResponse("test_type is required and must be a string", 400);
     }
     if (!results || !Array.isArray(results) || results.length === 0) {
       return errorResponse("results array is required and must not be empty", 400);
@@ -133,47 +149,48 @@ export async function POST(request: Request) {
       patientGender = patient.gender;
     }
 
-    // 4. Format rows for bulk relational insert
-    const rowsToInsert = results.map((res) => {
-      if (!res.test_name) {
-        throw new Error("Each result must have a test_name");
-      }
-      if (res.test_value === undefined || res.test_value === null) {
-        throw new Error(`test_value is required for test ${res.test_name}`);
-      }
+    // 4. Format rows for bulk relational insert. Bad input throws a
+    // ValidationError, which handleRouteError answers with 400 and its message.
+    const rowsToInsert: DepartmentRecordRow[] =
+      dept === "laboratory"
+        ? validateLabPanel(test_type, results, patientGender).map((validated) => ({
+            patient_id,
+            recorder_id: user.id,
+            department: dept,
+            test_type,
+            test_name: validated.test_name,
+            test_value: validated.test_value,
+            unit: validated.unit,
+            reference_range_min: validated.reference_range_min,
+            reference_range_max: validated.reference_range_max,
+            is_flagged: validated.is_flagged,
+            notes: notes || null
+          }))
+        : results.map((res) => {
+            if (typeof res?.test_name !== "string" || !res.test_name) {
+              throw new ValidationError("Each result must have a test_name");
+            }
+            const testValue = resultValueText(res.test_value);
+            if (testValue === null) {
+              throw new ValidationError(
+                `test_value for ${res.test_name} is required and must be a string or a number`
+              );
+            }
 
-      if (dept === "laboratory") {
-        const validated = validateLabResult(res.test_name, res.test_value, patientGender);
-
-        return {
-          patient_id,
-          recorder_id: user.id,
-          department: dept,
-          test_type,
-          test_name: res.test_name,
-          test_value: validated.test_value,
-          unit: validated.unit,
-          reference_range_min: validated.reference_range_min,
-          reference_range_max: validated.reference_range_max,
-          is_flagged: validated.is_flagged,
-          notes: notes || null
-        };
-      }
-
-      return {
-        patient_id,
-        recorder_id: user.id,
-        department: dept,
-        test_type,
-        test_name: res.test_name,
-        test_value: String(res.test_value),
-        unit: res.unit || null,
-        reference_range_min: null,
-        reference_range_max: null,
-        is_flagged: false,
-        notes: notes || null
-      };
-    });
+            return {
+              patient_id,
+              recorder_id: user.id,
+              department: dept,
+              test_type,
+              test_name: res.test_name,
+              test_value: testValue,
+              unit: res.unit || null,
+              reference_range_min: null,
+              reference_range_max: null,
+              is_flagged: false,
+              notes: notes || null
+            };
+          });
 
     // 5. Perform insert
     const { data: insertedData, error: insertError } = await supabase

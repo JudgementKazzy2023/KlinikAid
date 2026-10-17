@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { LAB_TEST_GROUPS, LabTestPanel, WEB_OCR_ENABLED } from "@/lib/constants";
+import { resultValueText } from "@/lib/records/validateLabResult";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const STRICT_NUMBER_REGEX = /^-?\d+(\.\d+)?$/;
@@ -52,8 +53,8 @@ function sanitizeExtractedValues(panel: LabTestPanel | null, rawValues: unknown)
   for (const [key, rawValue] of Object.entries(rawValues)) {
     if (!allowedParams.has(key)) continue;
 
-    const value = String(rawValue ?? "").trim();
-    if (!STRICT_NUMBER_REGEX.test(value)) continue;
+    const value = resultValueText(rawValue)?.trim();
+    if (value === undefined || !STRICT_NUMBER_REGEX.test(value)) continue;
 
     sanitized[key] = value;
   }

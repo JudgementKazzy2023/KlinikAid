@@ -42,6 +42,17 @@ export const REFERENCE_RANGE_STATUSES: Record<ReferenceRangeStatus, { label: str
 export interface LabReferenceRange {
   parameter: string;
   unit: string;
+  /**
+   * Plausibility bounds, inclusive. Not clinical thresholds: a value outside
+   * the reference range above is abnormal and is saved and flagged, while a
+   * value outside these bounds cannot be a real measurement in this unit and is
+   * refused. They are set deliberately wide -- past the most extreme values
+   * reported in surviving patients -- because refusing a genuine critical
+   * result is worse than accepting a typo. Their job is to stop negatives,
+   * zeros where zero is impossible, and slipped digits (FBS 99999).
+   */
+  plausibleMin: number;
+  plausibleMax: number;
   maleMin: number;
   maleMax: number;
   femaleMin: number;
@@ -57,6 +68,8 @@ export const LAB_REFERENCE_RANGES: LabReferenceRange[] = [
     maleMax: 17.5,
     femaleMin: 12.0,
     femaleMax: 15.5,
+    plausibleMin: 1,
+    plausibleMax: 25,
     description: "Iron-containing oxygen-transport metalloprotein in red blood cells"
   },
   {
@@ -66,6 +79,8 @@ export const LAB_REFERENCE_RANGES: LabReferenceRange[] = [
     maleMax: 11.0,
     femaleMin: 4.5,
     femaleMax: 11.0,
+    plausibleMin: 0,
+    plausibleMax: 1000,
     description: "Cells of the immune system involved in protecting the body"
   },
   {
@@ -75,6 +90,8 @@ export const LAB_REFERENCE_RANGES: LabReferenceRange[] = [
     maleMax: 450,
     femaleMin: 150,
     femaleMax: 450,
+    plausibleMin: 0,
+    plausibleMax: 5000,
     description: "Cells that help blood clot"
   },
   {
@@ -84,6 +101,8 @@ export const LAB_REFERENCE_RANGES: LabReferenceRange[] = [
     maleMax: 100,
     femaleMin: 70,
     femaleMax: 100,
+    plausibleMin: 5,
+    plausibleMax: 3000,
     description: "Measures blood glucose after an 8-hour fast"
   },
   {
@@ -93,6 +112,8 @@ export const LAB_REFERENCE_RANGES: LabReferenceRange[] = [
     maleMax: 1.2,
     femaleMin: 0.5,
     femaleMax: 1.1,
+    plausibleMin: 0.1,
+    plausibleMax: 40,
     description: "Waste product filtered by kidneys; indicator of renal function"
   },
   {
@@ -102,6 +123,8 @@ export const LAB_REFERENCE_RANGES: LabReferenceRange[] = [
     maleMax: 200,
     femaleMin: 100,
     femaleMax: 200,
+    plausibleMin: 20,
+    plausibleMax: 2000,
     description: "Total lipid marker"
   }
 ];
