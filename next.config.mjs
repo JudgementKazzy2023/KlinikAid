@@ -15,6 +15,9 @@ function supabaseOrigin() {
   } catch {
     throw new Error(`NEXT_PUBLIC_SUPABASE_URL is not a valid URL: ${raw}`);
   }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new Error("NEXT_PUBLIC_SUPABASE_URL must use http: or https:");
+  }
   return { http: url.origin, ws: `${url.protocol === "http:" ? "ws" : "wss"}://${url.host}` };
 }
 
