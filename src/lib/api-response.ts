@@ -25,6 +25,24 @@ export class AuthError extends Error {
   }
 }
 
+/**
+ * A request the server understood and refused because its content is wrong.
+ *
+ * Thrown by input validators (e.g. `src/lib/records/validateLabResult.ts`) so
+ * that a bad value reaches the caller as a 400 carrying the validator's own
+ * message, rather than falling through a route catch-all as a 500. Only throw
+ * this with a message that is safe to show the user: `handleRouteError` returns
+ * it verbatim.
+ */
+export class ValidationError extends Error {
+  readonly status = 400;
+
+  constructor(message: string) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}
+
 const AUTH_MESSAGES: Record<401 | 403, string> = {
   401: "Unauthorized: Please sign in.",
   403: "Forbidden: Access denied.",
@@ -73,7 +91,8 @@ export function errorResponse(message: string, status = 400, details?: unknown) 
  *
  * An `AuthError` keeps its own 401/403 and answers with a generic message --
  * which permission was missing is a server-side detail, not something to hand
- * back to the caller. Anything else is an unexpected fault and keeps the route's
+ * back to the caller. A `ValidationError` answers 400 with its own message,
+ * because saying what was wrong with the input is the point. Anything else is an unexpected fault and keeps the route's
  * own 500 message.
  *
  * ```ts
@@ -88,6 +107,10 @@ export function errorResponse(message: string, status = 400, details?: unknown) 
 export function handleRouteError(error: unknown, fallbackMessage: string) {
   if (error instanceof AuthError) {
     return errorResponse(AUTH_MESSAGES[error.status], error.status, error.message);
+  }
+
+  if (error instanceof ValidationError) {
+    return errorResponse(error.message, 400);
   }
 
   const details = error instanceof Error ? error.message : String(error);
