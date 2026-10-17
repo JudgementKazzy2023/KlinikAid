@@ -260,7 +260,7 @@ export async function loginAction(
  */
 export async function resendConfirmationAction(email: string): Promise<{ message: string }> {
   if (email) {
-    await sendEmailConfirmation(createClient(), email);
+    await sendEmailConfirmation(await createClient(), email);
   }
   return {
     message: "If this address has an unconfirmed account, a new confirmation link is on its way.",
