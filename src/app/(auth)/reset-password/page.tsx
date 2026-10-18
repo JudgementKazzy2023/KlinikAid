@@ -238,7 +238,7 @@ export default function ResetPasswordPage() {
                 </AlertDescription>
               </Alert>
               <div className="text-center pt-2">
-                <Link href="/forgot-password" className="text-sm text-accentBlue-600 hover:underline">
+                <Link href="/forgot-password" className="inline-flex items-center min-h-6 -my-0.5 text-sm text-accentBlue-600 hover:underline">
                   Request a new reset link
                 </Link>
               </div>
@@ -285,6 +285,7 @@ export default function ResetPasswordPage() {
                     <Input
                       id="totpCode"
                       type="text"
+                      autoComplete="one-time-code"
                       inputMode="numeric"
                       pattern="[0-9]*"
                       maxLength={6}
@@ -338,6 +339,7 @@ export default function ResetPasswordPage() {
                     <Input
                       id="password"
                       type="password"
+                      autoComplete="new-password"
                       placeholder="Minimum 8 characters"
                       className="pl-10"
                       value={password}
@@ -356,6 +358,7 @@ export default function ResetPasswordPage() {
                     <Input
                       id="confirmPassword"
                       type="password"
+                      autoComplete="new-password"
                       placeholder="••••••••"
                       className="pl-10"
                       value={confirmPassword}
