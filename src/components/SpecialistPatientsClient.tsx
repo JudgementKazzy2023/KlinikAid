@@ -54,12 +54,22 @@ interface SpecialistPatientsClientProps {
 
 import { 
   Plus,
-  Trash2,
+  Archive,
   Lock
 } from "lucide-react";
 import { toast } from "sonner";
 import { createSpecialistPatientAction, deleteSpecialistPatientAction } from "@/app/(dashboard)/specialist/patients/actions";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -91,7 +101,12 @@ export default function SpecialistPatientsClient({
   // Specialist Modal & Action States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSavingPatient, setIsSavingPatient] = useState(false);
-  const [isDeletingPatient, setIsDeletingPatient] = useState<string | null>(null);
+  const [archivingPatientIds, setArchivingPatientIds] = useState<Set<string>>(new Set());
+  // The patient the confirmation dialog is about. Kept after the dialog closes so
+  // the name does not blank out during its exit animation; it is replaced on the
+  // next archive attempt.
+  const [archiveTarget, setArchiveTarget] = useState<PatientData | null>(null);
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -154,23 +169,34 @@ export default function SpecialistPatientsClient({
     }
   };
 
-  const handleDeletePatient = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this patient and all their records? This cannot be undone.")) {
-      return;
-    }
-    setIsDeletingPatient(id);
+  const handleArchivePatient = (patient: PatientData) => {
+    setArchiveTarget(patient);
+    setIsArchiveDialogOpen(true);
+  };
+
+  const confirmArchivePatient = async () => {
+    if (!archiveTarget) return;
+    const target = archiveTarget;
+    setIsArchiveDialogOpen(false);
+    setArchivingPatientIds((ids) => new Set(ids).add(target.id));
     try {
-      const res = await deleteSpecialistPatientAction(id);
+      const res = await deleteSpecialistPatientAction(target.id);
       if (res.success) {
-        toast.success("Patient record deleted.");
+        // The action archives rather than destroys: the patient and their records
+        // stay in the database with deleted_at set, and the roster stops listing them.
+        toast.success("Patient archived.");
         fetchFilteredPatients(searchQuery, deptFilter, startDate, endDate);
       } else {
-        toast.error(res.error || "Failed to delete patient");
+        toast.error(res.error || "Failed to archive patient");
       }
     } catch {
-      toast.error("Failed to delete patient");
+      toast.error("Failed to archive patient");
     } finally {
-      setIsDeletingPatient(null);
+      setArchivingPatientIds((ids) => {
+        const next = new Set(ids);
+        next.delete(target.id);
+        return next;
+      });
     }
   };
 
@@ -398,11 +424,13 @@ export default function SpecialistPatientsClient({
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDeletePatient(patient.id)}
-                          disabled={isDeletingPatient === patient.id}
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/20 h-8 w-8 transition"
+                          onClick={() => handleArchivePatient(patient)}
+                          disabled={archivingPatientIds.has(patient.id)}
+                          title="Archive patient"
+                          aria-label={`Archive ${patient.first_name} ${patient.last_name}`}
+                          className="text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800 h-8 w-8 transition"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Archive className="h-4 w-4" />
                         </Button>
                       </td>
                     </tr>
@@ -470,6 +498,32 @@ export default function SpecialistPatientsClient({
           <span className="font-bold">No AI Diagnostics Inference:</span> This directory provides clinical descriptive analytics only. No machine learning diagnostics or automated diagnostic suggestions are applied to this patient data (SO-C Compliance).
         </div>
       </div>
+
+      {/* Archive confirmation. The action archives: the patient and their records
+          stay in the database with deleted_at set, and the roster stops listing
+          them. There is no restore UI, so the wording does not promise one. */}
+      <AlertDialog
+        open={isArchiveDialogOpen}
+        onOpenChange={(open) => setIsArchiveDialogOpen(open)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Archive {archiveTarget?.first_name} {archiveTarget?.last_name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              They will be removed from your patient list. Their records are kept
+              and are not deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep patient</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={confirmArchivePatient}>
+              Archive patient
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Add Patient Modal */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
