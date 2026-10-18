@@ -17,7 +17,12 @@ import {
  * reaches the browser.
  */
 function forbiddenLanding(request: NextRequest, supabaseResponse: NextResponse) {
-  const res = NextResponse.rewrite(request.nextUrl, { status: 403 });
+  // Forward the request headers as updateSession does for NextResponse.next(),
+  // so a session refreshed in this request is what the /403 page reads.
+  const res = NextResponse.rewrite(request.nextUrl, {
+    status: 403,
+    request: { headers: request.headers },
+  });
   supabaseResponse.headers.forEach((value, key) => {
     if (key.toLowerCase() === "set-cookie") {
       res.headers.append(key, value);
