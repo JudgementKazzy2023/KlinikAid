@@ -28,6 +28,7 @@ import { getReceptionDocumentSignedUrlAction } from "@/app/(dashboard)/reception
 import { DEPARTMENTS } from "@/lib/constants";
 import { Department } from "@/types";
 import type { DetectedClinicTest } from "@/lib/documents/detectRequestedTests";
+import type { TemplateReview } from "@/lib/documents/templateChecks";
 import {
   Dialog,
   DialogContent,
@@ -41,6 +42,8 @@ import TriageModal from "./TriageModal";
 
 interface DocumentApprovalClientProps {
   document: Document;
+  /** Server-computed check of a template's stored answers; null for uploads. */
+  templateReview: TemplateReview | null;
 }
 
 const REJECTION_REASON_PRESETS = [
@@ -74,7 +77,7 @@ const REJECTION_REASON_PRESETS = [
   },
 ] as const;
 
-export default function DocumentApprovalClient({ document: initialDoc }: DocumentApprovalClientProps) {
+export default function DocumentApprovalClient({ document: initialDoc, templateReview }: DocumentApprovalClientProps) {
   const router = useRouter();
   const [doc, setDoc] = useState<Document>(initialDoc);
   const [isRejectOpen, setIsRejectOpen] = useState(false);
@@ -469,13 +472,41 @@ export default function DocumentApprovalClient({ document: initialDoc }: Documen
             <CardContent className="pt-4 space-y-5">
               {doc.file_type === "template" ? (
                 <div className="space-y-4 text-xs">
-                  <div className="p-3 rounded-lg bg-blue-50 border border-blue-100 text-blue-800 dark:bg-blue-950/20 dark:border-blue-900/20 dark:text-blue-400 leading-relaxed">
-                    <span className="font-bold block mb-1">Validated Template Form</span>
-                    This document was submitted as a structured digital form. Fields were validated upon input. No OCR extraction or signature verification is needed.
-                  </div>
+                  {templateReview?.status === "passed" ? (
+                    <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-800 dark:bg-emerald-950/20 dark:border-emerald-900/20 dark:text-emerald-400 leading-relaxed">
+                      <span className="font-bold block mb-1">All checks passed</span>
+                      Structured digital form; no OCR extraction or signature verification is needed. The stored answers were checked for:
+                      <ul className="list-disc pl-4 mt-1 space-y-0.5">
+                        {templateReview.checks.map((check) => (
+                          <li key={check}>{check}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 dark:bg-amber-950/20 dark:border-amber-900/40 dark:text-amber-300 leading-relaxed">
+                      <span className="font-bold flex items-center gap-1.5 mb-1">
+                        <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
+                        Needs attention
+                      </span>
+                      <ul className="list-disc pl-4 space-y-1">
+                        {(templateReview?.issues ?? []).map((issue, index) => (
+                          <li key={`${issue.field ?? "form"}-${index}`}>
+                            <span className="font-semibold">{issue.label}:</span> {issue.reason}
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="mt-1.5 text-[11px]">
+                        Review the flagged answers before approving. Approve &amp; Route stays available.
+                      </p>
+                    </div>
+                  )}
                   <div className="flex justify-between items-center py-2 border-b border-slate-50 dark:border-slate-900">
                     <span className="font-semibold text-slate-500">Validation Status</span>
-                    <span className="font-bold text-emerald-600">100% Validated</span>
+                    {templateReview?.status === "passed" ? (
+                      <span className="font-bold text-emerald-600">All checks passed</span>
+                    ) : (
+                      <span className="font-bold text-amber-600">Needs attention</span>
+                    )}
                   </div>
                   <div className="flex justify-between items-center py-2 border-b border-slate-50 dark:border-slate-900">
                     <span className="font-semibold text-slate-500">Form Type</span>
@@ -599,6 +630,12 @@ export default function DocumentApprovalClient({ document: initialDoc }: Documen
               <p className="text-slate-400 leading-normal">
                 Carefully review the matching metrics. Click Approve to assign the patient to a clinic department queue, or Reject to request a clearer document upload.
               </p>
+              {templateReview?.status === "attention" && (
+                <p className="text-amber-700 dark:text-amber-400 font-semibold flex items-center gap-1">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                  This form needs attention: {templateReview.issues.map((issue) => issue.label).join(", ")}.
+                </p>
+              )}
             </div>
           )}
         </div>

@@ -7,7 +7,7 @@ export function validatePassword(password: string): boolean {
   return PASSWORD_REGEX.test(password);
 }
 
-function getTodayInPh(): { year: number; month: number; day: number } {
+export function getTodayInPh(): { year: number; month: number; day: number } {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Manila",
     year: "numeric",

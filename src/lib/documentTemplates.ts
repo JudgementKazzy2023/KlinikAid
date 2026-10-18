@@ -4,6 +4,27 @@ export interface TemplateField {
   type: "text" | "date" | "textarea" | "select";
   required: boolean;
   options?: string[];
+  /** A select whose "No" answer means the patient declined (#62). Not refused: flagged to reception. */
+  consent?: boolean;
+  /** A date that records something already done (issued, signed), so it cannot be after today. */
+  notFuture?: boolean;
+}
+
+// Bounds for template answers (#62). Chosen so that no legitimate answer is refused:
+// a one-line answer (a name, clinic, procedure) is far under 200 characters, and a
+// free-text answer of 2000 characters is a full page. NAME_MAX in validation.ts is
+// 100, so 200 also leaves room for "Dr. ..., MD, <clinic>" in a physician field.
+export const TEMPLATE_TEXT_MAX_LENGTH = 200;
+export const TEMPLATE_TEXTAREA_MAX_LENGTH = 2000;
+// Earliest accepted date, and how far ahead a forward-looking date (date needed,
+// request date) may be. Both are checked against today in Asia/Manila.
+export const TEMPLATE_DATE_MIN = "1900-01-01";
+export const TEMPLATE_DATE_MAX_YEARS_AHEAD = 2;
+
+export function templateFieldMaxLength(field: TemplateField): number | null {
+  if (field.type === "text") return TEMPLATE_TEXT_MAX_LENGTH;
+  if (field.type === "textarea") return TEMPLATE_TEXTAREA_MAX_LENGTH;
+  return null;
 }
 
 export interface DocumentTemplate {
@@ -23,7 +44,7 @@ export const CLINIC_TEMPLATES: DocumentTemplate[] = [
       { key: "referring_clinic", label: "Referring Clinic / Hospital", type: "text", required: false },
       { key: "reason_for_referral", label: "Reason for Referral", type: "textarea", required: true },
       { key: "requested_service", label: "Requested Service", type: "select", required: true, options: ["Laboratory", "Imaging", "Ultrasound", "ECG"] },
-      { key: "referral_date", label: "Referral Date", type: "date", required: true }
+      { key: "referral_date", label: "Referral Date", type: "date", required: true, notFuture: true }
     ]
   },
   {
@@ -52,8 +73,8 @@ export const CLINIC_TEMPLATES: DocumentTemplate[] = [
     description: "Acknowledge and consent to clinical laboratory diagnostic operations.",
     fields: [
       { key: "procedure", label: "Clinical Procedure", type: "text", required: true },
-      { key: "consent_given", label: "I Give My Consent?", type: "select", required: true, options: ["Yes", "No"] },
-      { key: "consent_date", label: "Date of Consent", type: "date", required: true }
+      { key: "consent_given", label: "I Give My Consent?", type: "select", required: true, options: ["Yes", "No"], consent: true },
+      { key: "consent_date", label: "Date of Consent", type: "date", required: true, notFuture: true }
     ]
   },
   {

@@ -16,7 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { CLINIC_TEMPLATES, DocumentTemplate } from "@/lib/documentTemplates";
+import { CLINIC_TEMPLATES, DocumentTemplate, TEMPLATE_DATE_MIN, templateFieldMaxLength } from "@/lib/documentTemplates";
+import { latestTemplateDate, todayInPh } from "@/lib/documents/templateChecks";
 import { submitTemplateDocumentAction } from "@/app/(dashboard)/patient/templates/actions";
 import type { PatientIdentityProps } from "@/app/(dashboard)/patient/templates/page";
 
@@ -29,9 +30,12 @@ export default function TemplatesClient({ patientIdentity }: TemplatesClientProp
   const [selectedTemplate, setSelectedTemplate] = useState<DocumentTemplate | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Date bounds mirror the server's; read once per form, not during render.
+  const [today, setToday] = useState("");
 
   const handleSelectTemplate = (template: DocumentTemplate) => {
     setSelectedTemplate(template);
+    setToday(todayInPh());
     // Reset editable values only (identity is always server-provided)
     const initialValues: Record<string, string> = {};
     template.fields.forEach(f => {
@@ -209,6 +213,7 @@ export default function TemplatesClient({ patientIdentity }: TemplatesClientProp
                         value={val}
                         onChange={(e) => handleFieldChange(field.key, e.target.value)}
                         required={field.required}
+                        maxLength={templateFieldMaxLength(field) ?? undefined}
                         className="text-xs h-10"
                         placeholder={`Enter ${field.label.toLowerCase()}`}
                       />
@@ -221,6 +226,8 @@ export default function TemplatesClient({ patientIdentity }: TemplatesClientProp
                         value={val}
                         onChange={(e) => handleFieldChange(field.key, e.target.value)}
                         required={field.required}
+                        min={TEMPLATE_DATE_MIN}
+                        max={today ? (field.notFuture ? today : latestTemplateDate(today)) : undefined}
                         className="text-xs h-10"
                       />
                     )}
@@ -231,6 +238,7 @@ export default function TemplatesClient({ patientIdentity }: TemplatesClientProp
                         value={val}
                         onChange={(e) => handleFieldChange(field.key, e.target.value)}
                         required={field.required}
+                        maxLength={templateFieldMaxLength(field) ?? undefined}
                         className="text-xs min-h-[90px]"
                         placeholder={`Provide detailed details for ${field.label.toLowerCase()}...`}
                       />
