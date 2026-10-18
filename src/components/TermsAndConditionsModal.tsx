@@ -15,8 +15,6 @@ import { ScrollText } from "lucide-react";
 const TERMS_AND_CONDITIONS_TEXT = `
 KlinikAid — Terms and Conditions
 
-Last updated: [DEPLOYMENT DATE]
-
 Please read these Terms and Conditions carefully before using the KlinikAid web portal operated by Bloodcare Medical Laboratory. By creating an account or using the portal, you agree to be bound by these terms. If you do not agree, please do not use the portal.
 
 
