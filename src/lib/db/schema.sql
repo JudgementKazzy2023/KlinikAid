@@ -1947,6 +1947,11 @@ ALTER TABLE public.system_logs ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.used_totp_codes ENABLE ROW LEVEL SECURITY;
 
+-- Clear Supabase default object grants before restoring the captured ACLs.
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM anon, authenticated, service_role;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM anon, authenticated, service_role;
+REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM anon, authenticated, service_role;
+
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: -
 --

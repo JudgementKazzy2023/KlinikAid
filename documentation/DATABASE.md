@@ -49,7 +49,11 @@ pg_dump "$SOURCE_DATABASE_URL" --schema-only --schema=public --no-owner > public
    statements, psql `\restrict`/`\unrestrict` commands (for SQL-editor compatibility),
    and Supabase-managed `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin` statements
    that a project administrator cannot change. Preserve the `postgres` defaults and
-   all explicit object grants/revocations. Keep `check_function_bodies = false` so
+   all explicit object grants/revocations. Before restoring ACLs, revoke the default
+   `anon`, `authenticated` and `service_role` object grants on all public tables,
+   sequences and functions: Supabase defaults can otherwise retain privileges absent
+   from the source dump. Preserve the default `PUBLIC` function execution unless the
+   captured ACL explicitly revokes it. Keep `check_function_bodies = false` so
    dump ordering can define functions before their referenced tables.
 3. Export only system roles (`is_system = true`), the permission catalog, and mappings
    for those system roles. Render inserts by name with generated IDs/default timestamps;
