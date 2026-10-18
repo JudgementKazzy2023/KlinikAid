@@ -5,6 +5,12 @@ import { requirePermission } from "@/lib/auth/helpers";
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { revalidatePath } from "next/cache";
+import {
+  customRoleWriteErrorMessage,
+  isUuid,
+  normalizePermissionIds,
+  UNKNOWN_PERMISSION_ERROR,
+} from "@/lib/auth/custom-role-input";
 
 type RoleRow = {
   id: string;
@@ -18,16 +24,19 @@ type ProfileWithRoleId = {
   role_id?: string | null;
 };
 
-type BaseRole = "admin" | "receptionist" | "department_staff" | "medical_specialist" | "patient";
+/** What create_custom_role() returns (migration_32). */
+type CreatedCustomRole = {
+  role_id: string;
+  role_name: string;
+  base_role: string;
+  permission_count: number;
+};
 
-const DEFAULT_CUSTOM_ROLE_BASE_ROLE: BaseRole = "receptionist";
-
-function normalizePermissionIds(permissionIds: unknown): string[] {
-  if (!Array.isArray(permissionIds)) return [];
-  return Array.from(
-    new Set(permissionIds.filter((permissionId): permissionId is string => typeof permissionId === "string" && permissionId.trim().length > 0))
-  );
-}
+/** What update_custom_role() returns (migration_32). */
+type UpdatedCustomRole = CreatedCustomRole & {
+  previous_role_name: string;
+  previous_base_role: string | null;
+};
 
 function getCallerRoleId(profile: ProfileWithRoleId): string | null {
   return typeof profile.role_id === "string" ? profile.role_id : null;
@@ -36,7 +45,7 @@ function getCallerRoleId(profile: ProfileWithRoleId): string | null {
 export async function createCustomRoleAction(
   name: string,
   description: string,
-  permissionIds: string[]
+  rawPermissionIds: string[]
 ) {
   try {
     const adminProfile = await requirePermission("roles.manage");
@@ -46,64 +55,45 @@ export async function createCustomRoleAction(
     }
     
     const cleanName = name.trim();
+    const permissionIds = normalizePermissionIds(rawPermissionIds);
+
+    if (!permissionIds.every(isUuid)) {
+      return { success: false, error: UNKNOWN_PERMISSION_ERROR };
+    }
 
     const supabase = await createClient();
 
-    // Validate that role name is unique
-    const { data: existingRole } = await supabase
-      .from("roles")
-      .select("id")
-      .eq("name", cleanName)
-      .maybeSingle();
+    // The role row and its mappings are written in one transaction, after the
+    // function has validated the name and every permission id: a failure leaves
+    // no role behind.
+    const { data, error: createError } = await supabase.rpc("create_custom_role", {
+      p_name: cleanName,
+      p_description: description || null,
+      p_permission_ids: permissionIds,
+    });
 
-    if (existingRole) {
-      return { success: false, error: "A role with this name already exists." };
+    if (createError) {
+      console.error("Error creating custom role:", createError);
+      return {
+        success: false,
+        error: customRoleWriteErrorMessage(createError, "Failed to create custom role."),
+      };
     }
 
-    // 1. Create the new custom role row
-    const { data: newRole, error: roleCreateError } = await supabase
-      .from("roles")
-      .insert({
-        name: cleanName,
-        description: description || null,
-        is_system: false,
-        base_role: DEFAULT_CUSTOM_ROLE_BASE_ROLE
-      })
-      .select()
-      .single();
+    const created: CreatedCustomRole = data;
 
-    if (roleCreateError || !newRole) {
-      throw roleCreateError || new Error("Failed to create role row.");
-    }
-
-    // 2. Map permissions to the custom role in role_permissions
-    if (permissionIds.length > 0) {
-      const mappingRows = permissionIds.map((pId) => ({
-        role_id: newRole.id,
-        permission_id: pId
-      }));
-
-      const { error: mappingError } = await supabase
-        .from("role_permissions")
-        .insert(mappingRows);
-
-      if (mappingError) {
-        throw mappingError;
-      }
-    }
-
-    // 3. Log CUSTOM_ROLE_CREATED mutation event
+    // Log CUSTOM_ROLE_CREATED mutation event
     await logEvent(
       supabase,
       adminProfile.id,
       SYSTEM_EVENT_TYPES.CUSTOM_ROLE_CREATED,
-      `Custom role '${cleanName}' created`,
+      `Custom role '${created.role_name}' created`,
       null,
       {
-        role_id: newRole.id,
-        role_name: cleanName,
-        base_role: DEFAULT_CUSTOM_ROLE_BASE_ROLE,
-        permission_count: permissionIds.length,
+        role_id: created.role_id,
+        role_name: created.role_name,
+        base_role: created.base_role,
+        permission_count: created.permission_count,
       }
     );
 
@@ -129,7 +119,7 @@ export async function updateCustomRoleAction(
   try {
     const adminProfile = await requirePermission("roles.manage");
 
-    if (!roleId || typeof roleId !== "string") {
+    if (!isUuid(roleId)) {
       return { success: false, error: "Select a valid role." };
     }
 
@@ -145,83 +135,46 @@ export async function updateCustomRoleAction(
     const cleanDescription = values.description?.trim() || null;
     const permissionIds = normalizePermissionIds(values.permissionIds);
 
+    if (!permissionIds.every(isUuid)) {
+      return { success: false, error: UNKNOWN_PERMISSION_ERROR };
+    }
+
     const supabase = await createClient();
 
-    const { data: role, error: roleError } = await supabase
-      .from("roles")
-      .select("*")
-      .eq("id", roleId)
-      .single<RoleRow>();
-
-    if (roleError || !role) {
-      return { success: false, error: "Select a valid role." };
-    }
-
-    if (role.is_system) {
-      return { success: false, error: "System roles cannot be edited." };
-    }
-
-    const { data: existingRole } = await supabase
-      .from("roles")
-      .select("id")
-      .eq("name", cleanName)
-      .neq("id", roleId)
-      .maybeSingle();
-
-    if (existingRole) {
-      return { success: false, error: "A role with this name already exists." };
-    }
-
-    const { error: updateError } = await supabase
-      .from("roles")
-      .update({
-        name: cleanName,
-        description: cleanDescription,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", roleId);
+    // One transaction: the function locks the role, re-checks that it exists, is
+    // not a system role and is not the caller's own, validates the name and every
+    // permission id, then updates the row and replaces the whole permission set.
+    // Any failure leaves the previous name and permissions in place.
+    const { data, error: updateError } = await supabase.rpc("update_custom_role", {
+      p_role_id: roleId,
+      p_name: cleanName,
+      p_description: cleanDescription,
+      p_permission_ids: permissionIds,
+    });
 
     if (updateError) {
-      throw updateError;
+      console.error("Error updating custom role:", updateError);
+      return {
+        success: false,
+        error: customRoleWriteErrorMessage(updateError, "Failed to update custom role."),
+      };
     }
 
-    const { error: deleteMappingsError } = await supabase
-      .from("role_permissions")
-      .delete()
-      .eq("role_id", roleId);
-
-    if (deleteMappingsError) {
-      throw deleteMappingsError;
-    }
-
-    if (permissionIds.length > 0) {
-      const mappingRows = permissionIds.map((permissionId) => ({
-        role_id: roleId,
-        permission_id: permissionId,
-      }));
-
-      const { error: insertMappingsError } = await supabase
-        .from("role_permissions")
-        .insert(mappingRows);
-
-      if (insertMappingsError) {
-        throw insertMappingsError;
-      }
-    }
+    const updated: UpdatedCustomRole = data;
 
     await logEvent(
       supabase,
       adminProfile.id,
       SYSTEM_EVENT_TYPES.ROLE_UPDATED,
-      `Custom role '${cleanName}' updated`,
+      `Custom role '${updated.role_name}' updated`,
       null,
       {
-        role_id: roleId,
-        previous_role_name: role.name,
-        role_name: cleanName,
-        previous_base_role: role.base_role,
-        base_role: role.base_role,
-        permission_count: permissionIds.length,
+        role_id: updated.role_id,
+        previous_role_name: updated.previous_role_name,
+        role_name: updated.role_name,
+        previous_base_role: updated.previous_base_role,
+        base_role: updated.base_role,
+        permission_count: updated.permission_count,
       }
     );
 
