@@ -13,6 +13,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { DepartmentRecord } from "@/types";
+import { testTypeLabel } from "@/lib/constants";
 
 interface PatientResultsClientProps {
   initialRecords: DepartmentRecord[];
@@ -171,7 +172,7 @@ export default function PatientResultsClient({ initialRecords }: PatientResultsC
                             <td className="p-3 pl-4 font-bold text-slate-800 dark:text-slate-200">
                               <div className="flex flex-col">
                                 <span>{rec.test_name}</span>
-                                <span className="text-[10px] text-slate-400 font-medium capitalize mt-0.5">{rec.test_type}</span>
+                                <span className="text-[10px] text-slate-400 font-medium capitalize mt-0.5">{testTypeLabel(rec.department, rec.test_type)}</span>
                               </div>
                             </td>
 

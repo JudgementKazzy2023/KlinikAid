@@ -12,7 +12,16 @@ import {
   FileSearch,
   Loader2
 } from "lucide-react";
-import { LAB_REFERENCE_RANGES, DEPARTMENTS, LAB_TEST_GROUPS } from "@/lib/constants";
+import {
+  LAB_REFERENCE_RANGES,
+  DEPARTMENTS,
+  LAB_TEST_GROUPS,
+  LAB_PANEL_LABELS,
+  LAB_NARRATIVE_TESTS,
+  LAB_NARRATIVE_MAX_LENGTH,
+  testTypeLabel,
+  type LabNarrativeTest,
+} from "@/lib/constants";
 import { getAge } from "@/lib/utils";
 import { fetchJson } from "@/lib/fetch-json";
 import { useHydrated } from "@/lib/use-hydrated";
@@ -94,6 +103,7 @@ interface RecordPayload {
 }
 
 type LabPanelName = keyof typeof LAB_TEST_GROUPS;
+type LabEntryTest = LabPanelName | LabNarrativeTest;
 
 export default function RecordEntryClient({
   patient,
@@ -105,7 +115,9 @@ export default function RecordEntryClient({
   const labOcrInputRef = useRef<HTMLInputElement>(null);
 
   // Form states
-  const [selectedLabTest, setSelectedLabTest] = useState<LabPanelName>("Complete Blood Count (CBC)");
+  const [selectedLabTest, setSelectedLabTest] = useState<LabEntryTest>("Complete Blood Count (CBC)");
+  // Narrative lab tests have no documented ranges: free text, never auto-flagged.
+  const isNarrativeLabTest = (LAB_NARRATIVE_TESTS as readonly string[]).includes(selectedLabTest);
   const [customTestType, setCustomTestType] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [labOcrFile, setLabOcrFile] = useState<File | null>(null);
@@ -306,7 +318,21 @@ export default function RecordEntryClient({
         results: []
       };
 
-      if (activeDept === "laboratory") {
+      if (activeDept === "laboratory" && isNarrativeLabTest) {
+        if (!findings.trim()) {
+          toast.error("Findings is required");
+          setIsSubmitting(false);
+          return;
+        }
+
+        payload.test_type = selectedLabTest;
+        payload.results = [
+          { test_name: "Findings", test_value: findings.trim(), is_flagged: false },
+          ...(impression.trim()
+            ? [{ test_name: "Impression", test_value: impression.trim(), is_flagged: false }]
+            : []),
+        ];
+      } else if (activeDept === "laboratory") {
         payload.test_type = selectedLabTest;
         const activeParams = LAB_TEST_GROUPS[selectedLabTest as keyof typeof LAB_TEST_GROUPS] || [];
         
@@ -499,7 +525,7 @@ export default function RecordEntryClient({
                   return (
                     <div key={h.id} className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl space-y-1.5">
                       <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{h.test_type}</span>
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{testTypeLabel(activeDept, h.test_type)}</span>
                         <span className="text-[10px] text-slate-400">{dateStr}</span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
@@ -534,7 +560,9 @@ export default function RecordEntryClient({
                   <select
                     value={selectedLabTest}
                     onChange={(e) => {
-                      setSelectedLabTest(e.target.value as LabPanelName);
+                      setSelectedLabTest(e.target.value as LabEntryTest);
+                      setFindings("");
+                      setImpression("");
                       setParamValues({});
                       setParamFlags({});
                       setParamTouched({});
@@ -542,13 +570,20 @@ export default function RecordEntryClient({
                     }}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
                   >
-                    <option value="Complete Blood Count (CBC)">Complete Blood Count (CBC)</option>
-                    <option value="Fasting Blood Sugar (FBS)">Fasting Blood Sugar (FBS)</option>
-                    <option value="Renal Function">Renal Function (Creatinine)</option>
-                    <option value="Lipid Profile">Lipid Profile (Cholesterol)</option>
+                    <optgroup label="Structured (flagged against reference ranges)">
+                      {(Object.keys(LAB_PANEL_LABELS) as LabPanelName[]).map((panel) => (
+                        <option key={panel} value={panel}>{LAB_PANEL_LABELS[panel]}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Narrative result (not automatically flagged)">
+                      {LAB_NARRATIVE_TESTS.map((test) => (
+                        <option key={test} value={test}>{test}</option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
 
+                {!isNarrativeLabTest && (
                 <div className="rounded-2xl border border-teal-100 dark:border-teal-900/40 bg-teal-50/40 dark:bg-teal-950/10 p-4 space-y-3">
                   <div className="flex items-start gap-3">
                     <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-100 dark:bg-teal-950/50 text-teal-700 dark:text-teal-300">
@@ -601,8 +636,10 @@ export default function RecordEntryClient({
                     </p>
                   )}
                 </div>
+                )}
 
                 {/* Parameters List */}
+                {!isNarrativeLabTest && (
                 <div className="space-y-4 pt-2">
                   <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                     Panel Parameters
@@ -679,6 +716,48 @@ export default function RecordEntryClient({
                     );
                   })}
                 </div>
+                )}
+
+                {isNarrativeLabTest && (
+                  <div className="space-y-5">
+                    <div className="rounded-2xl border border-amber-200/70 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-950/10 p-4 text-xs leading-relaxed text-amber-900 dark:text-amber-200">
+                      <span className="font-bold">Narrative result.</span> No reference ranges are configured for
+                      this test, so it is saved as text and is not marked normal or abnormal. Enter the
+                      result as it appears on the result sheet.
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label htmlFor="lab-narrative-findings" className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                        Findings
+                      </label>
+                      <textarea
+                        id="lab-narrative-findings"
+                        required
+                        rows={6}
+                        maxLength={LAB_NARRATIVE_MAX_LENGTH}
+                        placeholder="Enter the reported values and observations..."
+                        value={findings}
+                        onChange={(e) => setFindings(e.target.value)}
+                        className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label htmlFor="lab-narrative-impression" className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                        Impression (Optional)
+                      </label>
+                      <textarea
+                        id="lab-narrative-impression"
+                        rows={3}
+                        maxLength={LAB_NARRATIVE_MAX_LENGTH}
+                        placeholder="Enter a summary, if the result sheet gives one..."
+                        value={impression}
+                        onChange={(e) => setImpression(e.target.value)}
+                        className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               // --- IMAGING / ULTRASOUND / ECG FORM ---

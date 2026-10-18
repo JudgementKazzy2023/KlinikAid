@@ -4,7 +4,7 @@ import { hasPermission, requireAnyPermission } from "@/lib/auth/helpers";
 import { ValidationError, errorResponse, handleRouteError, successResponse } from "@/lib/api-response";
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
-import { resultValueText, validateLabPanel } from "@/lib/records/validateLabResult";
+import { resultValueText, validateLabSubmission } from "@/lib/records/validateLabResult";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -151,9 +151,10 @@ export async function POST(request: Request) {
 
     // 4. Format rows for bulk relational insert. Bad input throws a
     // ValidationError, which handleRouteError answers with 400 and its message.
+    // A laboratory test_type is either a structured panel or a narrative test.
     const rowsToInsert: DepartmentRecordRow[] =
       dept === "laboratory"
-        ? validateLabPanel(test_type, results, patientGender).map((validated) => ({
+        ? validateLabSubmission(test_type, results, patientGender).map((validated) => ({
             patient_id,
             recorder_id: user.id,
             department: dept,

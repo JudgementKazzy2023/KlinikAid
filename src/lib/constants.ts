@@ -139,10 +139,68 @@ export const LAB_TEST_GROUPS = {
 export type LabTestPanel = keyof typeof LAB_TEST_GROUPS;
 export type LabTestParameter = (typeof LAB_TEST_GROUPS)[LabTestPanel][number];
 
+/**
+ * What the entry form and result views call each panel. The keys above are the
+ * stored `test_type` and are shared with specialist records, so they stay as
+ * they are. Renal Function and Lipid Profile record a single parameter each,
+ * and are labelled by that parameter rather than as full panels: no project
+ * document establishes ranges for the rest of either panel.
+ */
+export const LAB_PANEL_LABELS: Record<LabTestPanel, string> = {
+  "Complete Blood Count (CBC)": "Complete Blood Count (CBC)",
+  "Fasting Blood Sugar (FBS)": "Fasting Blood Sugar (FBS)",
+  "Renal Function": "Creatinine",
+  "Lipid Profile": "Cholesterol (total)",
+};
+
+/**
+ * Laboratory tests a patient can request that have no structured panel, because
+ * no reference ranges or units are documented for them. They are recorded as
+ * narrative text (Findings, optional Impression) and are never flagged
+ * automatically. Each name is the stored `test_type`, and none may collide with
+ * a key of LAB_TEST_GROUPS.
+ */
+export const LAB_NARRATIVE_TESTS = [
+  "Urinalysis",
+  "Fecalysis",
+  "Blood Urea Nitrogen (BUN)",
+  "SGPT / ALT",
+  "SGOT / AST",
+  "Lipid Profile (narrative)",
+] as const;
+
+export type LabNarrativeTest = (typeof LAB_NARRATIVE_TESTS)[number];
+
+/** The narrative rows a laboratory narrative result consists of. Findings is required. */
+export const LAB_NARRATIVE_FIELDS = ["Findings", "Impression"] as const;
+
+export type LabNarrativeField = (typeof LAB_NARRATIVE_FIELDS)[number];
+
+export const LAB_NARRATIVE_MAX_LENGTH = 5000;
+
+/** Display label for a stored test_type: renames lab panels, passes everything else through. */
+export function testTypeLabel(department: string, testType: string): string {
+  if (department === "laboratory" && Object.prototype.hasOwnProperty.call(LAB_PANEL_LABELS, testType)) {
+    return LAB_PANEL_LABELS[testType as LabTestPanel];
+  }
+  return testType;
+}
+
+/**
+ * How the department that receives a requested test records it. Laboratory
+ * tests name the panel or narrative test_type; the other departments record
+ * every test as free-text Findings and Impression.
+ */
+export type ClinicTestRecording =
+  | { department: "laboratory"; panel: LabTestPanel }
+  | { department: "laboratory"; narrative: LabNarrativeTest }
+  | { department: Exclude<Department, "laboratory"> };
+
 export interface ClinicTestCatalogItem {
   id: string;
   label: string;
   aliases: string[];
+  recording: ClinicTestRecording;
 }
 
 export const CLINIC_TEST_CATALOG: ClinicTestCatalogItem[] = [
@@ -150,61 +208,74 @@ export const CLINIC_TEST_CATALOG: ClinicTestCatalogItem[] = [
     id: "cbc",
     label: "Complete Blood Count (CBC)",
     aliases: ["cbc", "complete blood count", "hematology", "hemoglobin", "white blood cells", "wbc", "platelets"],
+    recording: { department: "laboratory", panel: "Complete Blood Count (CBC)" },
   },
   {
     id: "urinalysis",
     label: "Urinalysis",
     aliases: ["urinalysis", "urine", "urine analysis", "routine urinalysis", "clinical microscopy", "urine test", "ua"],
+    recording: { department: "laboratory", narrative: "Urinalysis" },
   },
   {
     id: "fecalysis",
     label: "Fecalysis",
     aliases: ["fecalysis", "routine fecalysis", "stool", "stool exam", "stool examination", "fecal exam"],
+    recording: { department: "laboratory", narrative: "Fecalysis" },
   },
   {
     id: "fbs",
     label: "Fasting Blood Sugar (FBS)",
     aliases: ["fbs", "fasting blood sugar", "blood sugar", "fasting glucose", "glucose"],
+    recording: { department: "laboratory", panel: "Fasting Blood Sugar (FBS)" },
   },
   {
     id: "lipid_profile",
     label: "Lipid Profile",
     aliases: ["lipid", "lipid profile", "cholesterol", "triglycerides", "hdl", "ldl"],
+    // Only total cholesterol has a structured panel; a full lipid profile is narrative.
+    recording: { department: "laboratory", narrative: "Lipid Profile (narrative)" },
   },
   {
     id: "creatinine",
     label: "Creatinine",
     aliases: ["creatinine", "serum creatinine", "renal function", "kidney function"],
+    recording: { department: "laboratory", panel: "Renal Function" },
   },
   {
     id: "bun",
     label: "Blood Urea Nitrogen (BUN)",
     aliases: ["bun", "blood urea nitrogen", "urea nitrogen"],
+    recording: { department: "laboratory", narrative: "Blood Urea Nitrogen (BUN)" },
   },
   {
     id: "sgpt_alt",
     label: "SGPT / ALT",
     aliases: ["sgpt", "alt", "alanine aminotransferase"],
+    recording: { department: "laboratory", narrative: "SGPT / ALT" },
   },
   {
     id: "sgot_ast",
     label: "SGOT / AST",
     aliases: ["sgot", "ast", "aspartate aminotransferase"],
+    recording: { department: "laboratory", narrative: "SGOT / AST" },
   },
   {
     id: "chest_xray",
     label: "Chest X-ray",
     aliases: ["chest x-ray", "chest xray", "cxr", "x-ray chest", "xray chest", "chest radiograph"],
+    recording: { department: "imaging" },
   },
   {
     id: "ecg",
     label: "ECG",
     aliases: ["ecg", "ekg", "electrocardiogram"],
+    recording: { department: "ecg" },
   },
   {
     id: "ultrasound",
     label: "Ultrasound",
     aliases: ["ultrasound", "ultrasonography", "utz"],
+    recording: { department: "ultrasound" },
   },
 ];
 
