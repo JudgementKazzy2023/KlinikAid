@@ -160,10 +160,12 @@ without that symlink `next build` fails on the missing env vars.
 - **Authorization resolves through `role_id` → `role_permissions`, not the legacy `role`
   text column** — except `src/middleware.ts:34-45`, which still reads `profiles.role` for
   its post-login redirect. Worth knowing if you touch role handling.
-- **`src/lib/db/schema.sql` is a second, drifting source of truth** alongside
-  `src/lib/db/migration_*.sql`. There is no `supabase/migrations/` directory and no
-  recorded migration history, so "this migration was applied" is not a verifiable claim —
-  it has to be checked against the live database.
+- **`src/lib/db/schema.sql` is a generated current-state snapshot** for empty Supabase
+  projects, through migration 33. Regenerate it after every migration using the procedure
+  in `documentation/DATABASE.md`; retain `migration_*.sql` as historical records.
+  Existing databases apply only migrations newer than their recorded
+  `supabase_migrations.schema_migrations` history. Snapshot coverage markers do not prove
+  that an older database replayed each historical file; verify legacy state before upgrading.
 - `specialist_records.specialist_patient_id` is `ON DELETE CASCADE`, which is why
   specialist patients are archived via `archive_specialist_patient()` rather than deleted.
 - RLS is the only boundary: `anon` holds full table privileges on all public tables, so

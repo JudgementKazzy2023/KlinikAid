@@ -41,7 +41,7 @@ npm install
 ```
 
 1. Copy `.env.example` to `.env.local` and fill in your own values.
-2. Apply the SQL files in `src/lib/db/` (`schema.sql`, then migrations in order) via the Supabase SQL editor.
+2. **Fresh Supabase project:** run `src/lib/db/schema.sql` once via the SQL editor or `psql` (see [database setup](documentation/DATABASE.md#database-setup)). It includes the current schema through migration 33; do not replay those migrations. **Existing database:** apply only `migration_N.sql` files newer than your recorded history, in order.
 3. Run the dev server:
 
 ```bash

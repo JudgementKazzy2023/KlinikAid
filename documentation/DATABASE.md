@@ -5,6 +5,70 @@ This document serves as the authoritative schema guide for the KlinikAid Supabas
 
 ---
 
+## Database Setup
+
+For a **fresh Supabase project**, run `src/lib/db/schema.sql` **once** in the
+Supabase SQL editor, or with a direct database connection:
+
+```bash
+psql "$FRESH_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f src/lib/db/schema.sql
+```
+
+Use a database administrator connection with permission to create the app's auth
+triggers and storage policies. Supabase must already supply its `auth`, `storage`,
+`extensions` schemas and platform roles; this is not a standalone Postgres installer.
+The snapshot includes the current state **through migration_33**, system role and
+permission reference data, a private `patient-documents` bucket, auth triggers,
+Realtime membership, and migration coverage records. It contains no application data.
+It runs in a transaction and refuses an existing public table before changing anything.
+A second run therefore fails cleanly; it does not erase or replace an existing database.
+
+For **existing databases**, apply only `migration_N.sql` files newer than your
+recorded `supabase_migrations.schema_migrations` history, in numeric order, and
+record each successful application. Never replay the snapshot or historical files
+already represented in that history. The `applied/` files are recovered historical
+records, not additional fresh-project setup steps. Legacy databases without reliable
+history need their actual schema checked before choosing a migration starting point.
+The snapshot assigns coverage markers `20261017000007`–`20261017000026` to previously
+untracked migrations 07–26, retains the two July versions from `applied/`, and uses
+`20261017000027`–`20261017000029` and `20261018000030`–`20261018000033` for 27–33.
+Those markers describe snapshot coverage, not individual historical executions.
+
+### Regenerating the snapshot
+
+Regenerate `schema.sql` after **every migration**, from a verified current database.
+Use PostgreSQL 17 `pg_dump` (17.11 was used for this snapshot), keeping grants:
+
+```bash
+pg_dump "$SOURCE_DATABASE_URL" --schema-only --schema=public --no-owner > public.sql
+```
+
+1. Keep the header, transaction and empty-schema guard. Enable `vector` in `public`,
+   and `pgcrypto` and `uuid-ossp` in `extensions`, before the dumped DDL.
+2. Insert the dumped public DDL and ACLs. Remove `CREATE SCHEMA public`, owner
+   statements, psql `\restrict`/`\unrestrict` commands (for SQL-editor compatibility),
+   and Supabase-managed `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin` statements
+   that a project administrator cannot change. Preserve the `postgres` defaults and
+   all explicit object grants/revocations. Keep `check_function_bodies = false` so
+   dump ordering can define functions before their referenced tables.
+3. Export only system roles (`is_system = true`), the permission catalog, and mappings
+   for those system roles. Render inserts by name with generated IDs/default timestamps;
+   never include custom roles, user IDs, profiles, patients, counters or other row data.
+4. Public-only dumps omit app objects in platform schemas. Capture the private bucket's
+   configuration, its four `storage.objects` policies, the two app triggers on
+   `auth.users`, and membership of `supabase_realtime` (`documents`, `patient_queue`).
+   Include those after the reference data; do not copy platform-owned tables/functions.
+5. Update the migration coverage rows and header, then `COMMIT`. On a disposable local
+   Supabase stack, bootstrap with `ON_ERROR_STOP`, verify the second-run refusal,
+   compare a normalized public dump (including ACLs), check external objects and system
+   reference mappings, and smoke-test signup, profile RLS and permission RPCs.
+   Review the final SQL for personal data before committing it.
+
+The snapshot is generated from database state; migration files remain historical
+records and must not be deleted. Credentials and intermediate data exports stay local.
+
+---
+
 ## Database Tables
 
 KlinikAid uses 8 primary tables to manage application state:
@@ -134,7 +198,8 @@ KlinikAid uses 8 primary tables to manage application state:
 
 ## Migration History
 
-The schema has evolved through four key migrations under `src/lib/db/`:
+Historical migrations are retained under `src/lib/db/` through migration 33. The
+following are early milestones, not a fresh-project execution sequence:
 
 1. **`migration_07.sql`** (pgvector Search)
    - Created the `match_documents` similarity search RPC.
