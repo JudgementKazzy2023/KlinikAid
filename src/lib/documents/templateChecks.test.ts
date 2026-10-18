@@ -167,6 +167,15 @@ describe("reviewTemplateSubmission", () => {
     expect(issueFor(review, "extra_note")?.reason).toMatch(/not a question on this form/i);
   });
 
+  it("flags an intake-only identity key stored on a non-intake form", () => {
+    const review = reviewTemplateSubmission(
+      storedRow("referral-form", VALID_REFERRAL, { address: "anything" }),
+      TODAY
+    );
+    expect(review.status).toBe("attention");
+    expect(issueFor(review, "address")?.reason).toMatch(/not a question on this form/i);
+  });
+
   it("flags a declined consent, naming the consent field", () => {
     const review = reviewTemplateSubmission(
       storedRow("procedure-consent", { ...VALID_CONSENT, consent_given: "No" }),

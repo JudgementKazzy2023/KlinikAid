@@ -25,16 +25,13 @@ import { getTodayInPh } from "@/lib/validation";
 const SUBMISSION_META_KEYS = new Set(["template_id", "template_name", "submission_type", "submitted_at"]);
 
 /**
- * Keys a known template's stored payload may carry that are not answers to its
- * questions: identity fields the submit action injects from the patient row,
- * and what reception adds on approval or rejection.
+ * Keys any known template's stored payload may carry that are not answers to
+ * its questions: the patient name the submit action injects, and what
+ * reception adds on approval or rejection.
  */
 const NON_ANSWER_KEYS = new Set([
   ...SUBMISSION_META_KEYS,
   "patient_name",
-  "date_of_birth",
-  "contact_number",
-  "address",
   "reviewed_by",
   "reviewed_by_name",
   "reviewed_at",
@@ -44,6 +41,9 @@ const NON_ANSWER_KEYS = new Set([
   "selected_tests",
   "detected_tests",
 ]);
+
+/** Copied from the patient row into intake submissions only. */
+const INTAKE_IDENTITY_KEYS = new Set(["date_of_birth", "contact_number", "address"]);
 
 /** Written from the patient row on intake forms, not typed by the patient. */
 const INJECTED_DOB_FIELD: TemplateField = {
@@ -239,6 +239,7 @@ function reviewKnownTemplate(
   const declared = new Set(fields.map((field) => field.key));
   for (const key of Object.keys(stored)) {
     if (declared.has(key) || NON_ANSWER_KEYS.has(key)) continue;
+    if (template.id === "patient-intake" && INTAKE_IDENTITY_KEYS.has(key)) continue;
     issues.push({ field: key, label: labelForKey(key), reason: "Not a question on this form, so this answer was not checked." });
   }
 
