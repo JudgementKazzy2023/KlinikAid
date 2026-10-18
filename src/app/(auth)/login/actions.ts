@@ -17,6 +17,7 @@ import {
 } from "@/lib/auth/login-attempts";
 
 const LIMITER_UNAVAILABLE = "Sign-in is temporarily unavailable. Please try again shortly.";
+const DEACTIVATED_MESSAGE = "Your account is deactivated. Please contact your administrator.";
 
 export interface LoginResult {
   error?: string;
@@ -105,6 +106,11 @@ export async function loginAction(
           error: "Confirm your email address before signing in. Open the link we emailed you, or send a new one.",
         };
       }
+      // Deactivation bans the Auth user, so Auth refuses before the profile
+      // check in step 3 can run. Same message that check would have shown.
+      if (authError.code === "user_banned") {
+        return { error: DEACTIVATED_MESSAGE };
+      }
       return { error: getSafeAuthErrorMessage(authError.message) };
     }
 
@@ -145,7 +151,7 @@ export async function loginAction(
         `Inactive user ${profile.full_name} (${email}) attempted login`,
         ipAddress
       );
-      return { error: "Your account is deactivated. Please contact your administrator." };
+      return { error: DEACTIVATED_MESSAGE };
     }
 
     // 4. Check if Multi-Factor Authentication (MFA) is required
@@ -153,7 +159,11 @@ export async function loginAction(
 
     if (mfaError || !mfaData) {
       await supabase.auth.signOut();
-      return { error: `MFA configuration error: ${mfaError?.message || "No MFA assurance data returned"}` };
+      return {
+        error: mfaError?.code === "user_banned"
+          ? DEACTIVATED_MESSAGE
+          : `MFA configuration error: ${mfaError?.message || "No MFA assurance data returned"}`,
+      };
     }
 
     // If MFA is enrolled (nextLevel is aal2) and the user has not completed the second factor (currentLevel is aal1)
@@ -172,7 +182,11 @@ export async function loginAction(
       const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
       if (factorsError || !factors) {
         await supabase.auth.signOut();
-        return { error: `Failed to retrieve MFA factors: ${factorsError?.message || "Unknown error"}` };
+        return {
+          error: factorsError?.code === "user_banned"
+            ? DEACTIVATED_MESSAGE
+            : `Failed to retrieve MFA factors: ${factorsError?.message || "Unknown error"}`,
+        };
       }
 
       const totpFactor = getTotpFactors(factors).find((factor) => factor.status === "verified");
@@ -188,7 +202,11 @@ export async function loginAction(
 
       if (challengeError || !challenge) {
         await supabase.auth.signOut();
-        return { error: `MFA challenge failed: ${challengeError?.message || "Failed to create challenge"}` };
+        return {
+          error: challengeError?.code === "user_banned"
+            ? DEACTIVATED_MESSAGE
+            : `MFA challenge failed: ${challengeError?.message || "Failed to create challenge"}`,
+        };
       }
 
       // Verify challenge
@@ -207,7 +225,11 @@ export async function loginAction(
           `MFA code verification failed for user ${profile.full_name}`,
           ipAddress
         );
-        return { error: "Invalid verification code. Please try again." };
+        return {
+          error: verifyError.code === "user_banned"
+            ? DEACTIVATED_MESSAGE
+            : "Invalid verification code. Please try again.",
+        };
       }
 
       // GoTrue accepts a code for as long as its window lasts, however many
