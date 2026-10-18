@@ -1,4 +1,12 @@
-import { LAB_REFERENCE_RANGES, LAB_TEST_GROUPS } from "@/lib/constants";
+import {
+  LAB_NARRATIVE_FIELDS,
+  LAB_NARRATIVE_MAX_LENGTH,
+  LAB_NARRATIVE_TESTS,
+  LAB_REFERENCE_RANGES,
+  LAB_TEST_GROUPS,
+  type LabNarrativeField,
+  type LabNarrativeTest,
+} from "@/lib/constants";
 import { ValidationError } from "@/lib/api-response";
 
 export interface ValidatedLabResult {
@@ -141,4 +149,113 @@ export function validateLabPanel(
 
     return { test_name, ...validateLabResult(test_name, test_value, gender) };
   });
+}
+
+export interface ValidatedNarrativeResult {
+  test_name: LabNarrativeField;
+  test_value: string;
+  unit: null;
+  reference_range_min: null;
+  reference_range_max: null;
+  is_flagged: false;
+}
+
+export function isLabNarrativeTest(value: unknown): value is LabNarrativeTest {
+  return typeof value === "string" && (LAB_NARRATIVE_TESTS as readonly string[]).includes(value);
+}
+
+function isLabNarrativeField(value: unknown): value is LabNarrativeField {
+  return typeof value === "string" && (LAB_NARRATIVE_FIELDS as readonly string[]).includes(value);
+}
+
+/**
+ * Validates a narrative laboratory result: Findings, and optionally Impression,
+ * for a requested test that has no structured panel.
+ *
+ * Nothing here is flagged and no range or unit is stored, whatever the client
+ * sends. These tests have no documented reference ranges, so the system makes
+ * no normal/abnormal claim about them.
+ */
+export function validateLabNarrative(testType: unknown, results: unknown): ValidatedNarrativeResult[] {
+  if (!isLabNarrativeTest(testType)) {
+    throw new ValidationError(
+      `test_type must be one of the narrative laboratory tests: ${LAB_NARRATIVE_TESTS.join(", ")}.`
+    );
+  }
+
+  if (!Array.isArray(results) || results.length === 0) {
+    throw new ValidationError("At least one result is required.");
+  }
+
+  const seen = new Set<LabNarrativeField>();
+  const rows = results.map((result: unknown): ValidatedNarrativeResult => {
+    if (typeof result !== "object" || result === null) {
+      throw new ValidationError("Each result must be an object with test_name and test_value.");
+    }
+
+    const { test_name, test_value } = result as { test_name?: unknown; test_value?: unknown };
+
+    if (!isLabNarrativeField(test_name)) {
+      throw new ValidationError(
+        `${testType} is recorded as narrative text. Each result must be one of: ${LAB_NARRATIVE_FIELDS.join(", ")}.`
+      );
+    }
+    if (seen.has(test_name)) {
+      throw new ValidationError(`${test_name} was submitted more than once.`);
+    }
+    seen.add(test_name);
+
+    if (typeof test_value !== "string") {
+      throw new ValidationError(`${test_name}: test_value must be text.`);
+    }
+    const text = test_value.trim();
+    if (!text) {
+      throw new ValidationError(`${test_name} must not be empty.`);
+    }
+    if (text.length > LAB_NARRATIVE_MAX_LENGTH) {
+      throw new ValidationError(
+        `${test_name} must be no more than ${LAB_NARRATIVE_MAX_LENGTH} characters.`
+      );
+    }
+
+    return {
+      test_name,
+      test_value: text,
+      unit: null,
+      reference_range_min: null,
+      reference_range_max: null,
+      is_flagged: false,
+    };
+  });
+
+  if (!seen.has("Findings")) {
+    throw new ValidationError("Findings is required for a narrative laboratory result.");
+  }
+
+  return rows;
+}
+
+/**
+ * Validates a laboratory submission from the department entry form: a
+ * structured panel or a narrative test, chosen by test_type. The two sets of
+ * names are disjoint, so the choice is never ambiguous.
+ *
+ * The specialist record action calls validateLabPanel directly and does not
+ * accept narrative results.
+ */
+export function validateLabSubmission(
+  testType: unknown,
+  results: unknown,
+  gender: string | null | undefined
+): (ValidatedPanelResult | ValidatedNarrativeResult)[] {
+  if (isLabNarrativeTest(testType)) {
+    return validateLabNarrative(testType, results);
+  }
+  if (typeof testType === "string" && !isLabPanel(testType)) {
+    throw new ValidationError(
+      `"${testType}" is not a laboratory test. Expected a panel (${Object.keys(LAB_TEST_GROUPS).join(", ")}) ` +
+        `or a narrative test (${LAB_NARRATIVE_TESTS.join(", ")}).`
+    );
+  }
+  return validateLabPanel(testType, results, gender);
 }

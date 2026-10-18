@@ -14,7 +14,7 @@ import {
   ChevronRight, 
 } from "lucide-react";
 import { format } from "date-fns";
-import { DEPARTMENTS } from "@/lib/constants";
+import { DEPARTMENTS, testTypeLabel } from "@/lib/constants";
 import { formatPhTimeFull, getAge } from "@/lib/utils";
 
 interface QueuePatient {
@@ -207,8 +207,10 @@ export default function DepartmentRecordsClient({
   // Filtered History Reports
   const filteredReports = groupedReports.filter(report => {
     const pName = `${report.patient?.first_name || ""} ${report.patient?.last_name || ""}`.toLowerCase();
+    const term = searchTerm.toLowerCase();
     const testType = report.test_type.toLowerCase();
-    const matchesSearch = pName.includes(searchTerm.toLowerCase()) || testType.includes(searchTerm.toLowerCase());
+    const testLabel = testTypeLabel(activeDept, report.test_type).toLowerCase();
+    const matchesSearch = pName.includes(term) || testType.includes(term) || testLabel.includes(term);
     return matchesSearch;
   });
 
@@ -464,6 +466,10 @@ export default function DepartmentRecordsClient({
                 const dateFormatted = format(new Date(report.created_at), "yyyy-MM-dd HH:mm");
                 const p = report.patient;
                 const rec = report.recorder;
+                // A narrative lab result has no reference range to be normal against.
+                const isNarrativeLab =
+                  activeDept === "laboratory" &&
+                  report.parameters.every((param) => param.reference_range_min === null && param.reference_range_max === null);
 
                 return (
                   <div 
@@ -483,9 +489,14 @@ export default function DepartmentRecordsClient({
 
                       <div className="flex items-center gap-2">
                         <span className="px-2.5 py-1 text-xs font-extrabold uppercase rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
-                          {report.test_type}
+                          {testTypeLabel(activeDept, report.test_type)}
                         </span>
-                        {report.hasFlagged ? (
+                        {isNarrativeLab ? (
+                          <span className="flex items-center gap-1 px-2.5 py-1 text-xs font-extrabold uppercase rounded-lg bg-slate-50 text-slate-600 border border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-800">
+                            <FileText className="h-3.5 w-3.5" />
+                            Narrative · Not flagged
+                          </span>
+                        ) : report.hasFlagged ? (
                           <span className="flex items-center gap-1 px-2.5 py-1 text-xs font-extrabold uppercase rounded-lg bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/20 dark:text-red-400 dark:border-red-900/50">
                             <AlertCircle className="h-3.5 w-3.5" />
                             Flagged
