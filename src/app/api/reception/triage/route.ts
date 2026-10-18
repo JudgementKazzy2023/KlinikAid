@@ -2,8 +2,16 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/helpers";
 import { errorResponse, handleRouteError, successResponse } from "@/lib/api-response";
 import { logEvent } from "@/lib/logger";
-import { getPhtStartOfToday } from "@/lib/utils";
+import { openQueueEntryDepartment, queueNumberFromTriageNotes } from "@/lib/queue-number";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
+import type { Patient, PatientQueue } from "@/types";
+
+// The row triage_patient() returns, with the patient embedded as selected below.
+type TriagedQueueEntry = Omit<PatientQueue, "patient"> & {
+  queue_date: string;
+  queue_number: number;
+  patient: Pick<Patient, "id" | "first_name" | "last_name"> | null;
+};
 
 const STRICT_NUMBER_REGEX = /^-?\d+(\.\d+)?$/;
 const BLOOD_PRESSURE_REGEX = /^\d{2,3}\/\d{2,3}$/;
@@ -84,81 +92,27 @@ export async function POST(request: Request) {
       return errorResponse(temperature.error || "Invalid temperature.", 400);
     }
 
-    // 3.5. Guard Check: Deduplicate Triage Approvals
-    // Check if patient already has an open (waiting or in_progress) queue entry
-    const { data: existingOpen, error: checkError } = await supabase
-      .from("patient_queue")
-      .select("id, department, status")
-      .eq("patient_id", patient_id)
-      .in("status", ["waiting", "in_progress"])
-      .limit(1)
-      .maybeSingle();
-
-    if (checkError) {
-      throw checkError;
-    }
-
-    if (existingOpen) {
-      // Map department identifier to a human-readable title
-      const deptNames: Record<string, string> = {
-        laboratory: "Laboratory",
-        imaging: "Imaging",
-        ultrasound: "Ultrasound",
-        ecg: "ECG",
-      };
-      const deptLabel = deptNames[existingOpen.department] || existingOpen.department;
-      return errorResponse(
-        `Patient already in ${deptLabel} queue. Resolve the existing entry before routing a new one.`,
-        409
-      );
-    }
-
-    // 4. Calculate Philippine start of today (UTC+8) (Rule 9)
-    const startOfTodayIso = getPhtStartOfToday();
-
-    // 5. Query today's queue entries for this department to calculate queue number
-    const { count, error: countError } = await supabase
-      .from("patient_queue")
-      .select("id", { count: "exact", head: true })
-      .eq("department", department)
-      .gte("created_at", startOfTodayIso);
-
-    if (countError) {
-      throw countError;
-    }
-
-    const dailyCount = (count || 0) + 1;
-
-    // 6. Map department to code
-    const deptCodes: Record<string, string> = {
-      laboratory: "LAB",
-      imaging: "IMG",
-      ultrasound: "ULT",
-      ecg: "ECG",
-    };
-    const deptCode = deptCodes[department] || "GEN";
-    const queueNumber = `${deptCode}-${String(dailyCount).padStart(3, "0")}`;
-
-    // 7. Format triage_notes as JSON (as established in Phase 4 / MASTER_CONTEXT.md)
-    const triageNotesJson = JSON.stringify({
-      queue_number: queueNumber,
-      vitals: {
-        blood_pressure: bloodPressure || null,
-        weight_kg: weight.value,
-        temperature_c: temperature.value,
-      },
-      notes: notes || "",
-    });
-
-    // 8. Insert into patient_queue
-    const { data: queueEntry, error: insertError } = await supabase
-      .from("patient_queue")
-      .insert({
-        patient_id,
-        department,
-        status: "waiting", // satisfies CHECK (status IN ('waiting', 'in_progress', 'completed', 'cancelled'))
-        priority_level: priority_level || "routine",
-        triage_notes: triageNotesJson,
+    // 4. Route the patient in one database call (migration 33).
+    // triage_patient() refuses a patient who already has an open (waiting or
+    // in_progress) entry, allocates the department's next number for the
+    // Philippine (UTC+8) day, and inserts the entry, all in one transaction. It
+    // used to be three requests -- open-entry check, count(today)+1, insert -- so
+    // concurrent triage passed the check together and read the same count:
+    // different patients got the same number, and one patient could be queued
+    // several times. Unique indexes now back both rules. The function is
+    // SECURITY INVOKER, so the insert is still governed by the queue RLS
+    // policies, and it re-checks queue.manage itself.
+    const { data: queueEntry, error: triageError } = await supabase
+      .rpc("triage_patient", {
+        p_patient_id: patient_id,
+        p_department: department,
+        p_priority_level: priority_level || "routine",
+        p_vitals: {
+          blood_pressure: bloodPressure || null,
+          weight_kg: weight.value,
+          temperature_c: temperature.value,
+        },
+        p_notes: notes || "",
       })
       .select(`
         *,
@@ -168,11 +122,31 @@ export async function POST(request: Request) {
           last_name
         )
       `)
-      .single();
+      .single<TriagedQueueEntry>();
 
-    if (insertError || !queueEntry) {
-      throw insertError || new Error("Failed to insert queue record");
+    const openDepartment = openQueueEntryDepartment(triageError);
+    if (openDepartment !== null) {
+      // Map department identifier to a human-readable title
+      const deptNames: Record<string, string> = {
+        laboratory: "Laboratory",
+        imaging: "Imaging",
+        ultrasound: "Ultrasound",
+        ecg: "ECG",
+      };
+      const deptLabel = deptNames[openDepartment] || openDepartment;
+      return errorResponse(
+        `Patient already in ${deptLabel} queue. Resolve the existing entry before routing a new one.`,
+        409
+      );
     }
+
+    if (triageError || !queueEntry) {
+      throw triageError || new Error("Failed to insert queue record");
+    }
+
+    // The number the queue boards show: read back from the triage_notes the
+    // function wrote, rather than formatted a second time here.
+    const queueNumber = queueNumberFromTriageNotes(queueEntry.triage_notes);
 
     await logEvent(
       supabase,
