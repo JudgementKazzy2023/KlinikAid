@@ -8,11 +8,14 @@ import { extractDocumentText } from "@/lib/documents/extractDocumentText";
 import { detectRequestedTests, selectDetectedTests } from "@/lib/documents/detectRequestedTests";
 import { revalidatePath } from "next/cache";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
+import { classifyRead } from "@/lib/read-outcome";
+import { finalDocumentPath, isStorageDuplicateError } from "@/lib/documents/assessedDocument";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const DOCUMENT_BUCKET = "patient-documents";
 const OCR_FAILURE_TOKEN = "OCR_FAILED";
+const ASSESSMENT_EXPIRED_ERROR = "Document assessment expired or was not found. Please upload the file again.";
 const OCR_FAILURE_PHRASES = [
   "cannot extract",
   "can't extract",
@@ -205,6 +208,8 @@ export async function assessDocumentQualityAction(formData: FormData) {
   };
 }
 
+type ConfirmSubmitResult = { success: boolean; error?: string };
+
 export async function confirmSubmitDocumentAction(assessmentId: string, selectedTestIds?: string[]) {
   // Standing Rule 1: supabase.auth.getUser() first line
   const supabase = await createClient();
@@ -228,15 +233,49 @@ export async function confirmSubmitDocumentAction(assessmentId: string, selected
     return { success: false, error: patientError };
   }
 
-  const { data: pendingRow, error: pendingError } = await supabase
-    .from("pending_document_ocr")
-    .select("id, patient_id, file_name, file_type, file_path, ocr_text")
-    .eq("id", assessmentId)
-    .eq("user_id", user.id)
-    .single<PendingDocumentOcrRow>();
+  const submitted = (): ConfirmSubmitResult => {
+    revalidatePath("/patient/submissions");
+    revalidatePath("/patient/dashboard");
+    return { success: true };
+  };
 
-  if (pendingError || !pendingRow) {
-    return { success: false, error: "Document assessment expired or was not found. Please upload the file again." };
+  // The pending row is gone once an assessment has been submitted. A repeated
+  // or concurrent confirmation of it gets the original submission back rather
+  // than "expired".
+  const alreadySubmittedOr = async (failure: string): Promise<ConfirmSubmitResult> => {
+    const existing = classifyRead(
+      await supabase
+        .from("documents")
+        .select("id")
+        .eq("source_assessment_id", assessmentId)
+        .eq("uploader_id", user.id)
+        .single<{ id: string }>()
+    );
+    if (existing.kind === "ok") return submitted();
+    if (existing.kind === "failed") {
+      console.error("[confirmSubmitDocumentAction] Submitted document lookup error:", existing.error);
+      return { success: false, error: "Failed to check the document submission. Please try again." };
+    }
+    return { success: false, error: failure };
+  };
+
+  const pendingRead = classifyRead(
+    await supabase
+      .from("pending_document_ocr")
+      .select("id, patient_id, file_name, file_type, file_path, ocr_text")
+      .eq("id", assessmentId)
+      .eq("user_id", user.id)
+      .single<PendingDocumentOcrRow>()
+  );
+
+  if (pendingRead.kind === "failed") {
+    console.error("[confirmSubmitDocumentAction] Pending OCR read error:", pendingRead.error);
+    return { success: false, error: "Failed to load the document assessment. Please try again." };
+  }
+
+  const pendingRow = pendingRead.kind === "ok" ? pendingRead.data : null;
+  if (!pendingRow) {
+    return alreadySubmittedOr(ASSESSMENT_EXPIRED_ERROR);
   }
 
   if (pendingRow.patient_id !== patient.id) {
@@ -249,11 +288,14 @@ export async function confirmSubmitDocumentAction(assessmentId: string, selected
 
   if (downloadError || !pendingFile) {
     console.error("[confirmSubmitDocumentAction] Pending file download error:", downloadError);
-    return { success: false, error: "Failed to retrieve assessed file. Please upload it again." };
+    // A concurrent confirmation may have just submitted it and removed the file.
+    return alreadySubmittedOr("Failed to retrieve assessed file. Please upload it again.");
   }
 
+  // One final path per assessment: every request for it uploads the same
+  // pending file to the same place, so a duplicate upload is not an error.
   const fileExtension = getFileExtension(pendingRow.file_name, pendingRow.file_type);
-  const finalFilePath = `${user.id}/${crypto.randomUUID()}.${fileExtension}`;
+  const finalFilePath = finalDocumentPath(user.id, assessmentId, fileExtension);
   const finalFileBuffer = Buffer.from(await pendingFile.arrayBuffer());
 
   const { error: uploadError } = await supabase.storage
@@ -263,12 +305,11 @@ export async function confirmSubmitDocumentAction(assessmentId: string, selected
       upsert: false,
     });
 
-  if (uploadError) {
+  if (uploadError && !isStorageDuplicateError(uploadError)) {
     console.error("[confirmSubmitDocumentAction] Final storage upload error:", uploadError);
     return { success: false, error: `Failed to upload file to storage: ${uploadError.message}` };
   }
 
-  const trimmedOcrText = pendingRow.ocr_text.trim();
   const detectedTests = detectRequestedTests(pendingRow.ocr_text);
   const selectedTests = selectDetectedTests(detectedTests, selectedTestIds);
   const extractedMetadata = detectedTests.length > 0
@@ -279,45 +320,45 @@ export async function confirmSubmitDocumentAction(assessmentId: string, selected
         test_detection_version: 1,
       }
     : null;
-  const documentInsert = {
-    patient_id: patient.id,
-    uploader_id: user.id,
-    file_name: pendingRow.file_name,
-    file_path: finalFilePath,
-    file_type: pendingRow.file_type,
-    status: "pending",
-    ...(trimmedOcrText ? { ocr_text: pendingRow.ocr_text } : {}),
-    ...(extractedMetadata ? { extracted_metadata: extractedMetadata } : {}),
-  };
 
   // Service role, not the patient's session: patients hold no INSERT policy on
   // documents (migration_23), so patient_id, uploader_id and status can only be
-  // the ones derived above from the authenticated user.
-  const { data: docRow, error: insertError } = await createAdminClient()
-    .from("documents")
-    .insert(documentInsert)
-    .select()
-    .single();
+  // the ones derived above from the authenticated user. The function consumes
+  // the pending row and inserts the document in one transaction (migration_34),
+  // so only one confirmation of an assessment creates a document; the others
+  // get that document's id back with created = false.
+  const { data: submission, error: submitError } = await createAdminClient()
+    .rpc("submit_assessed_document", {
+      p_assessment_id: assessmentId,
+      p_user_id: user.id,
+      p_patient_id: patient.id,
+      p_file_path: finalFilePath,
+      p_extracted_metadata: extractedMetadata,
+    })
+    .single<{ document_id: string; created: boolean }>();
 
-  if (insertError) {
-    console.error("[confirmSubmitDocumentAction] DB insert error, initiating orphan cleanup:", insertError);
+  if (submitError?.code === "P0002") {
+    // Neither a pending row nor a document: the assessment was discarded while
+    // this request ran. Nothing can reference the final file any more.
     const { error: removeError } = await supabase.storage
       .from(DOCUMENT_BUCKET)
       .remove([finalFilePath]);
     if (removeError) {
-      console.error("[confirmSubmitDocumentAction] Orphan cleanup failed to delete final file:", removeError);
+      console.error("[confirmSubmitDocumentAction] Failed to delete unused final file:", removeError);
     }
+    return { success: false, error: ASSESSMENT_EXPIRED_ERROR };
+  }
+
+  if (submitError || !submission) {
+    // The final file is kept: the transaction rolled back, so the pending row
+    // is still there and a retry reuses the same path. If the call did commit
+    // and only the response was lost, the new document references this file.
+    console.error("[confirmSubmitDocumentAction] Document submission error:", submitError);
     return { success: false, error: "Failed to save document. Please try again." };
   }
 
-  const { error: deletePendingError } = await supabase
-    .from("pending_document_ocr")
-    .delete()
-    .eq("id", assessmentId)
-    .eq("user_id", user.id);
-
-  if (deletePendingError) {
-    console.error("[confirmSubmitDocumentAction] Failed to delete consumed pending OCR row:", deletePendingError);
+  if (!submission.created) {
+    return submitted();
   }
 
   const { error: removePendingFileError } = await supabase.storage
@@ -334,13 +375,10 @@ export async function confirmSubmitDocumentAction(assessmentId: string, selected
     SYSTEM_EVENT_TYPES.DOCUMENT_SUBMITTED,
     `Patient submitted document: ${pendingRow.file_name}`,
     null,
-    { document_id: docRow.id, file_name: pendingRow.file_name, assessment_id: assessmentId }
+    { document_id: submission.document_id, file_name: pendingRow.file_name, assessment_id: assessmentId }
   );
 
-  revalidatePath("/patient/submissions");
-  revalidatePath("/patient/dashboard");
-
-  return { success: true };
+  return submitted();
 }
 
 export async function discardAssessedDocumentAction(assessmentId: string) {
