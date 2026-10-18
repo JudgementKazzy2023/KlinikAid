@@ -299,7 +299,7 @@ export default function ResetPasswordPage() {
                     />
                   </div>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {PASSWORD_REQUIREMENT_TEXT}
+                    Enter the 6-digit code from your authenticator app.
                   </p>
                 </div>
               </CardContent>
@@ -349,6 +349,9 @@ export default function ResetPasswordPage() {
                       autoFocus
                     />
                   </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {PASSWORD_REQUIREMENT_TEXT}
+                  </p>
                 </div>
 
                 <div className="space-y-2">
