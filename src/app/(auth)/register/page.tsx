@@ -149,6 +149,7 @@ function RegisterForm() {
                       <Input
                         id="firstName"
                         type="text"
+                        autoComplete="given-name"
                         placeholder="John"
                         className="pl-10"
                         value={formData.firstName}
@@ -166,6 +167,7 @@ function RegisterForm() {
                       <Input
                         id="lastName"
                         type="text"
+                        autoComplete="family-name"
                         placeholder="Doe"
                         className="pl-10"
                         value={formData.lastName}
@@ -185,6 +187,7 @@ function RegisterForm() {
                       <Input
                         id="dob"
                         type="date"
+                        autoComplete="bday"
                         className={`pl-10 ${formData.dob && !dobValidation.valid ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                         value={formData.dob}
                         onChange={handleChange}
@@ -203,6 +206,7 @@ function RegisterForm() {
                     <Label htmlFor="gender">Gender</Label>
                     <select
                       id="gender"
+                      autoComplete="sex"
                       className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:ring-offset-slate-950 dark:focus-visible:ring-slate-300"
                       value={formData.gender}
                       onChange={handleChange}
@@ -223,6 +227,7 @@ function RegisterForm() {
                     <Input
                       id="contactNumber"
                       type="tel"
+                      autoComplete="tel"
                       placeholder="09171234567"
                       className="pl-10"
                       value={formData.contactNumber}
@@ -240,6 +245,7 @@ function RegisterForm() {
                     <Input
                       id="address"
                       type="text"
+                      autoComplete="street-address"
                       placeholder="123 Rizal St, Rodriguez, Rizal"
                       className="pl-10"
                       value={formData.address}
@@ -257,6 +263,7 @@ function RegisterForm() {
                     <Input
                       id="email"
                       type="email"
+                      autoComplete="email"
                       placeholder="john.doe@example.com"
                       className="pl-10"
                       value={formData.email}
@@ -274,6 +281,7 @@ function RegisterForm() {
                     <Input
                       id="password"
                       type="password"
+                      autoComplete="new-password"
                       placeholder="••••••••"
                       className="pl-10"
                       value={formData.password}

@@ -183,6 +183,7 @@ function LoginForm() {
                       <Input
                         id="email"
                         type="email"
+                        autoComplete="email"
                         placeholder="doctor@bloodcare.com"
                         className="pl-10"
                         value={email}
@@ -205,6 +206,7 @@ function LoginForm() {
                       <Input
                         id="password"
                         type="password"
+                        autoComplete="current-password"
                         placeholder="••••••••"
                         className="pl-10"
                         value={password}
@@ -224,6 +226,7 @@ function LoginForm() {
                     <Input
                       id="totpCode"
                       type="text"
+                      autoComplete="one-time-code"
                       inputMode="numeric"
                       pattern="[0-9]*"
                       maxLength={6}

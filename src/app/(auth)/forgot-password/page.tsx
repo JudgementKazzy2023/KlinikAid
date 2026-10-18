@@ -97,6 +97,7 @@ export default function ForgotPasswordPage() {
                       id="email"
                       name="email"
                       type="email"
+                      autoComplete="email"
                       placeholder="user@bloodcare.com"
                       className="pl-10"
                       disabled={isPending}
