@@ -16,10 +16,13 @@ import {
   Search,
   ChevronRight,
   ChevronDown,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { fetchJson, type ApiError } from "@/lib/fetch-json";
+import DataLoadError from "@/components/DataLoadError";
 
 interface ReceptionKanbanProps {
   initialDocuments: Document[];
@@ -52,6 +55,20 @@ interface Column {
 /** Cards rendered per column before "Load more". Every document stays in state and reachable. */
 const PAGE_SIZE = 20;
 
+/**
+ * The four things a search can be. There is no member that means "searched and
+ * found nothing" and no member that means "the search failed": those are two
+ * different claims, and the board renders them as two different states.
+ */
+type SearchState =
+  | { readonly kind: "idle" }
+  | { readonly kind: "loading" }
+  | { readonly kind: "ok"; readonly documents: Document[]; readonly truncated: boolean }
+  | { readonly kind: "failed"; readonly error: ApiError };
+
+/** Delay before a search query is sent, to avoid a request per keystroke. */
+const SEARCH_DEBOUNCE_MS = 300;
+
 export default function ReceptionKanban({
   initialDocuments,
   actionableTotal,
@@ -60,6 +77,12 @@ export default function ReceptionKanban({
   const supabase = createClient();
   const [documents, setDocuments] = useState<Document[]>(initialDocuments);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchState, setSearchState] = useState<SearchState>({ kind: "idle" });
+  // Each search fetch takes a ticket; only the newest may write the result.
+  // Without this, a slow response to an older query can overwrite the answer
+  // for the query the user is actually looking at (the LogsDashboardClient
+  // pattern).
+  const searchSeq = useRef(0);
   const [showCompleted, setShowCompleted] = useState(false);
   const [visible, setVisible] = useState<Record<ColumnId, number>>({
     submitted: PAGE_SIZE,
@@ -164,21 +187,56 @@ export default function ReceptionKanban({
     };
   }, [supabase]);
 
-  // Handle Search Filtering
-  const filteredDocuments = documents.filter((doc) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    const patientName = `${doc.patient?.first_name || ""} ${doc.patient?.last_name || ""}`.toLowerCase();
-    const fileName = doc.file_name.toLowerCase();
-    const docType = doc.file_type.toLowerCase();
-    const uploaderName = doc.uploader?.full_name?.toLowerCase() || "";
-    return (
-      patientName.includes(q) ||
-      fileName.includes(q) ||
-      docType.includes(q) ||
-      uploaderName.includes(q)
-    );
-  });
+  // The trimmed query decides whether the board searches the whole table on the
+  // server or shows the local (capped) list. `searching` is true exactly when
+  // there is something to search for.
+  const trimmedQuery = searchQuery.trim();
+  const searching = trimmedQuery.length > 0;
+
+  // Server search, debounced, with the sequence-ticket stale-response guard from
+  // LogsDashboardClient. Only the empty query keeps the local list; a non-empty
+  // query must reach the server, because the local list is capped (#34) and an
+  // uncapped client filter would read "no match" for rows that were never loaded.
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length === 0) {
+      setSearchState({ kind: "idle" });
+      return;
+    }
+
+    const ticket = ++searchSeq.current;
+    setSearchState({ kind: "loading" });
+
+    const timer = setTimeout(async () => {
+      const outcome = await fetchJson<{ documents: Document[]; truncated: boolean }>(
+        `/api/reception/documents/search?q=${encodeURIComponent(q)}`
+      );
+
+      // A response to an older query does not describe the query on screen.
+      if (ticket !== searchSeq.current) return;
+
+      if (outcome.kind === "failed") {
+        setSearchState({ kind: "failed", error: outcome.error });
+        return;
+      }
+
+      setSearchState({
+        kind: "ok",
+        documents: outcome.data.documents,
+        truncated: outcome.data.truncated,
+      });
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // What the board renders: the server's full-table matches while a search is
+  // active, otherwise the local list kept fresh by the realtime subscription.
+  const displayDocuments = searching
+    ? searchState.kind === "ok"
+      ? searchState.documents
+      : []
+    : documents;
 
   // Group documents by column
   const columnsData: Record<ColumnId, Document[]> = {
@@ -189,7 +247,7 @@ export default function ReceptionKanban({
     rejected: [],
   };
 
-  filteredDocuments.forEach((doc) => {
+  displayDocuments.forEach((doc) => {
     const colId = getColumn(doc);
     columnsData[colId].push(doc);
   });
@@ -378,7 +436,7 @@ export default function ReceptionKanban({
       <>
         {list.length === 0 ? (
           <p className="rounded-md border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-slate-500">
-            {searchQuery ? "No matches" : "No documents"}
+            {searching ? "No matches" : "No documents"}
           </p>
         ) : (
           <ul className="space-y-2">{list.slice(0, shownCount).map((doc) => renderCard(doc, col.id))}</ul>
@@ -397,8 +455,28 @@ export default function ReceptionKanban({
     );
   };
 
+  // The one-line summary beside the search box. When searching, "loaded" would
+  // be the wrong noun: the server searched the whole table, not the capped page.
+  const statusText = searching
+    ? searchState.kind === "ok"
+      ? `${searchState.documents.length} match${searchState.documents.length === 1 ? "" : "es"} across all records`
+      : searchState.kind === "loading"
+        ? "Searching all records…"
+        : "Search unavailable"
+    : `Showing ${documents.length} loaded`;
+
+  // The board renders only when there is something to show. During a search
+  // that is still loading, failed, or returned nothing, a dedicated status
+  // replaces the empty columns so "no results" is never confused with a
+  // search that has not run or a search that did not complete.
+  const showBoard = !searching || (searchState.kind === "ok" && searchState.documents.length > 0);
+  const showMoreResults = searching && searchState.kind === "ok" && searchState.truncated;
+
   const completedCount = columnsData.approved.length + columnsData.rejected.length;
-  const desktopColumns = columns.filter((c) => !c.completed || showCompleted);
+  // During a search the completed columns are always shown: the search spans the
+  // whole table including approved/rejected history, so a match there must not
+  // be hidden behind the "Recently completed" toggle.
+  const desktopColumns = columns.filter((c) => !c.completed || showCompleted || searching);
   const activeCol = columns.find((c) => c.id === activeTab) ?? columns[0];
 
   return (
@@ -417,7 +495,7 @@ export default function ReceptionKanban({
         </div>
         <div className="flex items-center gap-3 sm:ml-auto">
           <span className="whitespace-nowrap text-xs text-slate-600 tabular-nums">
-            Showing {filteredDocuments.length} of {documents.length} loaded
+            {statusText}
           </span>
           <button
             type="button"
@@ -437,7 +515,7 @@ export default function ReceptionKanban({
           rather than left for reception to infer: a board that looks complete while
           omitting referrals is how a referral is never actioned. Collapsed to one line;
           the full statement is one click away. */}
-      {anythingOmitted ? (
+      {!searching && (anythingOmitted ? (
         <details role="status" className="group shrink-0 rounded-md border border-amber-200 bg-amber-50 text-xs text-amber-900">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-medium">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -456,8 +534,8 @@ export default function ReceptionKanban({
                 <li>
                   {actionableOmitted} awaiting-action{" "}
                   {actionableOmitted === 1 ? "document is" : "documents are"} not
-                  listed. Anything not shown here is older than what is, so
-                  search will not find it.
+                  listed. Anything not shown here is older than what is. Search
+                  reaches all records, so use it to find them.
                 </li>
               ) : null}
               {completedOmitted ? (
@@ -465,7 +543,7 @@ export default function ReceptionKanban({
                   {completedOmitted} completed{" "}
                   {completedOmitted === 1 ? "document is" : "documents are"} not
                   listed. Only the most recent approved and rejected documents are
-                  loaded.
+                  loaded. Search reaches the rest of the history.
                 </li>
               ) : null}
             </ul>
@@ -485,10 +563,42 @@ export default function ReceptionKanban({
             view until the page reloads successfully.
           </p>
         </div>
-      ) : null}
+      ) : null)}
+
+      {/* Search status. Distinct from "no search run" and from an empty result:
+          a search that failed must not render as "no matches", and a search that
+          searched the whole table and found nothing must say so explicitly. */}
+      {searching && searchState.kind === "loading" && (
+        <div role="status" aria-live="polite" className="flex shrink-0 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400" />
+          <p>Searching all records…</p>
+        </div>
+      )}
+      {searching && searchState.kind === "failed" && (
+        <DataLoadError what="the document search" error={searchState.error} />
+      )}
+      {searching && searchState.kind === "ok" && searchState.documents.length === 0 && (
+        <div role="status" aria-live="polite" className="flex shrink-0 items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+          <Search className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+          <p>
+            No documents match <span className="font-medium">“{trimmedQuery}”</span> across all records.
+          </p>
+        </div>
+      )}
+      {showMoreResults && (
+        <div role="status" className="flex shrink-0 items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            There are more matches for <span className="font-medium">“{trimmedQuery}”</span> than can be shown.
+            Refine your search to see the rest.
+          </p>
+        </div>
+      )}
 
       {/* Mobile: one status at a time */}
-      <div className="flex min-h-0 flex-1 flex-col md:hidden">
+      {showBoard && (
+        <>
+          <div className="flex min-h-0 flex-1 flex-col md:hidden">
         <div role="tablist" aria-label="Queue status" className="-mx-1 flex shrink-0 gap-1 overflow-x-auto px-1 pb-2">
           {columns.map((col) => {
             const selected = col.id === activeCol.id;
@@ -533,7 +643,7 @@ export default function ReceptionKanban({
                 <div
                   key={col.id}
                   className="relative flex w-12 shrink-0 snap-start flex-col items-center overflow-hidden rounded-lg bg-slate-900/[0.035] py-3"
-                  title={`${col.title}: ${searchQuery ? "no matches" : "no documents"}. ${col.description}`}
+                  title={`${col.title}: ${searching ? "no matches" : "no documents"}. ${col.description}`}
                 >
                   <span className={cn("absolute inset-x-0 top-0 h-[3px]", col.bar)} />
                   <span className="mt-1">{col.icon}</span>
@@ -578,6 +688,8 @@ export default function ReceptionKanban({
           </>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }
