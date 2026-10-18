@@ -7,6 +7,30 @@ import {
   mustChangePassword,
 } from "@/lib/auth/temporary-password";
 
+/**
+ * The Access Denied landing page (`/403`) is a real page that reads the session
+ * to choose the dashboard link and offer sign-out, but it must answer HTTP 403,
+ * not 200: monitoring, caches and scripts otherwise read a forbidden response as
+ * a successful page load. Rewriting to the page with a 403 status serves the
+ * page's own body under the correct code, and the session-refresh cookies that
+ * `updateSession` produced are carried over so a just-refreshed session still
+ * reaches the browser.
+ */
+function forbiddenLanding(request: NextRequest, supabaseResponse: NextResponse) {
+  // Forward the request headers as updateSession does for NextResponse.next(),
+  // so a session refreshed in this request is what the /403 page reads.
+  const res = NextResponse.rewrite(request.nextUrl, {
+    status: 403,
+    request: { headers: request.headers },
+  });
+  supabaseResponse.headers.forEach((value, key) => {
+    if (key.toLowerCase() === "set-cookie") {
+      res.headers.append(key, value);
+    }
+  });
+  return res;
+}
+
 export async function middleware(request: NextRequest) {
   const { supabaseResponse, supabase } = await updateSession(request);
   const path = request.nextUrl.pathname;
@@ -61,6 +85,13 @@ export async function middleware(request: NextRequest) {
       if (role === "patient") return NextResponse.redirect(new URL("/patient/dashboard", request.url));
     }
 
+    // The Access Denied landing page is not a protected route, but an
+    // authenticated user reaching it directly still passes the temporary-password
+    // and login redirects above. Answer it with 403, not 200.
+    if (path === "/403") {
+      return forbiddenLanding(request, supabaseResponse);
+    }
+
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set("x-pathname", path);
     
@@ -78,6 +109,11 @@ export async function middleware(request: NextRequest) {
     });
     
     return nextResponse;
+  }
+
+  // Unauthenticated visitors to the Access Denied landing page get 403 as well.
+  if (path === "/403") {
+    return forbiddenLanding(request, supabaseResponse);
   }
 
   return supabaseResponse;
