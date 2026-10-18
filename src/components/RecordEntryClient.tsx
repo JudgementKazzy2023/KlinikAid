@@ -23,6 +23,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import {
   extractDepartmentTextAction,
   extractLabResultValuesAction,
+  logLabOcrIdentityOverrideAction,
 } from "@/app/(dashboard)/department/records/entry/actions";
 
 const STRICT_NUMBER_REGEX = /^-?\d+(\.\d+)?$/;
@@ -95,6 +96,15 @@ interface RecordPayload {
 
 type LabPanelName = keyof typeof LAB_TEST_GROUPS;
 
+/** OCR values held back because the sheet names someone other than the open patient. */
+interface OcrNameMismatch {
+  sheetPatientName: string;
+  openPatientName: string;
+  sheetDate: string | null;
+  panel: LabPanelName;
+  values: Record<string, string>;
+}
+
 export default function RecordEntryClient({
   patient,
   history,
@@ -103,6 +113,7 @@ export default function RecordEntryClient({
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const labOcrInputRef = useRef<HTMLInputElement>(null);
+  const dontApplyOcrRef = useRef<HTMLButtonElement>(null);
 
   // Form states
   const [selectedLabTest, setSelectedLabTest] = useState<LabPanelName>("Complete Blood Count (CBC)");
@@ -114,6 +125,7 @@ export default function RecordEntryClient({
   const [departmentTextOcrFile, setDepartmentTextOcrFile] = useState<File | null>(null);
   const [departmentTextOcrTarget, setDepartmentTextOcrTarget] = useState<"findings" | "impression" | null>(null);
   const [isOcrNoticeOpen, setIsOcrNoticeOpen] = useState(false);
+  const [ocrNameMismatch, setOcrNameMismatch] = useState<OcrNameMismatch | null>(null);
 
   // Lab parameter values & blur validation states
   const [paramValues, setParamValues] = useState<{ [key: string]: string }>({});
@@ -237,6 +249,7 @@ export default function RecordEntryClient({
       const data = new FormData();
       data.append("file", labOcrFile);
       data.append("department", activeDept);
+      data.append("patientId", patient.id);
 
       const result = await extractLabResultValuesAction(data);
       if (!result.success) {
@@ -244,13 +257,33 @@ export default function RecordEntryClient({
         return;
       }
 
-      if (!isLabPanelName(result.panel)) {
+      const { identity } = result;
+      if (identity.kind === "unconfirmed") {
+        setOcrSuggestedParams([]);
+        toast.warning(
+          "The patient name on this sheet could not be read, so it could not be confirmed as this patient. No values were applied. Please enter results manually."
+        );
+        return;
+      }
+
+      if (!isLabPanelName(identity.panel)) {
         setOcrSuggestedParams([]);
         toast.warning("No supported lab values were found. Please enter results manually.");
         return;
       }
 
-      applyExtractedLabValues(result.panel, result.values || {});
+      if (identity.kind === "mismatch") {
+        setOcrNameMismatch({
+          sheetPatientName: identity.sheetPatientName,
+          openPatientName: identity.openPatientName,
+          sheetDate: result.sheetDate,
+          panel: identity.panel,
+          values: identity.values,
+        });
+        return;
+      }
+
+      applyExtractedLabValues(identity.panel, identity.values);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to extract lab values.";
       toast.error(message);
@@ -831,6 +864,74 @@ export default function RecordEntryClient({
           </form>
         </div>
       </div>
+
+      {/* Closing this any way other than "Apply anyway" -- Escape, the X, a click
+          outside -- is "Don't apply", so the safe outcome is also the default. */}
+      <Dialog open={ocrNameMismatch !== null} onOpenChange={(open) => !open && setOcrNameMismatch(null)}>
+        <DialogContent
+          className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 sm:max-w-md"
+          initialFocus={dontApplyOcrRef}
+        >
+          <DialogHeader>
+            <DialogTitle>Result Sheet Names a Different Patient</DialogTitle>
+            <DialogDescription className="text-xs leading-relaxed">
+              The name printed on this sheet does not match the patient you are entering results for. The values have not been applied.
+            </DialogDescription>
+          </DialogHeader>
+          {ocrNameMismatch && (
+            <dl className="rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 p-3 text-xs text-amber-900 dark:text-amber-200 space-y-1.5">
+              <div>
+                <dt className="font-semibold">Name on sheet</dt>
+                <dd className="break-words">{ocrNameMismatch.sheetPatientName}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold">Open patient</dt>
+                <dd className="break-words">{ocrNameMismatch.openPatientName}</dd>
+              </div>
+              {ocrNameMismatch.sheetDate && (
+                <div>
+                  <dt className="font-semibold">Date on sheet</dt>
+                  <dd className="break-words">{ocrNameMismatch.sheetDate}</dd>
+                </div>
+              )}
+            </dl>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                const pending = ocrNameMismatch;
+                setOcrNameMismatch(null);
+                if (!pending) return;
+                applyExtractedLabValues(pending.panel, pending.values);
+                const { logged } = await logLabOcrIdentityOverrideAction({
+                  patientId: patient.id,
+                  panel: pending.panel,
+                  appliedCount: LAB_TEST_GROUPS[pending.panel].filter((param) => pending.values[param]).length,
+                }).catch(() => ({ logged: false }));
+                if (!logged) {
+                  toast.warning("The values were applied, but the name-mismatch override could not be recorded in the audit log.");
+                }
+              }}
+              className="text-xs"
+            >
+              Apply anyway
+            </Button>
+            <Button
+              ref={dontApplyOcrRef}
+              type="button"
+              onClick={() => {
+                setOcrNameMismatch(null);
+                toast.info("Result sheet values were not applied.");
+              }}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+            >
+              Don&apos;t apply
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={isOcrNoticeOpen} onOpenChange={setIsOcrNoticeOpen}>
         <DialogContent className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 sm:max-w-md">

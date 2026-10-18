@@ -1,10 +1,12 @@
 "use server";
 
 import { requireAnyPermission } from "@/lib/auth/helpers";
-import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
+import { LAB_TEST_GROUPS, SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { extractDocumentText } from "@/lib/documents/extractDocumentText";
 import { logEvent } from "@/lib/logger";
+import { classifyRead } from "@/lib/read-outcome";
 import { extractLabResultValues } from "@/lib/records/extractLabResultValues";
+import { matchSheetPatientName } from "@/lib/records/matchSheetPatientName";
 import { createClient } from "@/lib/supabase/server";
 
 const MAX_LAB_OCR_FILE_SIZE = 5 * 1024 * 1024;
@@ -26,12 +28,28 @@ const OCR_FAILURE_PHRASES = [
   "no text",
 ];
 
-export interface ExtractLabResultValuesActionResult {
-  success: boolean;
-  error?: string;
-  panel?: string | null;
-  values?: Record<string, string>;
-}
+/**
+ * Whose sheet the OCR read, decided here rather than in the browser (#60).
+ *
+ * The extracted values live inside the identity branches that may apply them,
+ * so the client cannot reach the values without first handling who the sheet
+ * names. A sheet with no readable name carries no values at all: it goes to
+ * manual entry.
+ */
+export type LabOcrIdentity =
+  | { kind: "match"; panel: string | null; values: Record<string, string> }
+  | {
+      kind: "mismatch";
+      sheetPatientName: string;
+      openPatientName: string;
+      panel: string | null;
+      values: Record<string, string>;
+    }
+  | { kind: "unconfirmed" };
+
+export type ExtractLabResultValuesActionResult =
+  | { success: false; error: string }
+  | { success: true; identity: LabOcrIdentity; sheetDate: string | null };
 
 export interface ExtractDepartmentTextActionResult {
   success: boolean;
@@ -79,11 +97,56 @@ export async function extractLabResultValuesAction(
       return { success: false, error: "Result sheet must be 5MB or smaller." };
     }
 
+    const patientId = String(formData.get("patientId") || "");
+    if (!patientId) {
+      return { success: false, error: "Open a patient before extracting values." };
+    }
+
+    // The open patient's name is what the sheet is checked against. A failed read
+    // is not "no name to compare" -- it means the check cannot be made, so no
+    // values are returned at all.
+    const patientRead = classifyRead(
+      await supabase.from("patients").select("first_name, last_name").eq("id", patientId).single()
+    );
+    if (patientRead.kind === "absent") {
+      return {
+        success: false,
+        error: "This patient could not be found, so the result sheet could not be checked. No values were applied.",
+      };
+    }
+    const patient = patientRead.kind === "ok" ? patientRead.data : null;
+    if (!patient) {
+      console.error(
+        "[extractLabResultValuesAction] Failed to load the open patient:",
+        patientRead.kind === "failed" ? patientRead.error : "no row returned"
+      );
+      return {
+        success: false,
+        error: "Could not load this patient to check the result sheet against. No values were applied; try again.",
+      };
+    }
+
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     const extractionResult = await extractLabResultValues(fileBuffer, file.type);
 
     if (!extractionResult) {
       return { success: false, error: "Unable to extract structured lab values from this file." };
+    }
+
+    const nameMatch = matchSheetPatientName(extractionResult.sheetPatientName, patient);
+    let identity: LabOcrIdentity;
+    if (nameMatch.kind === "match") {
+      identity = { kind: "match", panel: extractionResult.panel, values: extractionResult.values };
+    } else if (nameMatch.kind === "mismatch" && extractionResult.sheetPatientName) {
+      identity = {
+        kind: "mismatch",
+        sheetPatientName: extractionResult.sheetPatientName,
+        openPatientName: `${patient.first_name} ${patient.last_name}`,
+        panel: extractionResult.panel,
+        values: extractionResult.values,
+      };
+    } else {
+      identity = { kind: "unconfirmed" };
     }
 
     try {
@@ -94,7 +157,9 @@ export async function extractLabResultValuesAction(
         "Lab result values extracted via Google Generative AI",
         null,
         {
+          patient_id: patientId,
           panel: extractionResult.panel,
+          patient_identity: identity.kind,
           extracted_value_count: Object.keys(extractionResult.values).length,
           prompt_token_count: extractionResult.promptTokenCount,
           candidates_token_count: extractionResult.candidatesTokenCount,
@@ -107,8 +172,8 @@ export async function extractLabResultValuesAction(
 
     return {
       success: true,
-      panel: extractionResult.panel,
-      values: extractionResult.values,
+      identity,
+      sheetDate: extractionResult.sheetDate,
     };
   } catch (error) {
     console.error("[extractLabResultValuesAction] Failed to extract lab result values:", error);
@@ -116,6 +181,55 @@ export async function extractLabResultValuesAction(
       success: false,
       error: error instanceof Error ? error.message : "Failed to extract lab result values.",
     };
+  }
+}
+
+/**
+ * Record that an operator applied OCR values after being told the sheet names a
+ * different patient. Only the fact of the override is stored -- the open
+ * patient, the panel and how many fields were filled -- never the values or the
+ * other name on the sheet.
+ */
+export async function logLabOcrIdentityOverrideAction(input: {
+  patientId: string;
+  panel: string;
+  appliedCount: number;
+}): Promise<{ logged: boolean }> {
+  const supabase = await createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return { logged: false };
+  }
+
+  try {
+    await requireAnyPermission(["records.manage", "records.manage.own_dept"]);
+
+    // The patient id comes from the browser. Only attest an override for a
+    // patient this caller can actually read, the same read the extraction made.
+    const patientRead = classifyRead(
+      await supabase.from("patients").select("id").eq("id", String(input.patientId)).single()
+    );
+    if (patientRead.kind !== "ok" || !patientRead.data) {
+      return { logged: false };
+    }
+
+    const outcome = await logEvent(
+      supabase,
+      user.id,
+      SYSTEM_EVENT_TYPES.LAB_RESULT_OCR_IDENTITY_OVERRIDE,
+      "Lab OCR values applied although the result sheet names a different patient",
+      null,
+      {
+        patient_id: patientRead.data.id,
+        panel: input.panel in LAB_TEST_GROUPS ? input.panel : null,
+        applied_value_count: Number.isInteger(input.appliedCount) ? input.appliedCount : null,
+      }
+    );
+    return { logged: outcome.ok };
+  } catch (error) {
+    console.error("[logLabOcrIdentityOverrideAction] Failed to log OCR identity override:", error);
+    return { logged: false };
   }
 }
 
