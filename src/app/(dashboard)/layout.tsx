@@ -12,6 +12,34 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
+// Permission lists that decide whether a route prefix is reachable at all.
+// The sidebar reuses these so a link is never shown to a user the route gate
+// would turn away.
+const ADMIN_AREA_PERMISSIONS: string[] = [
+  "staff.manage",
+  "roles.manage",
+  "profiles.manage",
+  "system_logs.read",
+  "chatbot_logs.read",
+  "rag_documents.manage",
+];
+const RECEPTION_AREA_PERMISSIONS: string[] = [
+  "patients.manage",
+  "documents.manage",
+  "queue.manage",
+];
+const DEPARTMENT_AREA_PERMISSIONS: string[] = [
+  "queue.manage",
+  "queue.manage.own_dept",
+  "records.manage",
+  "records.manage.own_dept",
+];
+const SPECIALIST_AREA_PERMISSIONS: string[] = [
+  "specialist.patients",
+  "specialist.analytics",
+  "specialist.records",
+];
+
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
@@ -124,40 +152,25 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   const isSpecialistRoute = xPathname.startsWith("/specialist");
   const isPatientRoute = xPathname.startsWith("/patient");
 
+  const canEnterPatientArea = profile.role === "patient";
+  const [
+    canEnterAdminArea,
+    canEnterReceptionArea,
+    canEnterDepartmentArea,
+    canEnterSpecialistArea,
+  ] = await Promise.all([
+    hasAnyPermission(user.id, ADMIN_AREA_PERMISSIONS),
+    hasAnyPermission(user.id, RECEPTION_AREA_PERMISSIONS),
+    hasAnyPermission(user.id, DEPARTMENT_AREA_PERMISSIONS),
+    hasAnyPermission(user.id, SPECIALIST_AREA_PERMISSIONS),
+  ]);
+
   let isRoleMismatch = false;
-  if (isAdminRoute) {
-    isRoleMismatch = !(await hasAnyPermission(user.id, [
-      "staff.manage",
-      "roles.manage",
-      "profiles.manage",
-      "system_logs.read",
-      "chatbot_logs.read",
-      "rag_documents.manage",
-    ]));
-  }
-  if (isReceptionRoute) {
-    isRoleMismatch = !(await hasAnyPermission(user.id, [
-      "patients.manage",
-      "documents.manage",
-      "queue.manage",
-    ]));
-  }
-  if (isDepartmentRoute) {
-    isRoleMismatch = !(await hasAnyPermission(user.id, [
-      "queue.manage",
-      "queue.manage.own_dept",
-      "records.manage",
-      "records.manage.own_dept",
-    ]));
-  }
-  if (isSpecialistRoute) {
-    isRoleMismatch = !(await hasAnyPermission(user.id, [
-      "specialist.patients",
-      "specialist.analytics",
-      "specialist.records",
-    ]));
-  }
-  if (isPatientRoute && profile.role !== "patient") isRoleMismatch = true;
+  if (isAdminRoute) isRoleMismatch = !canEnterAdminArea;
+  if (isReceptionRoute) isRoleMismatch = !canEnterReceptionArea;
+  if (isDepartmentRoute) isRoleMismatch = !canEnterDepartmentArea;
+  if (isSpecialistRoute) isRoleMismatch = !canEnterSpecialistArea;
+  if (isPatientRoute && !canEnterPatientArea) isRoleMismatch = true;
 
   if (isRoleMismatch) {
     const ipAddress = reqHeaders.get("x-forwarded-for")?.split(",")[0] || null;
@@ -205,7 +218,6 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     canManageDocuments,
     canManageQueue,
     canManagePatients,
-    canAccessDepartmentRecords,
     canManageRag,
     canReadSystemLogs,
     canAccessSpecialistPatients,
@@ -217,7 +229,6 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     hasPermission(user.id, "documents.manage"),
     hasPermission(user.id, "queue.manage"),
     hasPermission(user.id, "patients.manage"),
-    hasAnyPermission(user.id, ["queue.manage", "queue.manage.own_dept", "records.manage", "records.manage.own_dept"]),
     hasPermission(user.id, "rag_documents.manage"),
     hasPermission(user.id, "system_logs.read"),
     hasPermission(user.id, "specialist.patients"),
@@ -226,35 +237,35 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
 
   const navItems: NavItem[] = [];
 
-  if (profile.role === "admin" && canManageProfiles) {
+  if (profile.role === "admin" && canManageProfiles && canEnterAdminArea) {
     navItems.push({ label: "Dashboard", href: "/admin/dashboard", icon: "LayoutDashboard" });
   }
-  if (canManageStaff) {
+  if (canManageStaff && canEnterAdminArea) {
     navItems.push({ label: "Staff Management", href: "/admin/staff", icon: "Users" });
   }
-  if (canReadRoles) {
+  if (canReadRoles && canEnterAdminArea) {
     navItems.push({ label: "Role Management", href: "/admin/roles", icon: "ShieldCheck" });
   }
-  if (canManageDocuments && canManageQueue) {
+  if (canManageDocuments && canManageQueue && canEnterReceptionArea) {
     navItems.push({ label: "Reception Queue", href: "/reception/queue", icon: "ClipboardList" });
   }
-  if (canManagePatients) {
+  if (canManagePatients && canEnterReceptionArea) {
     navItems.push({ label: "Reception Dashboard", href: "/reception/dashboard", icon: "LayoutDashboard" });
   }
-  if (canAccessDepartmentRecords) {
+  if (canEnterDepartmentArea) {
     navItems.push({ label: "Dept Records", href: "/department/records", icon: "FileSpreadsheet" });
   }
-  if (canManageRag) {
+  if (canManageRag && canEnterAdminArea) {
     navItems.push({ label: "RAG Manager", href: "/admin/rag", icon: "Brain" });
   }
-  if (canReadSystemLogs) {
+  if (canReadSystemLogs && canEnterAdminArea) {
     navItems.push({ label: "System Logs", href: "/admin/logs", icon: "History" });
   }
-  if (canAccessSpecialistPatients) {
+  if (canAccessSpecialistPatients && canEnterSpecialistArea) {
     navItems.push({ label: "Specialist Dashboard", href: "/specialist/dashboard", icon: "LayoutDashboard" });
     navItems.push({ label: "My Patients", href: "/specialist/patients", icon: "UserCheck" });
   }
-  if (profile.role === "patient") {
+  if (canEnterPatientArea) {
     navItems.push({ label: "Dashboard", href: "/patient/dashboard", icon: "LayoutDashboard" });
     if (canAccessChat) {
       navItems.push({ label: "AI Assistant", href: "/patient/chat", icon: "Bot" });
