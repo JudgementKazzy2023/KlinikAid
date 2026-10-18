@@ -87,8 +87,15 @@ export async function GET() {
 
 // POST: create a new staff member
 export async function POST(request: Request) {
+  let createdUserId: string | null = null;
+  let creatorId: string | null = null;
   try {
     const adminProfile = await requirePermission("staff.manage");
+    creatorId = adminProfile.id;
+    // The caller-scoped profile update below is governed by profiles.manage.
+    // Check it before creating an Auth user so staff.manage alone cannot strand
+    // the signup trigger's patient profile.
+    await requirePermission("profiles.manage");
     const body = await request.json();
     const { email, password, fullName, roleId, department } = body;
     const employeeType = normalizeEmployeeType(body.employeeType);
@@ -166,6 +173,7 @@ export async function POST(request: Request) {
     if (authError || !authData.user) {
       throw authError || new Error("Auth user creation failed");
     }
+    createdUserId = authData.user.id;
 
     // 2. Fetch the newly created profile row. Retries if the database trigger is asynchronous
     let profile = null;
@@ -237,6 +245,31 @@ export async function POST(request: Request) {
       201
     );
   } catch (error: unknown) {
+    let cleanupSucceeded: boolean | null = null;
+    if (createdUserId) {
+      let cleanupError: unknown = null;
+      try {
+        const result = await createAdminClient().auth.admin.deleteUser(createdUserId);
+        cleanupError = result.error;
+      } catch (deleteError) {
+        cleanupError = deleteError;
+      }
+      cleanupSucceeded = !cleanupError;
+      const message = error instanceof Error ? error.message : String(error);
+      try {
+        await logEvent(
+          await createClient(),
+          creatorId,
+          SYSTEM_EVENT_TYPES.STAFF_ACTION_FAILED,
+          `Staff user creation failed; Auth cleanup ${cleanupSucceeded ? "succeeded" : "failed"}`,
+          null,
+          { target_user_id: createdUserId, cleanup_succeeded: cleanupSucceeded, error: message }
+        );
+      } catch (loggingError) {
+        console.error("Failed to log staff creation failure:", loggingError);
+      }
+      if (cleanupError) console.error("Failed to delete incomplete staff Auth user:", cleanupError);
+    }
     // A refusal is not a staff-creation failure: a caller without `staff.manage`
     // must not be told "500, try again", because retrying will never succeed.
     if (error instanceof AuthError) {
@@ -244,6 +277,11 @@ export async function POST(request: Request) {
     }
     const safeError = getStaffCreateErrorMessage(error);
     const message = error instanceof Error ? error.message : String(error);
-    return errorResponse(safeError.message, safeError.status, message);
+    const cleanupDetail = cleanupSucceeded === null
+      ? ""
+      : cleanupSucceeded
+        ? " The incomplete account was deleted."
+        : " Account cleanup failed; remove the incomplete account manually before retrying.";
+    return errorResponse(`${safeError.message}${cleanupDetail}`, safeError.status, message);
   }
 }
