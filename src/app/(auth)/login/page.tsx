@@ -14,12 +14,43 @@ import { Lock, Mail, Loader2, KeyRound, ShieldAlert, CheckCircle, Info } from "l
 import Image from "next/image";
 import Link from "next/link";
 
+// Every `/login?error=<code>` producer in the app, mapped to an app-owned message.
+// The query string is attacker-controllable, so an unknown code renders nothing
+// rather than echoing the raw value back into the page.
+const LOGIN_ERROR_MESSAGES = new Map<string, { title: string; description: string }>([
+  [
+    "account_deactivated",
+    {
+      title: "Account Deactivated",
+      description: "Your account has been deactivated. Please contact the clinic.",
+    },
+  ],
+  [
+    "mfa_required",
+    {
+      title: "Verification Required",
+      description:
+        "Your session ended before two-factor verification was completed. Please sign in again.",
+    },
+  ],
+  [
+    "mfa_check_failed",
+    {
+      title: "Verification Unavailable",
+      description:
+        "We could not confirm your two-factor authentication status. Please sign in again.",
+    },
+  ],
+]);
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectPath = safeRedirectPath(searchParams.get("redirect"));
   const isResetSuccess = searchParams.get("reset") === "success";
   const isPrivacyDeclined = searchParams.get("notice") === "privacy_declined";
+  const errorCode = searchParams.get("error");
+  const loginNotice = errorCode ? LOGIN_ERROR_MESSAGES.get(errorCode) : undefined;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -125,6 +156,14 @@ function LoginForm() {
 
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-4">
+              {loginNotice && (
+                <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/50">
+                  <ShieldAlert className="h-4 w-4" />
+                  <AlertTitle className="font-semibold">{loginNotice.title}</AlertTitle>
+                  <AlertDescription className="text-xs">{loginNotice.description}</AlertDescription>
+                </Alert>
+              )}
+
               {isResetSuccess && (
                 <Alert className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-300">
                   <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
