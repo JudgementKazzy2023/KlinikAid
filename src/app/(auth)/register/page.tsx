@@ -299,7 +299,8 @@ function RegisterForm() {
                       required
                       className="mt-1 h-4 w-4 min-h-4 min-w-4 shrink-0 rounded border-slate-400 text-accentBlue-600 focus:ring-accentBlue-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                     />
-                    <div
+                    <label
+                      htmlFor="acceptedTerms"
                       className={`text-xs leading-relaxed select-none ${
                         hasReadTerms
                           ? "text-slate-700 dark:text-slate-300"
@@ -315,7 +316,7 @@ function RegisterForm() {
                         Terms and Conditions
                       </button>
                       .
-                    </div>
+                    </label>
                   </div>
                   {!hasReadTerms && (
                     <p className="pl-7 text-xs text-slate-500 dark:text-slate-400">
