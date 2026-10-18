@@ -192,9 +192,11 @@ export const REJECTION_REASON_MIN = 20;
 export const REJECTION_REASON_MAX = 1000;
 
 export function validateNotes(
-  notes: string | null | undefined
+  notes: unknown
 ): { valid: boolean; error?: string } {
-  const trimmed = (notes ?? "").trim();
+  if (notes === null || notes === undefined) return { valid: true };
+  if (typeof notes !== "string") return { valid: false, error: "Notes must be text." };
+  const trimmed = notes.trim();
   if (trimmed && trimmed.length > NOTES_MAX) {
     return { valid: false, error: `Notes must be no more than ${NOTES_MAX} characters.` };
   }

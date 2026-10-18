@@ -132,6 +132,11 @@ describe("validateAddress — trimmed before the not-empty check, then bounded",
 });
 
 describe("validateNotes — optional, trimmed, bounded", () => {
+  it("refuses a non-string value instead of throwing", () => {
+    expect(validateNotes(42).valid).toBe(false);
+    expect(validateNotes({}).valid).toBe(false);
+  });
+
   it("accepts null, empty, and whitespace-only (notes are optional)", () => {
     expect(validateNotes(null).valid).toBe(true);
     expect(validateNotes("").valid).toBe(true);
