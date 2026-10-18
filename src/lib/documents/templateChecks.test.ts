@@ -158,6 +158,15 @@ describe("reviewTemplateSubmission", () => {
     expect(review.status).toBe("passed");
   });
 
+  it("flags an undeclared stored answer on a known form instead of passing it", () => {
+    const review = reviewTemplateSubmission(
+      storedRow("referral-form", VALID_REFERRAL, { extra_note: "anything" }),
+      TODAY
+    );
+    expect(review.status).toBe("attention");
+    expect(issueFor(review, "extra_note")?.reason).toMatch(/not a question on this form/i);
+  });
+
   it("flags a declined consent, naming the consent field", () => {
     const review = reviewTemplateSubmission(
       storedRow("procedure-consent", { ...VALID_CONSENT, consent_given: "No" }),

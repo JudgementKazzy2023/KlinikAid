@@ -24,6 +24,27 @@ import { getTodayInPh } from "@/lib/validation";
 /** Keys the submit action writes itself; they are not patient answers. */
 const SUBMISSION_META_KEYS = new Set(["template_id", "template_name", "submission_type", "submitted_at"]);
 
+/**
+ * Keys a known template's stored payload may carry that are not answers to its
+ * questions: identity fields the submit action injects from the patient row,
+ * and what reception adds on approval or rejection.
+ */
+const NON_ANSWER_KEYS = new Set([
+  ...SUBMISSION_META_KEYS,
+  "patient_name",
+  "date_of_birth",
+  "contact_number",
+  "address",
+  "reviewed_by",
+  "reviewed_by_name",
+  "reviewed_at",
+  "review_notes",
+  "destination_department",
+  "destination_department_label",
+  "selected_tests",
+  "detected_tests",
+]);
+
 /** Written from the patient row on intake forms, not typed by the patient. */
 const INJECTED_DOB_FIELD: TemplateField = {
   key: "date_of_birth",
@@ -211,6 +232,14 @@ function reviewKnownTemplate(
       const declined = declinedIssue(field.key, field.label, raw);
       if (declined) issues.push(declined);
     }
+  }
+
+  // Older submissions stored whatever keys arrived. An answer the form does not
+  // ask for was never checked, so it cannot count towards "passed".
+  const declared = new Set(fields.map((field) => field.key));
+  for (const key of Object.keys(stored)) {
+    if (declared.has(key) || NON_ANSWER_KEYS.has(key)) continue;
+    issues.push({ field: key, label: labelForKey(key), reason: "Not a question on this form, so this answer was not checked." });
   }
 
   const dateFields = fields.filter((field) => field.type === "date");
