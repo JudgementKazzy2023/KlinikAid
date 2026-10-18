@@ -183,6 +183,7 @@ function LoginForm() {
                       <Input
                         id="email"
                         type="email"
+                        autoComplete="email"
                         placeholder="doctor@bloodcare.com"
                         className="pl-10"
                         value={email}
@@ -196,7 +197,7 @@ function LoginForm() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Password</Label>
-                      <Link href="/forgot-password" className="text-xs text-accentBlue-600 hover:underline">
+                      <Link href="/forgot-password" className="inline-flex items-center min-h-6 -my-1 text-xs text-accentBlue-600 hover:underline">
                         Forgot password?
                       </Link>
                     </div>
@@ -205,6 +206,7 @@ function LoginForm() {
                       <Input
                         id="password"
                         type="password"
+                        autoComplete="current-password"
                         placeholder="••••••••"
                         className="pl-10"
                         value={password}
@@ -224,6 +226,7 @@ function LoginForm() {
                     <Input
                       id="totpCode"
                       type="text"
+                      autoComplete="one-time-code"
                       inputMode="numeric"
                       pattern="[0-9]*"
                       maxLength={6}
@@ -261,7 +264,7 @@ function LoginForm() {
               {!mfaRequired && (
                 <div className="text-sm text-center text-slate-500 dark:text-slate-400 mt-2">
                   Don&apos;t have an account?{" "}
-                  <Link href="/register" className="text-accentBlue-600 hover:underline">
+                  <Link href="/register" className="inline-flex items-center min-h-6 -my-1 text-accentBlue-600 hover:underline">
                     Sign Up
                   </Link>
                 </div>

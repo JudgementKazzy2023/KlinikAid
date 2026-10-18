@@ -74,7 +74,7 @@ export default function ForgotPasswordPage() {
                 </AlertDescription>
               </Alert>
               <div className="text-center pt-2">
-                <Link href="/login" className="inline-flex items-center gap-2 text-sm text-accentBlue-600 hover:underline">
+                <Link href="/login" className="inline-flex items-center gap-2 min-h-6 -my-0.5 text-sm text-accentBlue-600 hover:underline">
                   <ArrowLeft className="h-4 w-4" /> Back to Sign In
                 </Link>
               </div>
@@ -97,6 +97,7 @@ export default function ForgotPasswordPage() {
                       id="email"
                       name="email"
                       type="email"
+                      autoComplete="email"
                       placeholder="user@bloodcare.com"
                       className="pl-10"
                       disabled={isPending}
@@ -123,7 +124,7 @@ export default function ForgotPasswordPage() {
                 </Button>
 
                 <div className="text-sm text-center">
-                  <Link href="/login" className="inline-flex items-center gap-2 text-slate-500 hover:text-slate-800 hover:underline">
+                  <Link href="/login" className="inline-flex items-center gap-2 min-h-6 -my-0.5 text-slate-500 hover:text-slate-800 hover:underline">
                     <ArrowLeft className="h-4 w-4" /> Back to Sign In
                   </Link>
                 </div>
