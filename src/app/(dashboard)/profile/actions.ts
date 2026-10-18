@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { privacyConsentError } from "@/lib/auth/privacy-consent";
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
-import { PASSWORD_REQUIREMENT_TEXT, validatePassword, validateContactNumber, CONTACT_REQUIREMENT_TEXT } from "@/lib/validation";
+import { PASSWORD_REQUIREMENT_TEXT, validatePassword, validateContactNumber, CONTACT_REQUIREMENT_TEXT, validateAddress } from "@/lib/validation";
 import { headers } from "next/headers";
 
 export interface ChangePasswordResult {
@@ -160,8 +160,9 @@ export async function updatePatientDetailsAction(
     return { success: false, error: contactCheck.error ?? CONTACT_REQUIREMENT_TEXT };
   }
 
-  if (!address) {
-    return { success: false, error: "Address is required." };
+  const addressCheck = validateAddress(address);
+  if (!addressCheck.valid) {
+    return { success: false, error: addressCheck.error ?? "Address is required." };
   }
 
   try {

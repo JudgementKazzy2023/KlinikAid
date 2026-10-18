@@ -10,7 +10,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ShieldAlert, Loader2, User, Mail, Lock, Phone, MapPin, MailCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { PASSWORD_REQUIREMENT_TEXT, validateAge, validatePassword } from "@/lib/validation";
+import { PASSWORD_REQUIREMENT_TEXT, validateAge, validatePassword, ADDRESS_MAX } from "@/lib/validation";
 import TermsAndConditionsModal from "@/components/TermsAndConditionsModal";
 
 function RegisterForm() {
@@ -254,9 +254,13 @@ function RegisterForm() {
                       value={formData.address}
                       onChange={handleChange}
                       disabled={isPending}
+                      maxLength={ADDRESS_MAX}
                       required
                     />
                   </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Maximum {ADDRESS_MAX} characters.
+                  </p>
                 </div>
 
                 <div className="space-y-2">

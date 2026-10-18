@@ -30,7 +30,7 @@ import {
   Phone,
   MapPin
 } from "lucide-react";
-import { validateAge } from "@/lib/validation";
+import { validateAge, ADDRESS_MAX } from "@/lib/validation";
 
 export default function NewPatientModal() {
   const [open, setOpen] = useState(false);
@@ -322,9 +322,13 @@ export default function NewPatientModal() {
                   value={formData.address}
                   onChange={handleChange}
                   disabled={isPending}
+                  maxLength={ADDRESS_MAX}
                   required
                 />
               </div>
+              <p className="text-[10px] text-slate-400">
+                Maximum {ADDRESS_MAX} characters.
+              </p>
             </div>
 
             <div className="space-y-1">

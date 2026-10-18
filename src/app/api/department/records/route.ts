@@ -5,6 +5,7 @@ import { ValidationError, errorResponse, handleRouteError, successResponse } fro
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { resultValueText, validateLabSubmission } from "@/lib/records/validateLabResult";
+import { validateNotes } from "@/lib/validation";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -123,6 +124,14 @@ export async function POST(request: Request) {
       return errorResponse("results array is required and must not be empty", 400);
     }
 
+    // Notes are a short clinical annotation, not a document: trim and bound them
+    // so the 5,034-character values the QA pass found cannot be stored.
+    const notesCheck = validateNotes(notes);
+    if (!notesCheck.valid) {
+      return errorResponse(notesCheck.error || "Invalid notes.", 400);
+    }
+    const normalizedNotes = typeof notes === "string" ? notes.trim() : null;
+
     // Determine department
     const canSelectDepartmentContext = await hasPermission(profile.id, "records.manage");
     let dept = profile.department;
@@ -165,7 +174,7 @@ export async function POST(request: Request) {
             reference_range_min: validated.reference_range_min,
             reference_range_max: validated.reference_range_max,
             is_flagged: validated.is_flagged,
-            notes: notes || null
+            notes: normalizedNotes || null
           }))
         : results.map((res) => {
             if (typeof res?.test_name !== "string" || !res.test_name) {
@@ -189,7 +198,7 @@ export async function POST(request: Request) {
               reference_range_min: null,
               reference_range_max: null,
               is_flagged: false,
-              notes: notes || null
+              notes: normalizedNotes || null
             };
           });
 

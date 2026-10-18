@@ -4,6 +4,7 @@ import { errorResponse, handleRouteError, successResponse } from "@/lib/api-resp
 import { logEvent } from "@/lib/logger";
 import { toZonedTime, format } from "date-fns-tz";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
+import { validateRejectionReason } from "@/lib/validation";
 
 export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -29,11 +30,9 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
     }
 
     const rejectionReason = body.rejection_reason?.trim();
-    if (!rejectionReason || rejectionReason.length < 20) {
-      return errorResponse(
-        "Rejection reason is required and must be at least 20 characters long.",
-        400
-      );
+    const reasonCheck = validateRejectionReason(rejectionReason);
+    if (!reasonCheck.valid) {
+      return errorResponse(reasonCheck.error || "Invalid rejection reason.", 400);
     }
 
     // 4. Fetch current document to preserve metadata

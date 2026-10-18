@@ -10,7 +10,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Lock, Loader2, MapPin, Phone, ShieldCheck, User } from "lucide-react";
 import { toast } from "sonner";
 import { USER_ROLES, DEPARTMENTS } from "@/lib/constants";
-import { PASSWORD_REQUIREMENT_TEXT } from "@/lib/validation";
+import { PASSWORD_REQUIREMENT_TEXT, ADDRESS_MAX } from "@/lib/validation";
 import { UserRole, Department } from "@/types";
 
 interface ProfileClientProps {
@@ -194,9 +194,13 @@ export default function ProfileClient({ user, patient }: ProfileClientProps) {
                         value={address}
                         onChange={(e) => setAddress(e.target.value)}
                         disabled={isDetailsPending}
+                        maxLength={ADDRESS_MAX}
                         required
                       />
                     </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Maximum {ADDRESS_MAX} characters.
+                    </p>
                   </div>
                 </CardContent>
 

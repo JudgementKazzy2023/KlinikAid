@@ -59,6 +59,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { createSpecialistPatientAction, deleteSpecialistPatientAction } from "@/app/(dashboard)/specialist/patients/actions";
+import { ADDRESS_MAX } from "@/lib/validation";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -582,7 +583,7 @@ export default function SpecialistPatientsClient({
 
               <div className="space-y-1">
                 <Label htmlFor="address" className="text-xs">Home Address</Label>
-                <Input id="address" name="address" placeholder="Street, Barangay, City, Province" className="text-xs h-9" />
+                <Input id="address" name="address" placeholder="Street, Barangay, City, Province" maxLength={ADDRESS_MAX} className="text-xs h-9" />
               </div>
             </div>
 
