@@ -22,6 +22,16 @@ function normalizeEmployeeType(value: unknown) {
   return titles.length ? titles.join("|") : null;
 }
 
+/** Supabase and Auth errors are plain objects with a message, not Error instances. */
+function errorText(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return String(error);
+}
+
 function getStaffCreateErrorMessage(error: unknown): { message: string; status: number } {
   const code =
     typeof error === "object" && error !== null && "code" in error
@@ -255,7 +265,7 @@ export async function POST(request: Request) {
         cleanupError = deleteError;
       }
       cleanupSucceeded = !cleanupError;
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorText(error);
       try {
         await logEvent(
           await createClient(),
@@ -276,7 +286,7 @@ export async function POST(request: Request) {
       return handleRouteError(error, "Failed to create staff member");
     }
     const safeError = getStaffCreateErrorMessage(error);
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorText(error);
     const cleanupDetail = cleanupSucceeded === null
       ? ""
       : cleanupSucceeded
