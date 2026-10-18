@@ -205,6 +205,15 @@ export async function logLabOcrIdentityOverrideAction(input: {
   try {
     await requireAnyPermission(["records.manage", "records.manage.own_dept"]);
 
+    // The patient id comes from the browser. Only attest an override for a
+    // patient this caller can actually read, the same read the extraction made.
+    const patientRead = classifyRead(
+      await supabase.from("patients").select("id").eq("id", String(input.patientId)).single()
+    );
+    if (patientRead.kind !== "ok" || !patientRead.data) {
+      return { logged: false };
+    }
+
     const outcome = await logEvent(
       supabase,
       user.id,
@@ -212,7 +221,7 @@ export async function logLabOcrIdentityOverrideAction(input: {
       "Lab OCR values applied although the result sheet names a different patient",
       null,
       {
-        patient_id: String(input.patientId).slice(0, 64),
+        patient_id: patientRead.data.id,
         panel: input.panel in LAB_TEST_GROUPS ? input.panel : null,
         applied_value_count: Number.isInteger(input.appliedCount) ? input.appliedCount : null,
       }
