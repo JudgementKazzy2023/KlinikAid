@@ -655,10 +655,17 @@ export default function RecordEntryClient({
                           )}
                         </div>
 
-                        {/* Status notification */}
-                        {touched && (
-                          <div className="flex items-center gap-1.5 text-xs pt-1">
-                            {isFlagged ? (
+                        {/* Status notification.
+                            The row is always in the layout, and only its
+                            contents are conditional. Blur validation runs
+                            between mousedown and mouseup of the click that
+                            caused it, so letting this row appear on blur pushed
+                            the action row down mid-click and the click landed
+                            on the container instead of Save Results. Reserving
+                            the height keeps the buttons still. */}
+                        <div className="flex h-5 items-center gap-1.5 text-xs">
+                          {touched &&
+                            (isFlagged ? (
                               <>
                                 <AlertTriangle className="h-4 w-4 text-red-500" />
                                 <span className="text-red-600 dark:text-red-400 font-bold">
@@ -672,9 +679,8 @@ export default function RecordEntryClient({
                                   Normal
                                 </span>
                               </>
-                            )}
-                          </div>
-                        )}
+                            ))}
+                        </div>
                       </div>
                     );
                   })}
