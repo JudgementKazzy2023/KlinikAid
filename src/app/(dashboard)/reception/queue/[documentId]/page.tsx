@@ -5,6 +5,7 @@ import { requirePermission } from "@/lib/auth/helpers";
 import DocumentApprovalClient from "@/components/DocumentApprovalClient";
 import DataLoadError from "@/components/DataLoadError";
 import { Document } from "@/types";
+import { reviewTemplateSubmission } from "@/lib/documents/templateChecks";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,10 @@ export default async function DocumentDetailsPage(props: DocumentDetailsPageProp
   }
 
   const document = rawDoc as Document;
+  // Checked here, against what is stored, rather than trusted from submission
+  // time: rows written before the submit-side bounds existed are re-checked too.
+  const templateReview =
+    document.file_type === "template" ? reviewTemplateSubmission(document.extracted_metadata) : null;
 
   return (
     <div className="space-y-6">
@@ -81,7 +86,7 @@ export default async function DocumentDetailsPage(props: DocumentDetailsPageProp
       </div>
 
       {/* Main Validation View */}
-      <DocumentApprovalClient document={document} />
+      <DocumentApprovalClient document={document} templateReview={templateReview} />
     </div>
   );
 }

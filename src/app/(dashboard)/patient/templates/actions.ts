@@ -7,77 +7,13 @@ import { logEvent } from "@/lib/logger";
 import { revalidatePath } from "next/cache";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { validateAge } from "@/lib/validation";
-import { CLINIC_TEMPLATES, type TemplateField } from "@/lib/documentTemplates";
+import { CLINIC_TEMPLATES } from "@/lib/documentTemplates";
+import { validateTemplateSubmission } from "@/lib/documents/templateChecks";
 
 export interface TemplateSubmitResult {
   success: boolean;
   error?: string;
   documentId?: string;
-}
-
-function isValidDateString(value: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
-
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
-}
-
-function validateTemplateFields(
-  fields: TemplateField[],
-  payload: Record<string, string>
-): { valid: true; fields: Record<string, string> } | { valid: false; error: string } {
-  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return { valid: false, error: "Invalid template payload." };
-  }
-
-  const allowedKeys = new Set(fields.map((field) => field.key));
-  const unexpectedKey = Object.keys(payload).find((key) => !allowedKeys.has(key));
-
-  if (unexpectedKey) {
-    return { valid: false, error: `Unexpected field submitted: ${unexpectedKey}.` };
-  }
-
-  const normalizedFields: Record<string, string> = {};
-
-  for (const field of fields) {
-    const rawValue = payload[field.key];
-    const value = typeof rawValue === "string" ? rawValue.trim() : "";
-
-    if (field.required && value === "") {
-      return { valid: false, error: `${field.label} is required.` };
-    }
-
-    if (value === "") {
-      normalizedFields[field.key] = "";
-      continue;
-    }
-
-    const fieldValidation = validateTemplateFieldValue(field, value);
-    if (!fieldValidation.valid) {
-      return fieldValidation;
-    }
-
-    normalizedFields[field.key] = value;
-  }
-
-  return { valid: true, fields: normalizedFields };
-}
-
-function validateTemplateFieldValue(
-  field: TemplateField,
-  value: string
-): { valid: true } | { valid: false; error: string } {
-  if (field.type === "date" && !isValidDateString(value)) {
-    return { valid: false, error: `${field.label} must be a valid date.` };
-  }
-
-  if (field.type === "select" && !field.options?.includes(value)) {
-    return { valid: false, error: `${field.label} must be one of the allowed options.` };
-  }
-
-  return { valid: true };
 }
 
 export async function submitTemplateDocumentAction(
@@ -118,7 +54,7 @@ export async function submitTemplateDocumentAction(
       return { success: false, error: "Unknown template selected." };
     }
 
-    const fieldsValidation = validateTemplateFields(template.fields, fieldsPayload);
+    const fieldsValidation = validateTemplateSubmission(template, fieldsPayload);
     if (!fieldsValidation.valid) {
       return { success: false, error: fieldsValidation.error };
     }
