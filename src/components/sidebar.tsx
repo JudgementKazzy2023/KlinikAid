@@ -96,7 +96,7 @@ export default function Sidebar({ user, navItems, onLinkClick, className }: Side
     <aside className={cn("flex flex-col w-64 h-screen border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 select-none", className)}>
       {/* Sidebar Header / Branding */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-slate-200/60 dark:border-slate-800/60">
-        <Image src="/icon.png" alt="KlinikAid" width={36} height={36} className="rounded-lg" />
+        <Image src="/icon.png" alt="KlinikAid" width={629} height={645} sizes="36px" className="w-9 rounded-lg" />
         <div className="flex flex-col">
           <span className="font-bold text-slate-900 dark:text-white leading-tight">
             KlinikAid

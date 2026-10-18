@@ -81,7 +81,7 @@ function RegisterForm() {
       <div className="w-full max-w-xl z-10 space-y-6 my-8">
         <div className="flex flex-col items-center space-y-2 text-center">
           {/* Clinical Brand Logo */}
-          <Image src="/icon.png" alt="KlinikAid" width={64} height={64} className="rounded-xl mb-2 shadow-lg" />
+          <Image src="/icon.png" alt="KlinikAid" width={629} height={645} sizes="64px" className="w-16 rounded-xl mb-2 shadow-lg" />
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             KlinikAid
           </h1>

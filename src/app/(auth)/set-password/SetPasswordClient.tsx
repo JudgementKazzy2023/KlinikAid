@@ -52,7 +52,7 @@ export default function SetPasswordClient({ email }: { email: string }) {
 
       <div className="w-full max-w-md z-10 space-y-6">
         <div className="flex flex-col items-center space-y-2 text-center">
-          <Image src="/icon.png" alt="KlinikAid" width={64} height={64} className="rounded-xl mb-2 shadow-lg" />
+          <Image src="/icon.png" alt="KlinikAid" width={629} height={645} sizes="64px" className="w-16 rounded-xl mb-2 shadow-lg" />
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">KlinikAid</h1>
           <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Bloodcare Medical Laboratory</p>
         </div>
