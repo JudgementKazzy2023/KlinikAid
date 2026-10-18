@@ -101,7 +101,7 @@ export default function SpecialistPatientsClient({
   // Specialist Modal & Action States
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSavingPatient, setIsSavingPatient] = useState(false);
-  const [isArchivingPatient, setIsArchivingPatient] = useState<string | null>(null);
+  const [archivingPatientIds, setArchivingPatientIds] = useState<Set<string>>(new Set());
   // The patient the confirmation dialog is about. Kept after the dialog closes so
   // the name does not blank out during its exit animation; it is replaced on the
   // next archive attempt.
@@ -178,7 +178,7 @@ export default function SpecialistPatientsClient({
     if (!archiveTarget) return;
     const target = archiveTarget;
     setIsArchiveDialogOpen(false);
-    setIsArchivingPatient(target.id);
+    setArchivingPatientIds((ids) => new Set(ids).add(target.id));
     try {
       const res = await deleteSpecialistPatientAction(target.id);
       if (res.success) {
@@ -192,7 +192,11 @@ export default function SpecialistPatientsClient({
     } catch {
       toast.error("Failed to archive patient");
     } finally {
-      setIsArchivingPatient(null);
+      setArchivingPatientIds((ids) => {
+        const next = new Set(ids);
+        next.delete(target.id);
+        return next;
+      });
     }
   };
 
@@ -421,7 +425,7 @@ export default function SpecialistPatientsClient({
                           variant="ghost"
                           size="icon"
                           onClick={() => handleArchivePatient(patient)}
-                          disabled={isArchivingPatient === patient.id}
+                          disabled={archivingPatientIds.has(patient.id)}
                           title="Archive patient"
                           aria-label={`Archive ${patient.first_name} ${patient.last_name}`}
                           className="text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800 h-8 w-8 transition"
