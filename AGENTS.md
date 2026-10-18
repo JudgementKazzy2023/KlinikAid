@@ -23,8 +23,8 @@ put its values in a file that gets tracked.
 | Typecheck | `npx tsc --noEmit` |
 | Lint | `npm run lint` |
 | Build | `npm run build` |
-| Unit tests | `npm test` (`npx vitest run`; `--watch` via `npm run test:watch`) |
-| Live RLS posture | `npm run test:rls` — anon key vs the real project; needs `.env.local`, not part of `npm test` |
+| Unit tests | `npm test` (`npx vitest run`, then the CSP check in `next.config.test.mjs` via `node --test`; `--watch` via `npm run test:watch`) |
+| Live RLS posture | `npm run test:rls` — anon key vs the real project; needs `.env.local`, not part of `npm test`. The script adds the Node 20 WebSocket flag itself, so no extra env is needed. |
 
 **`npm run review` is broken** — it invokes `node scripts/review.js` and no `scripts/`
 directory exists. Don't rely on it.
@@ -37,7 +37,7 @@ A clean `master` is:
 npx tsc --noEmit   -> exit 0
 npm run lint       -> no warnings or errors
 npm run build      -> Compiled successfully, 14/14 static pages
-npm test           -> 188 passed (13 files)
+npm test           -> 188 passed (13 files) + 1 passing CSP node test
 ```
 
 `next build` runs ESLint, so **a lint error fails the build**.
@@ -53,7 +53,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=placeholder npm run build
 
 ### What the test suite does and does not cover
 
-Vitest, `src/**/*.test.ts`, node environment, no DOM. It covers the two central
+Vitest, `src/**/*.test.ts`, node environment, no DOM, plus the `node:test` file
+`next.config.test.mjs` at the repo root, which `npm test` runs after vitest and vitest's
+`include` would otherwise ignore. The vitest files cover the two central
 modules that the "a failed query is not an empty query" fixes depend on:
 
 - `src/lib/read-outcome.ts` — `classifyRead`, the three-way read classifier.
