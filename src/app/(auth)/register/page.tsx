@@ -353,7 +353,7 @@ function RegisterForm() {
 
                 <div className="text-sm text-center text-slate-500 dark:text-slate-400">
                   Already have an account?{" "}
-                  <Link href="/login" className="text-accentBlue-600 hover:underline">
+                  <Link href="/login" className="inline-flex items-center min-h-6 -my-1 text-accentBlue-600 hover:underline">
                     Sign In
                   </Link>
                 </div>

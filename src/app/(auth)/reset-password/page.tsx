@@ -238,7 +238,7 @@ export default function ResetPasswordPage() {
                 </AlertDescription>
               </Alert>
               <div className="text-center pt-2">
-                <Link href="/forgot-password" className="text-sm text-accentBlue-600 hover:underline">
+                <Link href="/forgot-password" className="inline-flex items-center min-h-6 -my-0.5 text-sm text-accentBlue-600 hover:underline">
                   Request a new reset link
                 </Link>
               </div>
