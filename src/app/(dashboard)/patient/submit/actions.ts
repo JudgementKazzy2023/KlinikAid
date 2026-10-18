@@ -9,7 +9,7 @@ import { detectRequestedTests, selectDetectedTests } from "@/lib/documents/detec
 import { revalidatePath } from "next/cache";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { classifyRead } from "@/lib/read-outcome";
-import { finalDocumentPath, isStorageDuplicateError } from "@/lib/documents/assessedDocument";
+import { finalDocumentPath } from "@/lib/documents/assessedDocument";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = ["application/pdf", "image/jpeg", "image/png"];
@@ -292,20 +292,22 @@ export async function confirmSubmitDocumentAction(assessmentId: string, selected
     return alreadySubmittedOr("Failed to retrieve assessed file. Please upload it again.");
   }
 
-  // One final path per assessment: every request for it uploads the same
-  // pending file to the same place, so a duplicate upload is not an error.
+  // One final path per assessment, written with the service role and upsert.
+  // The patient can write objects under their own folder, so anything already
+  // at this path is replaced by the assessed pending file rather than accepted
+  // as the submission; concurrent confirmations write the same bytes.
   const fileExtension = getFileExtension(pendingRow.file_name, pendingRow.file_type);
   const finalFilePath = finalDocumentPath(user.id, assessmentId, fileExtension);
   const finalFileBuffer = Buffer.from(await pendingFile.arrayBuffer());
 
-  const { error: uploadError } = await supabase.storage
+  const { error: uploadError } = await createAdminClient().storage
     .from(DOCUMENT_BUCKET)
     .upload(finalFilePath, finalFileBuffer, {
       contentType: pendingRow.file_type,
-      upsert: false,
+      upsert: true,
     });
 
-  if (uploadError && !isStorageDuplicateError(uploadError)) {
+  if (uploadError) {
     console.error("[confirmSubmitDocumentAction] Final storage upload error:", uploadError);
     return { success: false, error: `Failed to upload file to storage: ${uploadError.message}` };
   }

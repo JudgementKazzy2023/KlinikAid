@@ -18,28 +18,3 @@ export function finalDocumentPath(userId: string, assessmentId: string, extensio
   const safeExtension = extension.toLowerCase().replace(/[^a-z0-9]/g, "") || "bin";
   return `${userId}/${assessmentId}.${safeExtension}`;
 }
-
-type StorageErrorLike = {
-  status?: unknown;
-  statusCode?: unknown;
-  message?: unknown;
-};
-
-/**
- * True when an `upload(..., { upsert: false })` failed only because the object
- * already exists. For a final path that means another request for the same
- * assessment, or an earlier attempt, already uploaded the same pending file.
- *
- * Supabase Storage reports this as statusCode "409" (HTTP status 400 or 409
- * depending on the server version), message "The resource already exists".
- */
-export function isStorageDuplicateError(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) {
-    return false;
-  }
-  const { status, statusCode, message } = error as StorageErrorLike;
-  if (statusCode === "409" || statusCode === 409 || status === 409) {
-    return true;
-  }
-  return typeof message === "string" && /already exists/i.test(message);
-}
