@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { ShieldAlert, Loader2, User, Mail, Lock, Phone, Calendar, MapPin, MailCheck } from "lucide-react";
+import { ShieldAlert, Loader2, User, Mail, Lock, Phone, MapPin, MailCheck } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { PASSWORD_REQUIREMENT_TEXT, validateAge, validatePassword } from "@/lib/validation";
@@ -73,7 +73,7 @@ function RegisterForm() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 overflow-y-auto">
+    <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 overflow-hidden">
       {/* Background clinical-theme decorative circles */}
       <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
       <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[80px] pointer-events-none" />
@@ -81,7 +81,7 @@ function RegisterForm() {
       <div className="w-full max-w-xl z-10 space-y-6 my-8">
         <div className="flex flex-col items-center space-y-2 text-center">
           {/* Clinical Brand Logo */}
-          <Image src="/icon.png" alt="KlinikAid" width={64} height={64} className="rounded-xl mb-2 shadow-lg" />
+          <Image src="/icon.png" alt="KlinikAid" width={629} height={645} sizes="64px" className="w-16 rounded-xl mb-2 shadow-lg" />
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             KlinikAid
           </h1>
@@ -183,12 +183,11 @@ function RegisterForm() {
                   <div className="space-y-2">
                     <Label htmlFor="dob">Date of Birth</Label>
                     <div className="relative">
-                      <Calendar className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                       <Input
                         id="dob"
                         type="date"
                         autoComplete="bday"
-                        className={`pl-10 ${formData.dob && !dobValidation.valid ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                        className={`${formData.dob && !dobValidation.valid ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                         value={formData.dob}
                         onChange={handleChange}
                         disabled={isPending}
@@ -207,7 +206,7 @@ function RegisterForm() {
                     <select
                       id="gender"
                       autoComplete="sex"
-                      className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:ring-offset-slate-950 dark:focus-visible:ring-slate-300"
+                      className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 md:text-sm dark:bg-input/30"
                       value={formData.gender}
                       onChange={handleChange}
                       disabled={isPending}
