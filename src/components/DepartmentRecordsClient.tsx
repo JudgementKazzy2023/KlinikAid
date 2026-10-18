@@ -207,8 +207,10 @@ export default function DepartmentRecordsClient({
   // Filtered History Reports
   const filteredReports = groupedReports.filter(report => {
     const pName = `${report.patient?.first_name || ""} ${report.patient?.last_name || ""}`.toLowerCase();
+    const term = searchTerm.toLowerCase();
     const testType = report.test_type.toLowerCase();
-    const matchesSearch = pName.includes(searchTerm.toLowerCase()) || testType.includes(searchTerm.toLowerCase());
+    const testLabel = testTypeLabel(activeDept, report.test_type).toLowerCase();
+    const matchesSearch = pName.includes(term) || testType.includes(term) || testLabel.includes(term);
     return matchesSearch;
   });
 
