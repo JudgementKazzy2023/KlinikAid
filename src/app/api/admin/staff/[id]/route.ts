@@ -5,6 +5,12 @@ import { errorResponse, handleRouteError, successResponse } from "@/lib/api-resp
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { validateName } from "@/lib/validation";
+import {
+  type AuthStepOutcome,
+  banAuthUser,
+  liftAuthBan,
+  revokeAllSessions,
+} from "@/lib/auth/session-revocation";
 
 export const dynamic = "force-dynamic";
 
@@ -139,6 +145,13 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
 }
 
 // PATCH: toggle staff active status (activate / deactivate)
+//
+// Deactivation updates the profile first, so every is_active guard refuses the
+// account even if Auth then fails, and then ends its sessions and bans it.
+// Reactivation does Auth first and the profile last, so a failure leaves the
+// account deactivated. It also ends sessions again, because a session that
+// outlived its deactivation (one deactivated before revocation existed, or a
+// revocation that failed) must not come back with the account.
 export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
@@ -147,12 +160,39 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
     const body = await request.json();
     const { isActive } = body;
 
-    if (isActive === undefined) {
+    if (typeof isActive !== "boolean") {
       return errorResponse("Missing isActive boolean in request body", 400);
     }
 
     const supabase = await createClient();
     const adminClient = createAdminClient();
+
+    if (isActive) {
+      const unban = await liftAuthBan(adminClient, id);
+      const revoke = unban.ok ? await revokeAllSessions(adminClient, id) : null;
+      if (!unban.ok || !revoke?.ok) {
+        const authError = !unban.ok ? unban.error : revoke && !revoke.ok ? revoke.error : null;
+        await logEvent(
+          supabase,
+          adminProfile.id,
+          SYSTEM_EVENT_TYPES.STAFF_ACTION_FAILED,
+          `Staff reactivation failed in Auth; profile status unchanged`,
+          null,
+          {
+            target_user_id: id,
+            action: "activate",
+            auth_ban_lifted: unban.ok,
+            sessions_revoked: revoke?.ok ?? false,
+            auth_error: authError,
+          }
+        );
+        return errorResponse(
+          "The authentication service could not complete activation. The profile status was not changed; please try again.",
+          502,
+          authError
+        );
+      }
+    }
 
     // 1. Update active status in profiles table
     const { data: profile, error: profileError } = await supabase
@@ -168,13 +208,16 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
       throw profileError;
     }
 
-    // 2. Revoke sessions globally if deactivating
+    // 2. On deactivation, end every session and refuse new ones. Revocation
+    // goes first: Auth will not issue the temporary session it needs to a
+    // banned user, so banning first would make it impossible.
+    let revoke: AuthStepOutcome = { ok: true };
+    let ban: AuthStepOutcome | null = null;
     if (!isActive) {
-      const { error: authError } = await adminClient.auth.admin.signOut(id);
-      if (authError) {
-        console.error("Warning: failed to revoke session for deactivated user:", authError);
-      }
+      revoke = await revokeAllSessions(adminClient, id);
+      ban = await banAuthUser(adminClient, id);
     }
+    const authError = !revoke.ok ? revoke.error : ban && !ban.ok ? ban.error : null;
 
     // 3. Log the active status toggle
     const eventType = isActive ? SYSTEM_EVENT_TYPES.STAFF_ACTIVATED : SYSTEM_EVENT_TYPES.STAFF_DEACTIVATED;
@@ -184,8 +227,20 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
       eventType,
       `Staff user ${isActive ? "activated" : "deactivated"}: ${profile.full_name} (${profile.role})`,
       null,
-      { target_user_id: id }
+      isActive
+        ? { target_user_id: id, auth_ban_lifted: true, sessions_revoked: true }
+        : { target_user_id: id, sessions_revoked: revoke.ok, auth_banned: ban?.ok ?? false, auth_error: authError }
     );
+
+    if (authError) {
+      return errorResponse(
+        revoke.ok
+          ? `${profile.full_name} was deactivated and their sessions were ended, but the authentication service could not block new sign-ins. KlinikAid still blocks this inactive account; please try again.`
+          : `${profile.full_name} was deactivated and is blocked from KlinikAid, but the authentication service did not confirm their sessions were ended. Session cleanup will be retried before the account can be reactivated.`,
+        502,
+        authError
+      );
+    }
 
     return successResponse(profile, `Staff member ${isActive ? "activated" : "deactivated"} successfully`);
   } catch (error: unknown) {

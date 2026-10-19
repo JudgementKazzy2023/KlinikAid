@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import DataLoadError from "@/components/DataLoadError";
+import { fetchJson } from "@/lib/fetch-json";
 import { sendStaffResetEmailAction } from "./actions";
 import { getRolesAction } from "../roles/actions";
 import StaffSheet, { type CreatedAccount } from "@/components/staff/StaffSheet";
@@ -295,23 +296,24 @@ export default function StaffManagementPage() {
   const executeStatusToggle = async () => {
     try {
       const { staffId, targetStatus } = confirmDialog;
-      const res = await fetch(`/api/admin/staff/${staffId}`, {
+      const outcome = await fetchJson<StaffMember>(`/api/admin/staff/${staffId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isActive: targetStatus }),
       });
 
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json.message || "Failed to update status");
+      if (outcome.kind === "failed") {
+        // A failure can still have changed the account (deactivated, but its
+        // sessions not confirmed ended), so show the server's state, not ours.
+        toast.error(outcome.error.message);
+        await fetchStaff();
+        return;
       }
 
       // Update local state instantly
       setStaffList((prev) =>
         prev.map((s) => (s.id === staffId ? { ...s, is_active: targetStatus } : s))
       );
-    } catch (err) {
-      console.error(err);
     } finally {
       setConfirmDialog((prev) => ({ ...prev, open: false }));
     }
