@@ -2512,12 +2512,14 @@ drop policy if exists "Allow patient read own files" on storage.objects;
 drop policy if exists "Allow staff and admin read all patient files" on storage.objects;
 drop policy if exists "Allow patient delete own pending files" on storage.objects;
 
--- Allow authenticated patients to upload files only to their own directory prefix (auth.uid())
+-- Patients upload only their pending submissions: <uid>/pending-submissions/... (migration_36).
+-- Final files are written by the server with the service role.
 create policy "Allow patient upload own files"
   on storage.objects for insert
   with check (
     bucket_id = 'patient-documents' AND
-    (storage.foldername(name))[1] = auth.uid()::text
+    (storage.foldername(name))[1] = auth.uid()::text AND
+    (storage.foldername(name))[2] = 'pending-submissions'
   );
 
 -- Allow authenticated patients to read files only under their own directory prefix
@@ -2541,7 +2543,8 @@ create policy "Allow patient delete own pending files"
   on storage.objects for delete
   using (
     bucket_id = 'patient-documents' AND
-    (storage.foldername(name))[1] = auth.uid()::text
+    (storage.foldername(name))[1] = auth.uid()::text AND
+    (storage.foldername(name))[2] = 'pending-submissions'
   );
 
 CREATE TRIGGER on_auth_user_created AFTER INSERT ON auth.users
