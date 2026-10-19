@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/helpers";
 import { errorResponse, handleRouteError, successResponse } from "@/lib/api-response";
+import { classifyRead } from "@/lib/read-outcome";
 
 export async function GET(request: Request, props: { params: Promise<{ patientId: string }> }) {
   const params = await props.params;
@@ -20,6 +21,23 @@ export async function GET(request: Request, props: { params: Promise<{ patientId
 
     if (!patientId) {
       return errorResponse("Patient ID is required", 400);
+    }
+
+    // The records query below is scoped by patient id, and RLS filters rows out
+    // instead of erroring. Without this lookup, another specialist's patient and
+    // a patient that does not exist both reach the caller as `200 {"data": []}`,
+    // which says "this patient has no data" -- a clinical claim the caller has
+    // no evidence for. The matching pages already answer 404 from this same
+    // lookup, so the API answers the same way and does not distinguish
+    // "not yours" from "not there" (RLS hides both identically).
+    const patientRead = classifyRead(
+      await supabase.from("specialist_patients").select("id").eq("id", patientId).single()
+    );
+    if (patientRead.kind === "failed") {
+      return handleRouteError(patientRead.error, "Failed to fetch patient metrics");
+    }
+    if (patientRead.kind === "absent") {
+      return errorResponse("Patient not found", 404);
     }
 
     // Fetch distinct test names for the patient from specialist_records
