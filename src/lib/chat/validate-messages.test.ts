@@ -29,6 +29,8 @@ describe("validateChatMessages", () => {
       error: `Messages must be ${CHAT_MESSAGE_MAX} characters or fewer.`,
     });
     expect(validateChatMessages([user("a".repeat(5000))]).valid).toBe(false);
+    // Checked as sent: trailing whitespace does not slip past the limit.
+    expect(validateChatMessages([user("a".repeat(CHAT_MESSAGE_MAX) + " ")]).valid).toBe(false);
   });
 
   it("bounds the forwarded history: keeps only the most recent turns", () => {
@@ -39,7 +41,10 @@ describe("validateChatMessages", () => {
     expect(result.messages).toHaveLength(CHAT_HISTORY_MAX_ENTRIES);
     expect(result.messages[0].content).toBe("m5");
     expect(result.userQuery).toBe(`u${CHAT_HISTORY_MAX_ENTRIES + 4}`);
-    expect(validateChatMessages([model("x".repeat(CHAT_HISTORY_ENTRY_MAX + 1)), user("hi")]).valid).toBe(false);
+    const longReply = validateChatMessages([model("x".repeat(CHAT_HISTORY_ENTRY_MAX + 500)), user("hi")]);
+    expect(longReply.valid).toBe(true);
+    if (!longReply.valid) throw new Error("unreachable");
+    expect(longReply.messages[0].content).toHaveLength(CHAT_HISTORY_ENTRY_MAX);
   });
 
   it.each([

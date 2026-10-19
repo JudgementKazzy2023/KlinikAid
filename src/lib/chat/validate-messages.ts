@@ -8,7 +8,7 @@
  */
 
 export const CHAT_MESSAGE_MAX = 1000;
-/** Model replies in the history can be longer than a user message. */
+/** Earlier turns are cut to this length before they are forwarded as context. */
 export const CHAT_HISTORY_ENTRY_MAX = 8000;
 /** Older turns beyond this are dropped, not refused. */
 export const CHAT_HISTORY_MAX_ENTRIES = 40;
@@ -38,19 +38,25 @@ export function validateChatMessages(messages: unknown): ChatMessagesCheck {
     if ((role !== "user" && role !== "model") || typeof content !== "string") {
       return { valid: false, error: "Each message must have a role and text content." };
     }
-    if (content.length > CHAT_HISTORY_ENTRY_MAX) {
-      return { valid: false, error: "A message in the conversation is too long." };
-    }
     checked.push({ role, content });
   }
 
   const last = checked[checked.length - 1];
-  const userQuery = last.content.trim();
-  if (last.role !== "user" || !userQuery) {
+  if (last.role !== "user" || !last.content.trim()) {
     return { valid: false, error: "The last message must be a user message with content." };
   }
-  if (userQuery.length > CHAT_MESSAGE_MAX) {
+  // The new message is checked as sent, not after trimming.
+  if (last.content.length > CHAT_MESSAGE_MAX) {
     return { valid: false, error: `Messages must be ${CHAT_MESSAGE_MAX} characters or fewer.` };
+  }
+  const userQuery = last.content.trim();
+
+  // A long earlier reply (the client stores model replies whole) must not block
+  // the next question: earlier turns are shortened, not refused.
+  for (let i = 0; i < checked.length - 1; i++) {
+    if (checked[i].content.length > CHAT_HISTORY_ENTRY_MAX) {
+      checked[i] = { ...checked[i], content: checked[i].content.slice(0, CHAT_HISTORY_ENTRY_MAX) };
+    }
   }
 
   return { valid: true, messages: checked, userQuery };
