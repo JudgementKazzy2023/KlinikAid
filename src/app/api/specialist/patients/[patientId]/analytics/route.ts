@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/helpers";
 import { errorResponse, handleRouteError, successResponse } from "@/lib/api-response";
+import { classifyRead } from "@/lib/read-outcome";
 
 export async function GET(request: Request, props: { params: Promise<{ patientId: string }> }) {
   const params = await props.params;
@@ -20,6 +21,20 @@ export async function GET(request: Request, props: { params: Promise<{ patientId
 
     if (!patientId) {
       return errorResponse("Patient ID is required", 400);
+    }
+
+    // Same reasoning as the metrics route: the records query below cannot tell
+    // an empty chart from a patient the caller may not see, because RLS removes
+    // the rows rather than refusing the read. Only a confirmed zero-row patient
+    // lookup may answer 404; a failed read stays a failure.
+    const patientRead = classifyRead(
+      await supabase.from("specialist_patients").select("id").eq("id", patientId).single()
+    );
+    if (patientRead.kind === "failed") {
+      return handleRouteError(patientRead.error, "Failed to fetch chronological patient records");
+    }
+    if (patientRead.kind === "absent") {
+      return errorResponse("Patient not found", 404);
     }
 
     const { searchParams } = new URL(request.url);
