@@ -401,6 +401,11 @@ export default function SubmissionsClient({
                             <span>Uploaded: {formatPhTimeFull(doc.created_at)}</span>
                             <span>•</span>
                             <span className="capitalize">{doc.file_type.split("/")[1] || "Unknown"}</span>
+                            <span>•</span>
+                            {/* Two uploads with the same file name in the same minute are otherwise identical rows. */}
+                            <span className="font-mono" title={`Document reference ${doc.id}`}>
+                              Ref {doc.id.slice(0, 8).toUpperCase()}
+                            </span>
                           </div>
 
                           {/* Rejection notice */}

@@ -30,6 +30,24 @@ function chunkText(text: string, chunkSize = 1000, overlap = 200): string[] {
   return chunks.length > 0 ? chunks : [text];
 }
 
+class RagAccessError extends Error {}
+
+/**
+ * What the admin sees when an upload fails. Our own refusals (access, input)
+ * are shown as written; anything else -- typically the AI provider's error,
+ * which carries its endpoint URL and raw status -- is logged and replaced by a
+ * message of our own (#73).
+ */
+function uploadFailureMessage(err: unknown, fallback: string): string {
+  return err instanceof RagAccessError ? err.message : fallback;
+}
+
+/** A real PDF starts with "%PDF-"; the browser's MIME type and the file name are only labels. */
+async function looksLikePdf(file: File): Promise<boolean> {
+  const head = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+  return String.fromCharCode(...head) === "%PDF-";
+}
+
 /**
  * Validates that current user is an admin.
  */
@@ -37,12 +55,12 @@ async function verifyAdmin() {
   const supabase = await createClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user) {
-    throw new Error("Unauthorized: Please log in.");
+    throw new RagAccessError("Unauthorized: Please log in.");
   }
   
   const allowed = await hasPermission(user.id, "rag_documents.manage");
   if (!allowed) {
-    throw new Error("Forbidden: Access denied.");
+    throw new RagAccessError("Forbidden: Access denied.");
   }
   
   return user;
@@ -51,10 +69,13 @@ async function verifyAdmin() {
 /**
  * Action to upload plain text and chunk/embed it.
  */
-export async function uploadRagTextAction(title: string, content: string) {
+export async function uploadRagTextAction(rawTitle: string, rawContent: string) {
   try {
     const user = await verifyAdmin();
-    
+
+    // Whitespace-only input was blocked only in the browser.
+    const title = typeof rawTitle === "string" ? rawTitle.trim() : "";
+    const content = typeof rawContent === "string" ? rawContent.trim() : "";
     if (!title || !content) {
       return { success: false, error: "Title and content are required." };
     }
@@ -111,8 +132,7 @@ export async function uploadRagTextAction(title: string, content: string) {
     return { success: true };
   } catch (err) {
     console.error("Text upload error:", err);
-    const message = err instanceof Error ? err.message : "Failed to upload text.";
-    return { success: false, error: message };
+    return { success: false, error: uploadFailureMessage(err, "The text could not be added to the knowledge base. Try again later.") };
   }
 }
 
@@ -132,9 +152,10 @@ export async function uploadRagPdfAction(formData: FormData) {
       return { success: false, error: "File size exceeds the 10MB limit." };
     }
     
-    // Validate MIME type
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      return { success: false, error: "Only PDF files are accepted." };
+    // Check the content, not just the labels: a renamed non-PDF used to pass
+    // and fail later inside the AI provider.
+    if (!file.name.toLowerCase().endsWith(".pdf") || !(await looksLikePdf(file))) {
+      return { success: false, error: "Only PDF files are accepted. This file is not a PDF." };
     }
     
     const arrayBuffer = await file.arrayBuffer();
@@ -209,8 +230,10 @@ export async function uploadRagPdfAction(formData: FormData) {
     return { success: true };
   } catch (err) {
     console.error("PDF upload error:", err);
-    const message = err instanceof Error ? err.message : "Failed to process PDF.";
-    return { success: false, error: message };
+    return {
+      success: false,
+      error: uploadFailureMessage(err, "The PDF could not be read or added to the knowledge base. Check that it opens and has text, then try again."),
+    };
   }
 }
 
