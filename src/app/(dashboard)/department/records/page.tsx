@@ -232,7 +232,7 @@ export default async function DepartmentRecordsPage(props: PageProps) {
         initialQueue={queue}
         initialHistory={history}
         activeDept={dept}
-        userRole={profile.role}
+        canSelectDepartment={canSelectDepartmentContext}
       />
     </>
   );

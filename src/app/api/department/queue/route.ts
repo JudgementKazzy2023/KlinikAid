@@ -1,31 +1,34 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireAnyPermission } from "@/lib/auth/helpers";
+import { hasPermission, requireAnyPermission } from "@/lib/auth/helpers";
+import { resolveDepartmentScope } from "@/lib/auth/department-scope";
 import { errorResponse, handleRouteError, successResponse } from "@/lib/api-response";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
 
   try {
-    // 1. Enforce admin or department_staff roles
+    // 1. Enforce the permission that guards the department queue
     const profile = await requireAnyPermission(["queue.manage", "queue.manage.own_dept"]);
 
-    // 2. Determine target department
+    // 2. Determine target department from permissions, not profiles.role: only
+    // a holder of the unscoped permission may choose a department. Anyone
+    // holding only queue.manage.own_dept is pinned to their own department,
+    // whatever the legacy role text says.
     const { searchParams } = new URL(request.url);
-    let dept = searchParams.get("department");
+    const scope = resolveDepartmentScope({
+      requestedDepartment: searchParams.get("department"),
+      ownDepartment: profile.department,
+      canSelectDepartment: await hasPermission(profile.id, "queue.manage"),
+    });
 
-    if (profile.role === "department_staff") {
-      dept = profile.department;
-      if (!dept) {
-        return errorResponse("Staff member is not assigned to a department", 400);
-      }
-    } else {
-      // For Admin, default to 'laboratory' if none specified
-      dept = dept || "laboratory";
+    if (scope.kind === "missing_department") {
+      return errorResponse("Staff member is not assigned to a department", 400);
     }
-
-    if (!["laboratory", "imaging", "ultrasound", "ecg"].includes(dept)) {
+    if (scope.kind === "invalid_department") {
       return errorResponse("Invalid department requested", 400);
     }
+
+    const dept = scope.department;
 
     // 4. Fetch the department's open queue entries, regardless of age.
     // Must stay consistent with the queue list in

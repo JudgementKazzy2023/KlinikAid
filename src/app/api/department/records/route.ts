@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { hasPermission, requireAnyPermission } from "@/lib/auth/helpers";
+import { resolveDepartmentScope } from "@/lib/auth/department-scope";
 import { ValidationError, errorResponse, handleRouteError, successResponse } from "@/lib/api-response";
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
@@ -13,23 +14,25 @@ export async function GET(request: Request) {
   try {
     const profile = await requireAnyPermission(["records.manage", "records.manage.own_dept"]);
 
-    // Determine target department
+    // Determine target department from permissions, not profiles.role: only a
+    // holder of the unscoped permission may choose one. A caller limited to
+    // records.manage.own_dept, including a custom role, is pinned to its own
+    // department and any ?department= it sends is ignored.
     const { searchParams } = new URL(request.url);
-    let dept = searchParams.get("department");
+    const scope = resolveDepartmentScope({
+      requestedDepartment: searchParams.get("department"),
+      ownDepartment: profile.department,
+      canSelectDepartment: await hasPermission(profile.id, "records.manage"),
+    });
 
-    if (profile.role === "department_staff") {
-      dept = profile.department;
-      if (!dept) {
-        return errorResponse("Staff member is not assigned to a department", 400);
-      }
-    } else {
-      // Admin
-      dept = dept || "laboratory";
+    if (scope.kind === "missing_department") {
+      return errorResponse("Staff member is not assigned to a department", 400);
     }
-
-    if (!["laboratory", "imaging", "ultrasound", "ecg"].includes(dept)) {
+    if (scope.kind === "invalid_department") {
       return errorResponse("Invalid department requested", 400);
     }
+
+    const dept = scope.department;
 
     // Fetch department records with patient details
     const { data: records, error: recordsError } = await supabase
@@ -132,16 +135,20 @@ export async function POST(request: Request) {
     }
     const normalizedNotes = typeof notes === "string" ? notes.trim() : null;
 
-    // Determine department
-    const canSelectDepartmentContext = await hasPermission(profile.id, "records.manage");
-    let dept = profile.department;
-    if (canSelectDepartmentContext) {
-      dept = body.department || profile.department || "laboratory";
-    }
+    // Determine department from permissions, not profiles.role. A caller
+    // limited to records.manage.own_dept cannot choose a department by putting
+    // one in the body; its own department wins.
+    const scope = resolveDepartmentScope({
+      requestedDepartment: body.department,
+      ownDepartment: profile.department,
+      canSelectDepartment: await hasPermission(profile.id, "records.manage"),
+    });
 
-    if (!dept || !["laboratory", "imaging", "ultrasound", "ecg"].includes(dept)) {
+    if (scope.kind !== "scoped") {
       return errorResponse("Valid department assignment is required", 400);
     }
+
+    const dept = scope.department;
 
     let patientGender: string | null = null;
     if (dept === "laboratory") {

@@ -72,14 +72,14 @@ interface DepartmentRecordsClientProps {
   initialQueue: QueueItem[];
   initialHistory: HistoryItem[];
   activeDept: string;
-  userRole: string;
+  canSelectDepartment: boolean;
 }
 
 export default function DepartmentRecordsClient({
   initialQueue,
   initialHistory,
   activeDept,
-  userRole
+  canSelectDepartment
 }: DepartmentRecordsClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -233,8 +233,8 @@ export default function DepartmentRecordsClient({
           </p>
         </div>
 
-        {/* Admin Department Switcher */}
-        {userRole === "admin" && (
+        {/* Department switcher: only a caller holding the unscoped permission */}
+        {canSelectDepartment && (
           <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 p-1.5 rounded-lg border border-slate-200/60 dark:border-slate-800">
             <span className="text-xs font-medium text-slate-500 px-2">Dept:</span>
             <select

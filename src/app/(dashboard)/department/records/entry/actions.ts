@@ -1,6 +1,7 @@
 "use server";
 
-import { requireAnyPermission } from "@/lib/auth/helpers";
+import { hasPermission, requireAnyPermission } from "@/lib/auth/helpers";
+import { resolveDepartmentScope } from "@/lib/auth/department-scope";
 import { LAB_TEST_GROUPS, SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { extractDocumentText } from "@/lib/documents/extractDocumentText";
 import { logEvent } from "@/lib/logger";
@@ -75,12 +76,26 @@ export async function extractLabResultValuesAction(
 
   try {
     const profile = await requireAnyPermission(["records.manage", "records.manage.own_dept"]);
-    const effectiveDepartment =
-      profile.role === "department_staff"
-        ? profile.department
-        : String(formData.get("department") || "laboratory");
+    // The department follows permissions, not the legacy role text: an
+    // own_department caller is pinned to its own department even if it posts a
+    // different one in the form.
+    const scope = resolveDepartmentScope({
+      requestedDepartment: formData.get("department"),
+      ownDepartment: profile.department,
+      canSelectDepartment: await hasPermission(profile.id, "records.manage"),
+    });
 
-    if (effectiveDepartment !== "laboratory") {
+    if (scope.kind !== "scoped") {
+      return {
+        success: false,
+        error:
+          scope.kind === "missing_department"
+            ? "Your account is not assigned to a department."
+            : "Select a valid department.",
+      };
+    }
+
+    if (scope.department !== "laboratory") {
       return { success: false, error: "OCR lab value extraction is available only for laboratory records." };
     }
 
@@ -245,10 +260,23 @@ export async function extractDepartmentTextAction(
 
   try {
     const profile = await requireAnyPermission(["records.manage", "records.manage.own_dept"]);
-    const effectiveDepartment =
-      profile.role === "department_staff"
-        ? profile.department
-        : String(formData.get("department") || "");
+    const scope = resolveDepartmentScope({
+      requestedDepartment: formData.get("department"),
+      ownDepartment: profile.department,
+      canSelectDepartment: await hasPermission(profile.id, "records.manage"),
+    });
+
+    if (scope.kind !== "scoped") {
+      return {
+        success: false,
+        error:
+          scope.kind === "missing_department"
+            ? "Your account is not assigned to a department."
+            : "Select a valid department.",
+      };
+    }
+
+    const effectiveDepartment = scope.department;
     const targetField = String(formData.get("targetField") || "");
 
     if (effectiveDepartment === "laboratory") {
