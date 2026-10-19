@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "review": "node scripts/review.js",
+    "review": "npm run verify --",
     "test": "vitest run && node --test next.config.test.mjs",
     "test:watch": "vitest",
     "test:rls": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-websocket\" vitest run --config vitest.rls.config.ts",
