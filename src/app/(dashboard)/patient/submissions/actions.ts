@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { privacyConsentError } from "@/lib/auth/privacy-consent";
 import { revalidatePath } from "next/cache";
 import { hasPermission } from "@/lib/auth/helpers";
@@ -140,10 +141,14 @@ export async function deletePendingDocumentAction(docId: string) {
     return { success: false, error: "Failed to delete document record." };
   }
 
-  // Step 2: Only delete storage if DB succeeded
-  const { error: storageDeleteError } = await supabase.storage
-    .from("patient-documents")
-    .remove([doc.file_path]);
+  // Step 2: Only delete storage if DB succeeded. Patients may delete only their
+  // pending uploads in storage (migration_36), so the submitted file is removed
+  // with the service role -- after the checks above proved this caller owned a
+  // pending document, and only inside the caller's own folder.
+  const ownFolder = `${user.id}/`;
+  const { error: storageDeleteError } = doc.file_path.startsWith(ownFolder)
+    ? await createAdminClient().storage.from("patient-documents").remove([doc.file_path])
+    : { error: new Error(`File path outside the patient's folder: ${doc.file_path}`) };
 
   if (storageDeleteError) {
     console.error("[deletePendingDocumentAction] Storage file cleanup failed:", storageDeleteError);
