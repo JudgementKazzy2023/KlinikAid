@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireAnyPermission } from "@/lib/auth/helpers";
+import { hasPermission, requireAnyPermission } from "@/lib/auth/helpers";
+import { resolveDepartmentScope } from "@/lib/auth/department-scope";
 import { errorResponse, handleRouteError, successResponse } from "@/lib/api-response";
 
 export async function GET(request: Request, props: { params: Promise<{ patientId: string }> }) {
@@ -12,21 +13,27 @@ export async function GET(request: Request, props: { params: Promise<{ patientId
   }
 
   try {
-    // 1. Enforce roles
+    // 1. Enforce the permission that guards department records
     const profile = await requireAnyPermission(["records.manage", "records.manage.own_dept"]);
 
-    // 2. Determine target department
+    // 2. Determine target department from permissions, not profiles.role: a
+    // caller limited to records.manage.own_dept may not widen the request with
+    // ?department=, so its own department is the only history it can read.
     const { searchParams } = new URL(request.url);
-    let dept = searchParams.get("department");
+    const scope = resolveDepartmentScope({
+      requestedDepartment: searchParams.get("department"),
+      ownDepartment: profile.department,
+      canSelectDepartment: await hasPermission(profile.id, "records.manage"),
+    });
 
-    if (profile.role === "department_staff") {
-      dept = profile.department;
-      if (!dept) {
-        return errorResponse("Staff member is not assigned to a department", 400);
-      }
-    } else {
-      dept = dept || "laboratory";
+    if (scope.kind === "missing_department") {
+      return errorResponse("Staff member is not assigned to a department", 400);
     }
+    if (scope.kind === "invalid_department") {
+      return errorResponse("Invalid department requested", 400);
+    }
+
+    const dept = scope.department;
 
     // 3. Fetch patient demographics
     const { data: patient, error: patientError } = await supabase

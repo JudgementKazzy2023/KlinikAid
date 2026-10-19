@@ -61,6 +61,10 @@ export default async function DepartmentRecordsPage(props: PageProps) {
     redirect("/403");
   }
   const canSelectDepartmentContext = await hasAnyPermission(user.id, ["queue.manage", "records.manage"]);
+  // The switcher leads into results entry, so it follows the records rule used
+  // by POST /api/department/records: only records.manage may choose a
+  // department there. Viewing another queue by URL stays a queue.manage right.
+  const canSwitchRecordsDepartment = await hasAnyPermission(user.id, ["records.manage"]);
 
   // 2. Resolve department context
   let dept = profile.department;
@@ -232,7 +236,7 @@ export default async function DepartmentRecordsPage(props: PageProps) {
         initialQueue={queue}
         initialHistory={history}
         activeDept={dept}
-        userRole={profile.role}
+        canSelectDepartment={canSwitchRecordsDepartment}
       />
     </>
   );
