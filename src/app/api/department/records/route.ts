@@ -148,6 +148,17 @@ export async function POST(request: Request) {
       return errorResponse("Valid department assignment is required", 400);
     }
 
+    // A pinned caller that names another department would otherwise have its
+    // results filed under its own department instead. Refuse rather than
+    // misfile them.
+    if (
+      typeof body.department === "string" &&
+      body.department.trim() !== "" &&
+      body.department.trim() !== scope.department
+    ) {
+      return errorResponse("You can only record results for your own department", 403);
+    }
+
     const dept = scope.department;
 
     let patientGender: string | null = null;

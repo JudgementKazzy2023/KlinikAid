@@ -18,9 +18,9 @@
 --
 --   sync_profile_legacy_role()
 --     A BEFORE INSERT OR UPDATE OF role_id trigger on profiles that rewrites
---     NEW.role from the assigned role: base_role for a custom role, the role's
---     own name for a system role (system roles keep their legacy name in
---     `name`, with base_role null). A custom role with a null base_role has no
+--     NEW.role from the assigned role: the role's own name for a system role
+--     (system roles keep their legacy name in `name`), base_role for a custom
+--     role. A custom role with a null base_role has no
 --     derivable legacy value, so its profiles are left untouched rather than
 --     writing a custom role name into a column the app compares to fixed
 --     role names.
@@ -36,6 +36,12 @@
 --     (privacy consent, email verification) touch neither column and pay
 --     nothing.
 --
+--   sync_profiles_for_changed_role()
+--     An AFTER UPDATE trigger on roles: when a role's name, is_system or
+--     base_role changes, its assigned profiles are touched so the profile
+--     trigger recomputes their legacy value. No app path changes these today
+--     (update_custom_role keeps base_role); this covers any other writer.
+--
 --   Backfill
 --     Corrects every existing row whose role disagrees with its assigned role.
 --     On production at the time of writing this is one profile; the update is
@@ -48,6 +54,8 @@
 -- ROLLBACK
 --   drop trigger if exists profiles_sync_legacy_role on public.profiles;
 --   drop function if exists public.sync_profile_legacy_role();
+--   drop trigger if exists roles_sync_profile_legacy_role on public.roles;
+--   drop function if exists public.sync_profiles_for_changed_role();
 --   The backfill is not reversed: it only replaced stale values with the value
 --   the assigned role already implied.
 
@@ -75,10 +83,10 @@ begin
     return new;
   end if;
 
-  if v_role.base_role is not null then
-    new.role := v_role.base_role;
-  elsif v_role.is_system then
+  if v_role.is_system then
     new.role := v_role.name;
+  elsif v_role.base_role is not null then
+    new.role := v_role.base_role;
   end if;
 
   return new;
@@ -91,6 +99,30 @@ create trigger profiles_sync_legacy_role
   before insert or update of role_id, role on public.profiles
   for each row
   execute function public.sync_profile_legacy_role();
+
+create or replace function public.sync_profiles_for_changed_role()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.profiles p
+     set role_id = p.role_id
+   where p.role_id = new.id;
+  return null;
+end;
+$$;
+
+drop trigger if exists roles_sync_profile_legacy_role on public.roles;
+
+create trigger roles_sync_profile_legacy_role
+  after update of name, is_system, base_role on public.roles
+  for each row
+  when (old.name is distinct from new.name
+        or old.is_system is distinct from new.is_system
+        or old.base_role is distinct from new.base_role)
+  execute function public.sync_profiles_for_changed_role();
 
 -- System roles: the legacy value is the role name itself.
 update public.profiles p
