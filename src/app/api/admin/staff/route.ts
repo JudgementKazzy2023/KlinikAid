@@ -266,8 +266,12 @@ export async function POST(request: Request) {
       }
       cleanupSucceeded = !cleanupError;
       const message = errorText(error);
+      // logEvent reports a failed insert as { ok: false } rather than throwing.
+      // Either way, keep the identifiers an operator needs to reconcile the
+      // account in the server log, since the audit row did not land.
+      let auditWrite: Awaited<ReturnType<typeof logEvent>>;
       try {
-        await logEvent(
+        auditWrite = await logEvent(
           await createClient(),
           creatorId,
           SYSTEM_EVENT_TYPES.STAFF_ACTION_FAILED,
@@ -276,7 +280,15 @@ export async function POST(request: Request) {
           { target_user_id: createdUserId, cleanup_succeeded: cleanupSucceeded, error: message }
         );
       } catch (loggingError) {
-        console.error("Failed to log staff creation failure:", loggingError);
+        auditWrite = { ok: false, error: loggingError };
+      }
+      if (!auditWrite.ok) {
+        console.error("Failed to record staff creation failure in system_logs:", {
+          target_user_id: createdUserId,
+          cleanup_succeeded: cleanupSucceeded,
+          error: message,
+          audit_error: errorText(auditWrite.error),
+        });
       }
       if (cleanupError) console.error("Failed to delete incomplete staff Auth user:", cleanupError);
     }
