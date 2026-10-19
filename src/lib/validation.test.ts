@@ -163,4 +163,10 @@ describe("validateRejectionReason — minimum and maximum", () => {
     expect(validateRejectionReason("a".repeat(REJECTION_REASON_MAX)).valid).toBe(true);
     expect(validateRejectionReason("a".repeat(REJECTION_REASON_MAX + 1)).valid).toBe(false);
   });
+
+  it("refuses a non-text reason instead of throwing", () => {
+    expect(validateRejectionReason(123)).toEqual({ valid: false, error: "Rejection reason must be text." });
+    expect(validateRejectionReason({ text: "a".repeat(30) }).valid).toBe(false);
+    expect(validateRejectionReason(null).valid).toBe(false);
+  });
 });

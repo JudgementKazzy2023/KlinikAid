@@ -204,8 +204,11 @@ export function validateNotes(
 }
 
 export function validateRejectionReason(
-  reason: string | null | undefined
+  reason: unknown
 ): { valid: boolean; error?: string } {
+  if (reason !== null && reason !== undefined && typeof reason !== "string") {
+    return { valid: false, error: "Rejection reason must be text." };
+  }
   const trimmed = (reason ?? "").trim();
   if (trimmed.length < REJECTION_REASON_MIN) {
     return {
