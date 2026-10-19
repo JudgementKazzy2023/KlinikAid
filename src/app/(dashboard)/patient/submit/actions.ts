@@ -355,7 +355,8 @@ export async function confirmSubmitDocumentAction(assessmentId: string, selected
   if (submitError?.code === "P0002") {
     // Neither a pending row nor a document: the assessment was discarded while
     // this request ran. Nothing can reference the final file any more.
-    const { error: removeError } = await supabase.storage
+    // Written with the service role above; patients cannot delete final files.
+    const { error: removeError } = await createAdminClient().storage
       .from(DOCUMENT_BUCKET)
       .remove([finalFilePath]);
     if (removeError) {
