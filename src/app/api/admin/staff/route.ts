@@ -22,6 +22,16 @@ function normalizeEmployeeType(value: unknown) {
   return titles.length ? titles.join("|") : null;
 }
 
+/** Supabase and Auth errors are plain objects with a message, not Error instances. */
+function errorText(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message?: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return String(error);
+}
+
 function getStaffCreateErrorMessage(error: unknown): { message: string; status: number } {
   const code =
     typeof error === "object" && error !== null && "code" in error
@@ -87,8 +97,15 @@ export async function GET() {
 
 // POST: create a new staff member
 export async function POST(request: Request) {
+  let createdUserId: string | null = null;
+  let creatorId: string | null = null;
   try {
     const adminProfile = await requirePermission("staff.manage");
+    creatorId = adminProfile.id;
+    // The caller-scoped profile update below is governed by profiles.manage.
+    // Check it before creating an Auth user so staff.manage alone cannot strand
+    // the signup trigger's patient profile.
+    await requirePermission("profiles.manage");
     const body = await request.json();
     const { email, password, fullName, roleId, department } = body;
     const employeeType = normalizeEmployeeType(body.employeeType);
@@ -166,6 +183,7 @@ export async function POST(request: Request) {
     if (authError || !authData.user) {
       throw authError || new Error("Auth user creation failed");
     }
+    createdUserId = authData.user.id;
 
     // 2. Fetch the newly created profile row. Retries if the database trigger is asynchronous
     let profile = null;
@@ -237,13 +255,55 @@ export async function POST(request: Request) {
       201
     );
   } catch (error: unknown) {
+    let cleanupSucceeded: boolean | null = null;
+    if (createdUserId) {
+      let cleanupError: unknown = null;
+      try {
+        const result = await createAdminClient().auth.admin.deleteUser(createdUserId);
+        cleanupError = result.error;
+      } catch (deleteError) {
+        cleanupError = deleteError;
+      }
+      cleanupSucceeded = !cleanupError;
+      const message = errorText(error);
+      // logEvent reports a failed insert as { ok: false } rather than throwing.
+      // Either way, keep the identifiers an operator needs to reconcile the
+      // account in the server log, since the audit row did not land.
+      let auditWrite: Awaited<ReturnType<typeof logEvent>>;
+      try {
+        auditWrite = await logEvent(
+          await createClient(),
+          creatorId,
+          SYSTEM_EVENT_TYPES.STAFF_ACTION_FAILED,
+          `Staff user creation failed; Auth cleanup ${cleanupSucceeded ? "succeeded" : "failed"}`,
+          null,
+          { target_user_id: createdUserId, cleanup_succeeded: cleanupSucceeded, error: message }
+        );
+      } catch (loggingError) {
+        auditWrite = { ok: false, error: loggingError };
+      }
+      if (!auditWrite.ok) {
+        console.error("Failed to record staff creation failure in system_logs:", {
+          target_user_id: createdUserId,
+          cleanup_succeeded: cleanupSucceeded,
+          error: message,
+          audit_error: errorText(auditWrite.error),
+        });
+      }
+      if (cleanupError) console.error("Failed to delete incomplete staff Auth user:", cleanupError);
+    }
     // A refusal is not a staff-creation failure: a caller without `staff.manage`
     // must not be told "500, try again", because retrying will never succeed.
     if (error instanceof AuthError) {
       return handleRouteError(error, "Failed to create staff member");
     }
     const safeError = getStaffCreateErrorMessage(error);
-    const message = error instanceof Error ? error.message : String(error);
-    return errorResponse(safeError.message, safeError.status, message);
+    const message = errorText(error);
+    const cleanupDetail = cleanupSucceeded === null
+      ? ""
+      : cleanupSucceeded
+        ? " The incomplete account was deleted."
+        : " Account cleanup failed; remove the incomplete account manually before retrying.";
+    return errorResponse(`${safeError.message}${cleanupDetail}`, safeError.status, message);
   }
 }
