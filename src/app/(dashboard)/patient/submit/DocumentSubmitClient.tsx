@@ -56,6 +56,7 @@ export default function DocumentSubmitClient() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [qualityWarningAssessmentId, setQualityWarningAssessmentId] = useState<string | null>(null);
+  const [noDetectedTestsAssessmentId, setNoDetectedTestsAssessmentId] = useState<string | null>(null);
   const [testSelectionAssessmentId, setTestSelectionAssessmentId] = useState<string | null>(null);
   const [detectedTests, setDetectedTests] = useState<DetectedClinicTest[]>([]);
   const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
@@ -84,6 +85,7 @@ export default function DocumentSubmitClient() {
       setSelectedFile(file);
       setValue("file", file, { shouldValidate: true });
       setQualityWarningAssessmentId(null);
+      setNoDetectedTestsAssessmentId(null);
       setTestSelectionAssessmentId(null);
       setDetectedTests([]);
       setSelectedTestIds([]);
@@ -97,6 +99,7 @@ export default function DocumentSubmitClient() {
       setSelectedFile(file);
       setValue("file", file, { shouldValidate: true });
       setQualityWarningAssessmentId(null);
+      setNoDetectedTestsAssessmentId(null);
       setTestSelectionAssessmentId(null);
       setDetectedTests([]);
       setSelectedTestIds([]);
@@ -105,12 +108,13 @@ export default function DocumentSubmitClient() {
   };
 
   const removeFile = async () => {
-    const activeAssessmentId = qualityWarningAssessmentId || testSelectionAssessmentId;
+    const activeAssessmentId = qualityWarningAssessmentId || noDetectedTestsAssessmentId || testSelectionAssessmentId;
     if (activeAssessmentId) {
       await discardAssessedDocumentAction(activeAssessmentId);
     }
     setSelectedFile(null);
     setQualityWarningAssessmentId(null);
+    setNoDetectedTestsAssessmentId(null);
     setTestSelectionAssessmentId(null);
     setDetectedTests([]);
     setSelectedTestIds([]);
@@ -131,12 +135,23 @@ export default function DocumentSubmitClient() {
 
   const onSubmit = async (values: FormValues) => {
     if (!values.file) return;
+
+    if (testSelectionAssessmentId && selectedTestIds.length === 0) {
+      setSubmitError("Select at least one test before submitting. Nothing was submitted.");
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
 
     try {
       if (qualityWarningAssessmentId) {
         await confirmSubmission(qualityWarningAssessmentId, []);
+        return;
+      }
+
+      if (noDetectedTestsAssessmentId) {
+        await confirmSubmission(noDetectedTestsAssessmentId, []);
         return;
       }
 
@@ -172,7 +187,10 @@ export default function DocumentSubmitClient() {
         return;
       }
 
-      await confirmSubmission(result.assessmentId);
+      // Readable text, but nothing in it matches the clinic's test catalog. It
+      // may not be a medical request at all, so make the patient acknowledge
+      // that before the document is sent for receptionist review.
+      setNoDetectedTestsAssessmentId(result.assessmentId);
     } catch (err) {
       console.error(err);
       setSubmitError("Failed to connect to the server. Please check your internet connection.");
@@ -256,6 +274,20 @@ export default function DocumentSubmitClient() {
       </Card>
     );
   }
+
+  const acknowledgingRisk = Boolean(qualityWarningAssessmentId || noDetectedTestsAssessmentId);
+  const noTestsSelected = Boolean(testSelectionAssessmentId) && selectedTestIds.length === 0;
+
+  const submitLabel = acknowledgingRisk
+    ? "Submit Anyway"
+    : testSelectionAssessmentId
+      ? "Submit Selected Tests"
+      : "Submit Lab Request";
+  const submittingLabel = acknowledgingRisk
+    ? "Submitting anyway..."
+    : testSelectionAssessmentId
+      ? "Submitting selected tests..."
+      : "Submitting lab request...";
 
   return (
     <Card className="border border-slate-200/80 dark:border-slate-800 shadow-md">
@@ -360,6 +392,16 @@ export default function DocumentSubmitClient() {
             </Alert>
           )}
 
+          {noDetectedTestsAssessmentId && (
+            <Alert className="bg-amber-50 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/50 text-amber-900 dark:text-amber-200">
+              <TriangleAlert className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertTitle>No Lab Tests Detected</AlertTitle>
+              <AlertDescription className="text-amber-800 dark:text-amber-200/90">
+                We could not find any recognised laboratory tests in this file, so it may not be a medical request. Submitting it anyway sends it to the receptionist for review without detected tests. You can also upload the correct referral instead.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {testSelectionAssessmentId && detectedTests.length > 0 && (
             <div className="rounded-xl border border-emerald-200/80 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 space-y-3">
               <div className="flex items-start gap-2.5">
@@ -417,6 +459,12 @@ export default function DocumentSubmitClient() {
         </CardContent>
 
         <CardFooter className="bg-slate-50/20 dark:bg-slate-900/10 p-6 border-t border-slate-100 dark:border-slate-900/60 flex justify-end space-x-3">
+          {noTestsSelected && (
+            <p className="mr-auto flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
+              <AlertCircle className="h-3.5 w-3.5" />
+              Select at least one test to submit.
+            </p>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -428,24 +476,16 @@ export default function DocumentSubmitClient() {
           </Button>
           <Button
             type="submit"
-            disabled={isSubmitting || !selectedFile}
+            disabled={isSubmitting || !selectedFile || noTestsSelected}
             className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm transition-all"
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4.5 w-4.5 animate-spin" />
-                {qualityWarningAssessmentId
-                  ? "Submitting anyway..."
-                  : testSelectionAssessmentId
-                    ? "Submitting selected tests..."
-                    : "Submitting lab request..."}
+                {submittingLabel}
               </>
             ) : (
-              qualityWarningAssessmentId
-                ? "Submit Anyway"
-                : testSelectionAssessmentId
-                  ? "Submit Selected Tests"
-                  : "Submit Lab Request"
+              submitLabel
             )}
           </Button>
         </CardFooter>
