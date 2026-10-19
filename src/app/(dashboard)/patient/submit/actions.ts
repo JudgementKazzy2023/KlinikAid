@@ -282,6 +282,21 @@ export async function confirmSubmitDocumentAction(assessmentId: string, selected
     return { success: false, error: "Document assessment does not match your patient profile." };
   }
 
+  // The patient picks which detected tests are sent for review. Choosing none
+  // of them is not "submit the document without tests": a request with
+  // detected tests but no selection stores selected_tests: [] and leaves the
+  // receptionist with a document whose only tests were deliberately dropped.
+  // Refuse before anything is written, so the pending assessment stays usable.
+  const detectedTests = detectRequestedTests(pendingRow.ocr_text);
+  const selectedTests = selectDetectedTests(detectedTests, selectedTestIds);
+
+  if (detectedTests.length > 0 && selectedTests.length === 0) {
+    return {
+      success: false,
+      error: "Select at least one test before submitting. Nothing was submitted; your file is still available above.",
+    };
+  }
+
   const { data: pendingFile, error: downloadError } = await supabase.storage
     .from(DOCUMENT_BUCKET)
     .download(pendingRow.file_path);
@@ -312,8 +327,6 @@ export async function confirmSubmitDocumentAction(assessmentId: string, selected
     return { success: false, error: `Failed to upload file to storage: ${uploadError.message}` };
   }
 
-  const detectedTests = detectRequestedTests(pendingRow.ocr_text);
-  const selectedTests = selectDetectedTests(detectedTests, selectedTestIds);
   const extractedMetadata = detectedTests.length > 0
     ? {
         detected_tests: detectedTests,
