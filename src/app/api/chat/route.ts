@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { errorResponse, successResponse } from "@/lib/api-response";
+import { validateChatMessages } from "@/lib/chat/validate-messages";
 import { classifyRead } from "@/lib/read-outcome";
 import {
   checkPrivacyConsent,
@@ -15,11 +16,6 @@ type EmbedContentFn = (req: {
   content: { role: string; parts: Array<{ text: string }> };
   outputDimensionality: number;
 }) => Promise<{ embedding: { values: number[] } }>;
-
-interface ChatMessage {
-  role: "user" | "model";
-  content: string;
-}
 
 interface MatchedDocument {
   id: string;
@@ -49,18 +45,14 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { messages, sessionId } = body as { messages: ChatMessage[]; sessionId?: string };
+    const { messages: rawMessages, sessionId } = (body ?? {}) as { messages?: unknown; sessionId?: string };
 
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      return errorResponse("Messages history is required.");
+    // Bound what reaches the model: the input box caps length, a direct request does not.
+    const checked = validateChatMessages(rawMessages);
+    if (!checked.valid) {
+      return errorResponse(checked.error);
     }
-
-    const lastMessage = messages[messages.length - 1];
-    if (!lastMessage || lastMessage.role !== "user" || !lastMessage.content) {
-      return errorResponse("The last message must be a user message with content.");
-    }
-
-    const userQuery = lastMessage.content;
+    const { messages, userQuery } = checked;
     const activeSessionId = sessionId || crypto.randomUUID();
 
     // 2. Enforce Rate Limit: Max 20 requests per hour keyed off authenticated user.id (prevents sessionId bypasses)
