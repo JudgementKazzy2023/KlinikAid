@@ -31,8 +31,10 @@
 --     PostgREST even though EXECUTE keeps its default grant.
 --
 --     The trigger fires on INSERT as well so a future provisioning path cannot
---     create drift, and on UPDATE OF role_id only, so the ordinary profile
---     updates (privacy consent, email verification) pay nothing.
+--     create drift, and on UPDATE OF role_id or role, so a write to the legacy
+--     column alone is put back to the assigned role. Ordinary profile updates
+--     (privacy consent, email verification) touch neither column and pay
+--     nothing.
 --
 --   Backfill
 --     Corrects every existing row whose role disagrees with its assigned role.
@@ -86,7 +88,7 @@ $$;
 drop trigger if exists profiles_sync_legacy_role on public.profiles;
 
 create trigger profiles_sync_legacy_role
-  before insert or update of role_id on public.profiles
+  before insert or update of role_id, role on public.profiles
   for each row
   execute function public.sync_profile_legacy_role();
 
