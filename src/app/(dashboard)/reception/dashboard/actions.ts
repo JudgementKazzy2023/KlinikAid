@@ -24,6 +24,8 @@ export interface ReceptionPatientResult {
   error?: string;
   success?: boolean;
   passwordUsed?: string;
+  /** False: the account exists but the confirmation email was not sent yet. */
+  confirmationSent?: boolean;
 }
 
 export async function createPatientByStaffAction(
@@ -93,5 +95,6 @@ export async function createPatientByStaffAction(
   return {
     success: true,
     passwordUsed: res.passwordUsed,
+    confirmationSent: res.confirmationSent !== false,
   };
 }

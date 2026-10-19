@@ -25,6 +25,40 @@ export interface CreatePatientResult {
   error?: string;
   /** The address already has an Auth account. Nothing was created. */
   emailExists?: boolean;
+  /**
+   * Set on success. False means the account exists but the confirmation email
+   * could not be sent for a temporary reason; a new link can be requested later.
+   */
+  confirmationSent?: boolean;
+}
+
+/** Auth error codes that mean this address will never receive a link. */
+const PERMANENT_CONFIRMATION_FAILURES = new Set(["email_address_invalid", "email_address_not_authorized"]);
+
+export function isPermanentConfirmationFailure(error: { code?: string | null }): boolean {
+  return !!error.code && PERMANENT_CONFIRMATION_FAILURES.has(error.code);
+}
+
+/** Remove a just-created patient and Auth user, reporting whether both went. */
+async function removeUnconfirmableAccount(
+  adminClient: ReturnType<typeof createAdminClient>,
+  patientId: string,
+  userId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const problems: string[] = [];
+  try {
+    const { error } = await adminClient.from("patients").delete().eq("id", patientId);
+    if (error) problems.push(`patients: ${error.message}`);
+  } catch (err) {
+    problems.push(`patients: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  try {
+    const { error } = await adminClient.auth.admin.deleteUser(userId);
+    if (error) problems.push(`auth: ${error.message}`);
+  } catch (err) {
+    problems.push(`auth: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  return problems.length === 0 ? { ok: true } : { ok: false, error: problems.join("; ") };
 }
 
 /**
@@ -140,19 +174,36 @@ export async function createPatient(
       }
     }
 
-    // 5. Send the confirmation link. Without it the account cannot sign in, so a
-    // failure here is a failed registration: remove what was created.
+    // 5. Send the confirmation link. An address the provider refuses outright can
+    // never confirm, so that registration is removed. Any other failure (rate
+    // limit, provider outage) is temporary: the unconfirmed account is kept, and
+    // the existing "send a new link" path recovers it once sending works again.
+    // Deleting it would turn a provider hiccup into a lost registration.
     const { error: confirmError } = await sendEmailConfirmation(client, email);
-    if (confirmError) {
-      await adminClient.from("patients").delete().eq("id", patientData.id);
-      await adminClient.auth.admin.deleteUser(userId);
+    if (confirmError && isPermanentConfirmationFailure(confirmError)) {
+      const cleanup = await removeUnconfirmableAccount(adminClient, patientData.id, userId);
+      if (!cleanup.ok) {
+        await logEvent(
+          adminClient,
+          receptionistId || null,
+          SYSTEM_EVENT_TYPES.STAFF_ACTION_FAILED,
+          "Patient registration rolled back after a refused confirmation address, but cleanup was incomplete",
+          null,
+          { target_user_id: userId, patient_id: patientData.id, cleanup_error: cleanup.error }
+        );
+      }
       return {
         success: false,
-        error:
-          confirmError.code === "email_address_invalid"
-            ? "We could not send a confirmation email to this address. Check the address and try again."
-            : "We could not send a confirmation email right now. Please try again later.",
+        error: "We could not send a confirmation email to this address. Check the address and try again.",
       };
+    }
+    const confirmationSent = !confirmError;
+    if (confirmError) {
+      console.error("[createPatient] Confirmation email not sent; account kept for resend:", {
+        user_id: userId,
+        code: confirmError.code ?? null,
+        status: confirmError.status ?? null,
+      });
     }
 
     // 6. Log success event and return result
@@ -160,13 +211,21 @@ export async function createPatient(
       ? `Patient registered by receptionist: ${fullName} (${email})`
       : `Patient registered via self-registration: ${fullName} (${email})`;
 
-    await logEvent(adminClient, userId, SYSTEM_EVENT_TYPES.USER_REGISTERED, logMessage);
+    await logEvent(
+      adminClient,
+      userId,
+      SYSTEM_EVENT_TYPES.USER_REGISTERED,
+      logMessage,
+      null,
+      confirmationSent ? null : { confirmation_email_sent: false }
+    );
 
     return {
       success: true,
       userId,
       patientId: patientData.id,
       passwordUsed,
+      confirmationSent,
     };
   } catch (err: unknown) {
     // Top-level fallback cleanup

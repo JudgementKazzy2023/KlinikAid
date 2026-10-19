@@ -2,6 +2,7 @@
 
 import React, { useState, useTransition } from "react";
 import { createPatientByStaffAction } from "./actions";
+import { resendConfirmationAction } from "@/app/(auth)/login/actions";
 import { 
   Dialog, 
   DialogTrigger, 
@@ -37,6 +38,9 @@ export default function NewPatientModal() {
   const [success, setSuccess] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState("");
   const [copied, setCopied] = useState(false);
+  const [confirmationSent, setConfirmationSent] = useState(true);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [isResending, startResend] = useTransition();
   const [isPending, startTransition] = useTransition();
 
   const [formData, setFormData] = useState({
@@ -76,6 +80,19 @@ export default function NewPatientModal() {
     setSuccess(false);
     setGeneratedPassword("");
     setCopied(false);
+    setConfirmationSent(true);
+    setResendMessage(null);
+  };
+
+  const handleResend = () => {
+    startResend(async () => {
+      try {
+        const { message } = await resendConfirmationAction(formData.email);
+        setResendMessage(message);
+      } catch {
+        setResendMessage("The confirmation email could not be requested. Try again in a few minutes.");
+      }
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -98,6 +115,7 @@ export default function NewPatientModal() {
         if (result.success) {
           setSuccess(true);
           setGeneratedPassword(result.passwordUsed || "");
+          setConfirmationSent(result.confirmationSent !== false);
         }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "An unexpected error occurred. Please try again.");
@@ -136,9 +154,22 @@ export default function NewPatientModal() {
               <p className="text-xs text-slate-500 max-w-xs">
                 A profile has been registered. Give the patient these temporary credentials. They will be asked to choose their own password when they first sign in, and this one will stop working.
               </p>
-              <p className="text-xs text-slate-500 max-w-xs">
-                A confirmation link was emailed to the patient. They must open it before they can sign in.
-              </p>
+              {confirmationSent ? (
+                <p className="text-xs text-slate-500 max-w-xs">
+                  A confirmation link was emailed to the patient. They must open it before they can sign in.
+                </p>
+              ) : (
+                <div role="alert" className="text-xs text-amber-700 dark:text-amber-400 max-w-xs space-y-2">
+                  <p>
+                    The account was created, but the confirmation email could not be sent right now. The patient cannot sign in until they open a confirmation link.
+                  </p>
+                  <Button type="button" variant="outline" size="sm" onClick={handleResend} disabled={isResending}>
+                    {isResending ? "Sending…" : "Send confirmation link"}
+                  </Button>
+                  {resendMessage && <p aria-live="polite">{resendMessage}</p>}
+                  <p>The patient can also request a new link from the sign-in page.</p>
+                </div>
+              )}
             </div>
 
             <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-lg border border-slate-100 dark:border-slate-800 space-y-3">

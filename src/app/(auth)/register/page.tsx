@@ -116,6 +116,10 @@ function RegisterForm() {
                   </Link>
                   .
                 </p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No email after a few minutes? Sign in with your new details and choose{" "}
+                  <strong className="text-slate-700 dark:text-slate-300">Send a new confirmation link</strong>.
+                </p>
               </div>
             </CardContent>
           </Card>
