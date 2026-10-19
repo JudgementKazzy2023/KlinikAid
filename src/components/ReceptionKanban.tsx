@@ -83,6 +83,10 @@ export default function ReceptionKanban({
   // for the query the user is actually looking at (the LogsDashboardClient
   // pattern).
   const searchSeq = useRef(0);
+  // Bumped by every realtime event so an active search is re-run: a change can
+  // move a document into or out of the current matches, not just edit a card.
+  const [searchRefresh, setSearchRefresh] = useState(0);
+  const lastSearchedQuery = useRef("");
   const [showCompleted, setShowCompleted] = useState(false);
   const [visible, setVisible] = useState<Record<ColumnId, number>>({
     submitted: PAGE_SIZE,
@@ -123,7 +127,8 @@ export default function ReceptionKanban({
         },
         async (payload) => {
           const { eventType, new: newRecord, old: oldRecord } = payload;
-          
+          setSearchRefresh((n) => n + 1);
+
           if (eventType === "DELETE") {
             setDocuments((prev) => prev.filter((doc) => doc.id !== oldRecord.id));
             toast.info("A document was deleted.");
@@ -199,13 +204,17 @@ export default function ReceptionKanban({
   // uncapped client filter would read "no match" for rows that were never loaded.
   useEffect(() => {
     const q = searchQuery.trim();
+    // A realtime refresh of the same query keeps the current results on screen
+    // until the new ones arrive; a new query shows the loading state.
+    const isRefresh = q === lastSearchedQuery.current;
+    lastSearchedQuery.current = q;
     if (q.length === 0) {
       setSearchState({ kind: "idle" });
       return;
     }
 
     const ticket = ++searchSeq.current;
-    setSearchState({ kind: "loading" });
+    if (!isRefresh) setSearchState({ kind: "loading" });
 
     const timer = setTimeout(async () => {
       const outcome = await fetchJson<{ documents: Document[]; truncated: boolean }>(
@@ -228,7 +237,7 @@ export default function ReceptionKanban({
     }, SEARCH_DEBOUNCE_MS);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, searchRefresh]);
 
   // What the board renders: the server's full-table matches while a search is
   // active, otherwise the local list kept fresh by the realtime subscription.
