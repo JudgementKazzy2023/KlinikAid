@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { getReceptionDocumentSignedUrlAction } from "@/app/(dashboard)/reception/queue/[documentId]/actions";
 import { DEPARTMENTS } from "@/lib/constants";
 import { Department } from "@/types";
+import { REJECTION_REASON_MIN, REJECTION_REASON_MAX } from "@/lib/validation";
 import type { DetectedClinicTest } from "@/lib/documents/detectRequestedTests";
 import type { TemplateReview } from "@/lib/documents/templateChecks";
 import {
@@ -156,8 +157,12 @@ export default function DocumentApprovalClient({ document: initialDoc, templateR
 
   // Rejection Submission Handler
   const handleReject = () => {
-    if (rejectionReason.trim().length < 20) {
-      toast.error("Rejection reason must be at least 20 characters long.");
+    if (rejectionReason.trim().length < REJECTION_REASON_MIN) {
+      toast.error(`Rejection reason must be at least ${REJECTION_REASON_MIN} characters long.`);
+      return;
+    }
+    if (rejectionReason.length > REJECTION_REASON_MAX) {
+      toast.error(`Rejection reason must be no more than ${REJECTION_REASON_MAX} characters long.`);
       return;
     }
 
@@ -699,21 +704,24 @@ export default function DocumentApprovalClient({ document: initialDoc, templateR
             </div>
             <div className="space-y-1.5">
               <label htmlFor="rejection_reason" className="text-xs font-semibold text-slate-500">
-                Rejection Reason (Minimum 20 characters)
+                Rejection Reason ({REJECTION_REASON_MIN}–{REJECTION_REASON_MAX} characters)
               </label>
               <Textarea
                 id="rejection_reason"
                 placeholder="The patient name on the referral does not match your profile account details. Please upload a correct medical referral."
                 value={rejectionReason}
                 onChange={(e) => setRejectionReason(e.target.value)}
+                maxLength={REJECTION_REASON_MAX}
                 rows={4}
                 className="text-xs border-slate-200 dark:border-slate-800"
               />
               <div className="flex justify-between items-center text-[10px] text-slate-400">
-                <span>{rejectionReason.length} characters</span>
-                {rejectionReason.length < 20 && (
-                  <span className="text-rose-500 font-semibold">Needs {20 - rejectionReason.length} more characters</span>
-                )}
+                <span>{rejectionReason.length} / {REJECTION_REASON_MAX} characters</span>
+                {rejectionReason.trim().length < REJECTION_REASON_MIN ? (
+                  <span className="text-rose-500 font-semibold">Needs {REJECTION_REASON_MIN - rejectionReason.trim().length} more characters</span>
+                ) : rejectionReason.length >= REJECTION_REASON_MAX ? (
+                  <span className="text-rose-500 font-semibold">Character limit reached</span>
+                ) : null}
               </div>
             </div>
           </div>
@@ -731,7 +739,7 @@ export default function DocumentApprovalClient({ document: initialDoc, templateR
             <Button
               type="button"
               variant="destructive"
-              disabled={rejectionReason.trim().length < 20 || isPending}
+              disabled={rejectionReason.trim().length < REJECTION_REASON_MIN || isPending}
               onClick={handleReject}
               className="text-xs font-semibold shadow-sm"
             >

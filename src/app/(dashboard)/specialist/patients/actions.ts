@@ -5,7 +5,7 @@ import { requirePermission } from "@/lib/auth/helpers";
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { revalidatePath } from "next/cache";
-import { CONTACT_REQUIREMENT_TEXT, validateContactNumber, validateName } from "@/lib/validation";
+import { CONTACT_REQUIREMENT_TEXT, validateContactNumber, validateName, validateDobDate, validateAddress } from "@/lib/validation";
 import { z } from "zod";
 
 export interface SpecialistPatientResult {
@@ -14,58 +14,8 @@ export interface SpecialistPatientResult {
   patientId?: string;
 }
 
-const DOB_REGEX = /^(\d{4})-(\d{2})-(\d{2})$/;
 const genderSchema = z.enum(["male", "female", "other"]);
 const optionalEmailSchema = z.string().email("Invalid email address");
-
-function getTodayInPh(): { year: number; month: number; day: number } {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Manila",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-
-  const getPart = (type: string) => Number(parts.find((part) => part.type === type)?.value);
-
-  return {
-    year: getPart("year"),
-    month: getPart("month"),
-    day: getPart("day"),
-  };
-}
-
-function validateSpecialistPatientDob(dobString: string): { valid: boolean; error?: string } {
-  const match = DOB_REGEX.exec(dobString);
-  if (!match) {
-    return { valid: false, error: "Invalid date of birth format." };
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const dob = new Date(Date.UTC(year, month - 1, day));
-
-  if (
-    dob.getUTCFullYear() !== year ||
-    dob.getUTCMonth() !== month - 1 ||
-    dob.getUTCDate() !== day
-  ) {
-    return { valid: false, error: "Invalid date of birth." };
-  }
-
-  const today = getTodayInPh();
-  const isFuture =
-    year > today.year ||
-    (year === today.year && month > today.month) ||
-    (year === today.year && month === today.month && day > today.day);
-
-  if (isFuture) {
-    return { valid: false, error: "Date of birth cannot be in the future." };
-  }
-
-  return { valid: true };
-}
 
 export async function createSpecialistPatientAction(
   prevState: unknown,
@@ -98,7 +48,7 @@ export async function createSpecialistPatientAction(
       return { success: false, error: lastNameCheck.error || "Invalid last name." };
     }
 
-    const dobCheck = validateSpecialistPatientDob(dob);
+    const dobCheck = validateDobDate(dob);
     if (!dobCheck.valid) {
       return { success: false, error: dobCheck.error || "Invalid date of birth." };
     }
@@ -116,6 +66,13 @@ export async function createSpecialistPatientAction(
 
     if (email && !optionalEmailSchema.safeParse(email).success) {
       return { success: false, error: "Invalid email address" };
+    }
+
+    if (address) {
+      const addressCheck = validateAddress(address);
+      if (!addressCheck.valid) {
+        return { success: false, error: addressCheck.error || "Invalid address." };
+      }
     }
 
     const { data: newPatient, error: insertError } = await supabase

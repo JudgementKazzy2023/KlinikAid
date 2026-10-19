@@ -407,9 +407,9 @@ export default function SubmissionsClient({
                           {doc.status === "rejected" && doc.rejection_reason && (
                             <div className="mt-2 p-2.5 bg-red-50/70 dark:bg-red-950/20 border border-red-100/50 dark:border-red-900/40 rounded-lg text-xs flex items-start gap-2 text-red-800 dark:text-red-400">
                               <AlertTriangle className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
-                              <div>
+                              <div className="min-w-0 break-words">
                                 <span className="font-bold">Rejection Reason:</span>{" "}
-                                <span className="italic">{doc.rejection_reason}</span>
+                                <span className="italic break-words">{doc.rejection_reason}</span>
                               </div>
                             </div>
                           )}

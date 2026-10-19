@@ -4,6 +4,7 @@ import { errorResponse, handleRouteError, successResponse } from "@/lib/api-resp
 import { logEvent } from "@/lib/logger";
 import { toZonedTime, format } from "date-fns-tz";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
+import { validateRejectionReason } from "@/lib/validation";
 
 export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -21,20 +22,21 @@ export async function POST(request: Request, props: { params: Promise<{ id: stri
     const documentId = params.id;
 
     // 3. Parse and validate payload
-    let body: { rejection_reason?: string } = {};
+    let body: unknown;
     try {
       body = await request.json();
     } catch {
       return errorResponse("Invalid JSON payload", 400);
     }
 
-    const rejectionReason = body.rejection_reason?.trim();
-    if (!rejectionReason || rejectionReason.length < 20) {
-      return errorResponse(
-        "Rejection reason is required and must be at least 20 characters long.",
-        400
-      );
+    // request.json() can return any JSON value; check the type before trimming.
+    const rawReason =
+      body && typeof body === "object" ? (body as { rejection_reason?: unknown }).rejection_reason : undefined;
+    const reasonCheck = validateRejectionReason(rawReason);
+    if (!reasonCheck.valid || typeof rawReason !== "string") {
+      return errorResponse(reasonCheck.error || "Invalid rejection reason.", 400);
     }
+    const rejectionReason = rawReason.trim();
 
     // 4. Fetch current document to preserve metadata
     const { data: document, error: fetchError } = await supabase

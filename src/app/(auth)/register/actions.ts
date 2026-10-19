@@ -3,22 +3,22 @@
 import { createClient } from "@/lib/supabase/server";
 import { createPatient } from "@/lib/patient/createPatient";
 import { sendEmailConfirmation } from "@/lib/auth/email-confirmation";
-import { PASSWORD_REQUIREMENT_TEXT, validateAge, validatePassword, validateName, CONTACT_REQUIREMENT_TEXT, validateContactNumber } from "@/lib/validation";
+import { PASSWORD_REQUIREMENT_TEXT, validateAge, validatePassword, validateName, nameFieldMessage, CONTACT_REQUIREMENT_TEXT, validateContactNumber, validateAddress, ADDRESS_FIELD_MESSAGE } from "@/lib/validation";
 import { z } from "zod";
 
 const registerSchema = z.object({
   email: z.string().email("Invalid email address"),
   password: z.string().refine(validatePassword, PASSWORD_REQUIREMENT_TEXT),
-  firstName: z.string().refine((v) => validateName(v, "First name").valid, {
-    message: "First name must be at least 3 characters and contain only letters, spaces, hyphens, apostrophes, or periods."
+  firstName: z.string().trim().refine((v) => validateName(v, "First name").valid, {
+    message: nameFieldMessage("First name")
   }),
-  lastName: z.string().refine((v) => validateName(v, "Last name").valid, {
-    message: "Last name must be at least 3 characters and contain only letters, spaces, hyphens, apostrophes, or periods."
+  lastName: z.string().trim().refine((v) => validateName(v, "Last name").valid, {
+    message: nameFieldMessage("Last name")
   }),
   dob: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date of birth format"),
   gender: z.enum(["male", "female", "other"], { message: "Select a valid gender" }),
   contactNumber: z.string().refine((v) => validateContactNumber(v).valid, CONTACT_REQUIREMENT_TEXT),
-  address: z.string().min(1, "Address is required"),
+  address: z.string().trim().refine((v) => validateAddress(v).valid, { message: ADDRESS_FIELD_MESSAGE }),
   acceptedTerms: z
     .string()
     .refine((value) => value === "true", "You must accept the KlinikAid Terms and Conditions to register."),
@@ -62,7 +62,11 @@ export async function registerAction(
     return { error: errorMsg };
   }
 
-  const ageValidation = validateAge(dob);
+  // Use the parsed (trimmed) values so whitespace-only input is refused by the
+  // schema above and stored names/addresses never carry surrounding whitespace.
+  const parsed = validation.data;
+
+  const ageValidation = validateAge(parsed.dob);
   if (!ageValidation.valid) {
     return { error: ageValidation.error || "Invalid date of birth." };
   }
@@ -74,14 +78,14 @@ export async function registerAction(
   const res = await createPatient(
     client,
     {
-      email,
-      password,
-      firstName,
-      lastName,
-      dob,
-      gender: gender as "male" | "female" | "other",
-      contactNumber,
-      address,
+      email: parsed.email,
+      password: parsed.password,
+      firstName: parsed.firstName,
+      lastName: parsed.lastName,
+      dob: parsed.dob,
+      gender: parsed.gender,
+      contactNumber: parsed.contactNumber,
+      address: parsed.address,
     },
     false // Self-registration pathway
   );
