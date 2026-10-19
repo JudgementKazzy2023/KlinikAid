@@ -1,4 +1,4 @@
--- KlinikAid GENERATED current-state snapshot through migration_33 (2026-10-18).
+-- KlinikAid GENERATED current-state snapshot through migration_36 (2026-10-19).
 -- Fresh Supabase projects ONLY: run this file once in the SQL editor, or:
 --   psql "$FRESH_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f src/lib/db/schema.sql
 -- Requires a Supabase database with auth/storage schemas and platform roles.
@@ -536,6 +536,97 @@ $$;
 
 
 --
+-- Name: submit_assessed_document(uuid, uuid, uuid, text, jsonb); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.submit_assessed_document(p_assessment_id uuid, p_user_id uuid, p_patient_id uuid, p_file_path text, p_extracted_metadata jsonb, OUT document_id uuid, OUT created boolean) RETURNS record
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  v_pending public.pending_document_ocr;
+  v_path_prefix text;
+  v_extension text;
+begin
+  if p_assessment_id is null or p_user_id is null or p_patient_id is null then
+    raise exception 'missing argument' using errcode = '22023';
+  end if;
+
+  if not exists (
+    select 1 from public.patients p
+    where p.id = p_patient_id
+      and p.profile_id = p_user_id
+  ) then
+    raise exception 'patient does not belong to user' using errcode = '42501';
+  end if;
+
+  v_path_prefix := p_user_id::text || '/' || p_assessment_id::text || '.';
+  v_extension := substr(coalesce(p_file_path, ''), char_length(v_path_prefix) + 1);
+  if left(coalesce(p_file_path, ''), char_length(v_path_prefix)) <> v_path_prefix
+     or v_extension = ''
+     or strpos(v_extension, '/') > 0 then
+    raise exception 'invalid file path' using errcode = '22023';
+  end if;
+
+  delete from public.pending_document_ocr o
+   where o.id = p_assessment_id
+     and o.user_id = p_user_id
+     and o.patient_id = p_patient_id
+  returning * into v_pending;
+
+  if not found then
+    -- Already consumed: by a concurrent call that committed while this one
+    -- waited on the row lock, or by an earlier call whose response was lost.
+    select d.id into document_id
+      from public.documents d
+     where d.source_assessment_id = p_assessment_id
+       and d.uploader_id = p_user_id;
+
+    if found then
+      created := false;
+      return;
+    end if;
+
+    raise exception 'document assessment not found' using errcode = 'P0002';
+  end if;
+
+  begin
+    insert into public.documents
+      (patient_id, uploader_id, file_name, file_path, file_type, status, ocr_text, extracted_metadata, source_assessment_id)
+    values (
+      v_pending.patient_id,
+      p_user_id,
+      v_pending.file_name,
+      p_file_path,
+      v_pending.file_type,
+      'pending',
+      case when v_pending.ocr_text ~ '\S' then v_pending.ocr_text end,
+      p_extracted_metadata,
+      p_assessment_id
+    )
+    returning id into document_id;
+  exception when unique_violation then
+    -- A pending row re-inserted under an id that was already consumed. The
+    -- delete above stands; report the document that already exists.
+    select d.id into document_id
+      from public.documents d
+     where d.source_assessment_id = p_assessment_id
+       and d.uploader_id = p_user_id;
+
+    if not found then
+      raise;
+    end if;
+
+    created := false;
+    return;
+  end;
+
+  created := true;
+end;
+$$;
+
+
+--
 -- Name: sync_email_verified_at(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -549,6 +640,58 @@ begin
    where id = new.id
      and email_verified_at is null;
   return new;
+end;
+$$;
+
+
+--
+-- Name: sync_profile_legacy_role(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.sync_profile_legacy_role() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+declare
+  v_role public.roles;
+begin
+  if new.role_id is null then
+    return new;
+  end if;
+
+  select * into v_role
+  from public.roles r
+  where r.id = new.role_id;
+
+  -- A missing role id is the foreign key's problem, not this trigger's.
+  if not found then
+    return new;
+  end if;
+
+  if v_role.is_system then
+    new.role := v_role.name;
+  elsif v_role.base_role is not null then
+    new.role := v_role.base_role;
+  end if;
+
+  return new;
+end;
+$$;
+
+
+--
+-- Name: sync_profiles_for_changed_role(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.sync_profiles_for_changed_role() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER
+    SET search_path TO ''
+    AS $$
+begin
+  update public.profiles p
+     set role_id = p.role_id
+   where p.role_id = new.id;
+  return null;
 end;
 $$;
 
@@ -879,6 +1022,7 @@ CREATE TABLE public.documents (
     rejection_reason text,
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    source_assessment_id uuid,
     CONSTRAINT documents_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))
 );
 
@@ -1296,6 +1440,13 @@ ALTER TABLE ONLY public.used_totp_codes
 
 
 --
+-- Name: documents_source_assessment_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX documents_source_assessment_id_key ON public.documents USING btree (source_assessment_id) WHERE (source_assessment_id IS NOT NULL);
+
+
+--
 -- Name: idx_chatbot_logs_session_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1349,6 +1500,20 @@ CREATE UNIQUE INDEX patient_queue_one_open_per_patient ON public.patient_queue U
 --
 
 CREATE INDEX rag_documents_embedding_idx ON public.rag_documents USING hnsw (embedding public.vector_cosine_ops);
+
+
+--
+-- Name: profiles profiles_sync_legacy_role; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER profiles_sync_legacy_role BEFORE INSERT OR UPDATE OF role_id, role ON public.profiles FOR EACH ROW EXECUTE FUNCTION public.sync_profile_legacy_role();
+
+
+--
+-- Name: roles roles_sync_profile_legacy_role; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER roles_sync_profile_legacy_role AFTER UPDATE OF name, is_system, base_role ON public.roles FOR EACH ROW WHEN (((old.name IS DISTINCT FROM new.name) OR (old.is_system IS DISTINCT FROM new.is_system) OR (old.base_role IS DISTINCT FROM new.base_role))) EXECUTE FUNCTION public.sync_profiles_for_changed_role();
 
 
 --
@@ -2108,11 +2273,37 @@ GRANT ALL ON FUNCTION public.refund_login_attempt(p_email text, p_ip text) TO se
 
 
 --
+-- Name: FUNCTION submit_assessed_document(p_assessment_id uuid, p_user_id uuid, p_patient_id uuid, p_file_path text, p_extracted_metadata jsonb, OUT document_id uuid, OUT created boolean); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.submit_assessed_document(p_assessment_id uuid, p_user_id uuid, p_patient_id uuid, p_file_path text, p_extracted_metadata jsonb, OUT document_id uuid, OUT created boolean) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.submit_assessed_document(p_assessment_id uuid, p_user_id uuid, p_patient_id uuid, p_file_path text, p_extracted_metadata jsonb, OUT document_id uuid, OUT created boolean) TO service_role;
+
+
+--
 -- Name: FUNCTION sync_email_verified_at(); Type: ACL; Schema: public; Owner: -
 --
 
 REVOKE ALL ON FUNCTION public.sync_email_verified_at() FROM PUBLIC;
 GRANT ALL ON FUNCTION public.sync_email_verified_at() TO service_role;
+
+
+--
+-- Name: FUNCTION sync_profile_legacy_role(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.sync_profile_legacy_role() TO anon;
+GRANT ALL ON FUNCTION public.sync_profile_legacy_role() TO authenticated;
+GRANT ALL ON FUNCTION public.sync_profile_legacy_role() TO service_role;
+
+
+--
+-- Name: FUNCTION sync_profiles_for_changed_role(); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.sync_profiles_for_changed_role() TO anon;
+GRANT ALL ON FUNCTION public.sync_profiles_for_changed_role() TO authenticated;
+GRANT ALL ON FUNCTION public.sync_profiles_for_changed_role() TO service_role;
 
 
 --
@@ -2538,7 +2729,7 @@ create policy "Allow staff and admin read all patient files"
     public.user_has_permission(auth.uid(), 'storage.patient_documents.read')
   );
 
--- Allow authenticated patients to delete files under their own directory prefix
+-- Allow authenticated patients to delete their own pending uploads (migration_36)
 create policy "Allow patient delete own pending files"
   on storage.objects for delete
   using (
@@ -2601,7 +2792,10 @@ INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES
   ('20261018000030', 'legacy_30'),
   ('20261018000031', 'legacy_31'),
   ('20261018000032', 'legacy_32'),
-  ('20261018000033', 'legacy_33')
+  ('20261018000033', 'legacy_33'),
+  ('20261018000034', 'legacy_34'),
+  ('20261018000035', 'legacy_35'),
+  ('20261018000036', 'legacy_36')
 ON CONFLICT (version) DO NOTHING;
 
 COMMIT;
