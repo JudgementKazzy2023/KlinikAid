@@ -187,7 +187,7 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
         <div className="flex w-full md:w-auto gap-3">
           <Button
             onClick={() => setIsTextDialogOpen(true)}
-            className="flex-1 md:flex-none gap-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-50 dark:hover:bg-slate-100 dark:text-slate-900"
+            className="flex-1 md:flex-none gap-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100"
           >
             <Plus className="h-4 w-4" />
             Add Plain Text
@@ -195,7 +195,7 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
           
           <Button
             onClick={() => setIsPdfDialogOpen(true)}
-            className="flex-1 md:flex-none gap-2 bg-teal-700 hover:bg-teal-800 text-white dark:bg-teal-600 dark:hover:bg-teal-700"
+            className="flex-1 md:flex-none gap-2 bg-teal-700 hover:bg-teal-800 text-white dark:bg-teal-700 dark:hover:bg-teal-800"
           >
             <Upload className="h-4 w-4" />
             Upload PDF

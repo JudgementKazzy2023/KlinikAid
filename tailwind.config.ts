@@ -6,6 +6,11 @@ const config: Config = {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    // src/lib holds class-string maps (constants.ts role and department badge
+    // fills, for one). Without this entry Tailwind never generates those
+    // classes, so a badge built from a lib constant renders with no background
+    // at all (issue #153).
+    "./src/lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     container: {
@@ -16,6 +21,23 @@ const config: Config = {
       },
     },
     extend: {
+      // Tailwind v3 ships ring widths 0/1/2/4/8 only; `ring-3` is a Tailwind v4
+      // utility. The shadcn "base-nova" ui kit (button, input, select, textarea,
+      // switch) declares `focus-visible:ring-3` / `aria-invalid:ring-3`, which
+      // silently compiled to nothing here — no ring-width utility means
+      // `--tw-ring-shadow` stays at its `0 0 #0000` default and box-shadow is
+      // never set, so keyboard focus painted only a 1px border recolor
+      // (issue #149). Adding the key makes `.ring-3` a first-class utility with
+      // the same ring machinery as `.ring-2`.
+      ringWidth: {
+        3: "3px",
+      },
+      // Same story: `aria-invalid:*` is a built-in Tailwind v4 variant, but v3's
+      // default theme.aria has no `invalid` entry, so every `aria-invalid:*`
+      // class (invalid-state rings/borders in the ui kit) was dead too.
+      aria: {
+        invalid: 'invalid="true"',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

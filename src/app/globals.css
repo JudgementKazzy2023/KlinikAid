@@ -47,7 +47,12 @@
     --popover-foreground: 210 40% 98%;
 
     --primary: 133 21% 45%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* Near-black rather than the 11.2% navy it used to be: dark-mode primary
+       is light enough that 11.2% foreground only reached 4.53:1 on it, which
+       leaves no margin for a 13px button label. 4.9% (the page background)
+       measures 5.07:1, so `bg-primary text-primary-foreground` clears AA in
+       both themes. See issue #153. */
+    --primary-foreground: 222.2 84% 4.9%;
 
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { errorResponse, successResponse } from "@/lib/api-response";
 import { validateChatMessages } from "@/lib/chat/validate-messages";
-import { classifyRead } from "@/lib/read-outcome";
+import { classifyRead, readErrors } from "@/lib/read-outcome";
 import {
   checkPrivacyConsent,
   PRIVACY_CONSENT_CHECK_FAILED_MESSAGE,
@@ -13,6 +13,14 @@ import {
   parseQueryAnalysis,
   type QueryAnalysis,
 } from "@/lib/chat/query-language";
+import {
+  buildRetrievalQueries,
+  mergeMatchLists,
+  RETRIEVAL_MATCH_COUNT,
+  RETRIEVAL_MATCH_THRESHOLD,
+  RETRIEVAL_TOP_K,
+  type RetrievalMatch,
+} from "@/lib/chat/retrieval";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import crypto from "crypto";
 
@@ -43,17 +51,10 @@ async function analyseQuery(userQuery: string): Promise<QueryAnalysis> {
   }
 }
 
-interface MatchedDocument {
-  id: string;
-  title: string;
-  content: string;
-  metadata: Record<string, unknown> | null;
-  similarity: number;
-}
-
 /**
- * One patient chat turn: session, consent, rate limit, English-rendered
- * retrieval, language-matched reply, and the `chatbot_logs` audit row.
+ * One patient chat turn: session, consent, rate limit, multi-query
+ * English-rendered retrieval, language-matched reply, and the `chatbot_logs`
+ * audit row.
  */
 export async function POST(request: Request) {
   // 1. Session first (Standing Rule #1)
@@ -99,28 +100,46 @@ export async function POST(request: Request) {
       return errorResponse("Rate limit exceeded. You can only send up to 20 messages per hour.", 429);
     }
 
-    // 3. English rendering for retrieval, language for the reply (#73 item 9)
+    // 3. Language analysis for the reply + English retrieval variants (#73 item 9, #150)
     const analysis = await analyseQuery(userQuery);
 
-    // 4. Generate query embedding via gemini-embedding-001 (768 dimensions)
-    // The embedding is built from the English rendering, because the knowledge
-    // base is English-only and a non-English embedding ranks the answering
-    // document below the match_count cutoff. Everything the patient sees still
-    // flows through their own words: history in their language, reply in it.
+    // 4. Embed every retrieval variant via gemini-embedding-001 (768 dimensions)
+    //
+    // One embedding is phrasing-dependent (#150): the literal question "What are
+    // Bloodcare Medical Laboratory's operating hours?" renders correctly in
+    // English and still lands the answering doc below the 0.6 threshold, so the
+    // assistant declined. The patient's own words, the English rendering and
+    // 1-2 model-generated paraphrases are therefore embedded in parallel and
+    // their result lists unioned -- one well-matching phrasing is enough.
+    // Everything the patient sees still flows through their own words: history
+    // in their language, reply in it, and `chatbot_logs` stores their own words.
     // Note: text-embedding-004 is requested by spec, but returned 404 in this environment's Gemini API.
     // We use gemini-embedding-001 with outputDimensionality: 768 to achieve the correct 768-dim vector size.
     const embeddingModel = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
-    const embedResult = await (embeddingModel.embedContent as unknown as EmbedContentFn)({
-      content: { role: "user", parts: [{ text: analysis.englishQuery }] },
-      outputDimensionality: 768,
-    });
-    const queryEmbedding = embedResult.embedding?.values;
+    const retrievalQueries = buildRetrievalQueries(userQuery, analysis);
+    const embedded = await Promise.allSettled(
+      retrievalQueries.map((query) =>
+        (embeddingModel.embedContent as unknown as EmbedContentFn)({
+          content: { role: "user", parts: [{ text: query }] },
+          outputDimensionality: 768,
+        })
+      )
+    );
+    const queryEmbeddings = embedded
+      .map((result) => (result.status === "fulfilled" ? result.value.embedding?.values : undefined))
+      .filter((values): values is number[] => Array.isArray(values) && values.length > 0);
 
-    if (!queryEmbedding) {
+    // All variants failed to embed: there is no query to search with. A partial
+    // failure degrades to fewer phrasings, which is the recall the fix exists
+    // for, not a reason to fail the whole turn.
+    if (queryEmbeddings.length === 0) {
+      if (embedded.some((result) => result.status === "rejected")) {
+        console.error("All retrieval query embeddings failed:", embedded);
+      }
       return errorResponse("Failed to process query embeddings.");
     }
 
-    // 5. Perform vector similarity search in public.rag_documents
+    // 5. Perform vector similarity search in public.rag_documents, once per embedding
     //
     // A failed search must not become an answer. The previous `|| []` made
     // "the vector index was unreachable" and "the knowledge base has nothing on
@@ -129,23 +148,31 @@ export async function POST(request: Request) {
     // 200 asserting the clinic has no information, indistinguishable from a
     // genuine gap in the documents. Absence of evidence and failure to look are
     // separated here, once, so no caller downstream has to.
-    const search = classifyRead(
-      await supabase.rpc("match_documents", {
-        query_embedding: queryEmbedding,
-        match_threshold: 0.6,
-        // 8, not 5 (#73). The 0.6 threshold is not what drops the answering
-        // document: measured against the live knowledge base, the operating-hours
-        // doc lands at #6 with similarity 0.628 for the natural English rendering
-        // "What time is the clinic open?" — above the threshold, outside a count
-        // of 5 — and the model then declined with "not in my knowledge". The
-        // English rendering lifts it to #3 for the literal question; the extra
-        // count is headroom for phrasing variance in the rendering.
-        match_count: 8,
-      })
+    const searches = await Promise.allSettled(
+      queryEmbeddings.map((queryEmbedding) =>
+        supabase.rpc("match_documents", {
+          query_embedding: queryEmbedding,
+          // Threshold and counts: see the tuning rationale in chat/retrieval.ts
+          // (#150). 0.45, not the pre-#150 0.6: several answering documents
+          // never reach 0.6 in any phrasing (measured 0.467-0.573), so the
+          // assistant declined questions it could answer. RETRIEVAL_MATCH_COUNT
+          // (15, the corpus's size) gives the union the full above-threshold
+          // set per query -- a document at rank 9 never reaches the merge at a
+          // lower count -- and the merge below cuts the union to RETRIEVAL_TOP_K.
+          match_threshold: RETRIEVAL_MATCH_THRESHOLD,
+          match_count: RETRIEVAL_MATCH_COUNT,
+        })
+      )
+    );
+    const outcomes = searches.map((result) =>
+      result.status === "fulfilled"
+        ? classifyRead(result.value)
+        : { kind: "failed" as const, error: result.reason }
     );
 
-    if (search.kind === "failed") {
-      console.error("RAG match_documents RPC error:", search.error);
+    const failures = readErrors(outcomes);
+    if (failures.length === outcomes.length) {
+      console.error("RAG match_documents RPC error:", failures);
       // 503, not 200: the assistant genuinely could not answer, and a patient
       // told "we have no information" may act on that. The chat UI surfaces the
       // message, which points them at a human who can actually check.
@@ -154,9 +181,20 @@ export async function POST(request: Request) {
         503
       );
     }
+    if (failures.length > 0) {
+      // Some phrasings failed to search; the turn continues on the rest.
+      console.error(
+        `RAG match_documents partial failure: ${failures.length} of ${outcomes.length} queries failed:`,
+        failures
+      );
+    }
 
-    const matchedDocsList =
-      search.kind === "ok" ? ((search.data ?? []) as unknown as MatchedDocument[]) : [];
+    const matchedDocsList = mergeMatchLists(
+      outcomes.flatMap((outcome) =>
+        outcome.kind === "ok" ? [((outcome.data ?? []) as unknown as RetrievalMatch[])] : []
+      ),
+      RETRIEVAL_TOP_K
+    );
 
     // 6. Construct RAG context
     const context = matchedDocsList.length > 0

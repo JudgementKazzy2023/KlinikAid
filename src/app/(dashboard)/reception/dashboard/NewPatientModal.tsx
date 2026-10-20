@@ -129,7 +129,7 @@ export default function NewPatientModal() {
       if (!val) resetForm();
     }} disablePointerDismissal={true}>
       <DialogTrigger render={
-        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium gap-1.5 shadow-sm">
+        <Button className="bg-emerald-700 hover:bg-emerald-800 text-white font-medium gap-1.5 shadow-sm">
           <UserPlus className="h-4 w-4" />
           New Patient
         </Button>
@@ -201,7 +201,7 @@ export default function NewPatientModal() {
 
             <DialogFooter>
               <DialogClose render={
-                <Button className="w-full bg-primary hover:bg-primary/90 text-white">
+                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                   Close Window
                 </Button>
               } />
@@ -352,7 +352,7 @@ export default function NewPatientModal() {
             <DialogFooter>
               <Button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary/90 text-white font-medium h-9 text-xs"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-9 text-xs"
                 disabled={isPending}
               >
                 {isPending ? (

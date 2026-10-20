@@ -90,7 +90,7 @@ export default function ConfirmEmailPage() {
                 <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Email confirmed</h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Your account is active.{" "}
-                  <Link href="/login" className="text-accentBlue-600 hover:underline font-medium">
+                  <Link href="/login" className="text-accentBlue-600 dark:text-accentBlue-400 hover:underline font-medium">
                     Sign in
                   </Link>{" "}
                   to continue.
@@ -107,7 +107,7 @@ export default function ConfirmEmailPage() {
                   Email not confirmed
                 </h2>
                 <p className="text-sm text-slate-500 dark:text-slate-400">{state.message}</p>
-                <Link href="/login" className="text-sm text-accentBlue-600 hover:underline font-medium">
+                <Link href="/login" className="text-sm text-accentBlue-600 dark:text-accentBlue-400 hover:underline font-medium">
                   Go to sign in
                 </Link>
               </>
