@@ -22,6 +22,10 @@ interface DashboardLayoutClientProps {
   navItems: NavItem[];
 }
 
+/**
+ * Client shell for the dashboard area: desktop sidebar, mobile drawer and the
+ * main content column.
+ */
 export default function DashboardLayoutClient({
   children,
   user,

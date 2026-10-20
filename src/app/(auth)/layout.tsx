@@ -1,8 +1,10 @@
 import { ThemeToggle } from "@/components/theme-toggle";
 
-// The auth pages (login, register, MFA, password resets) share this corner
-// toggle so the opt-in theme choice (issue #51) is reachable before sign-in.
-// Positioned in the layout rather than repeated in every page.
+/**
+ * Shared auth shell (login, register, MFA, password resets). Positions a
+ * corner theme toggle so the opt-in theme choice (issue #51) is reachable
+ * before sign-in, without repeating it in every page.
+ */
 export default function AuthLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {

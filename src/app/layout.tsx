@@ -16,6 +16,10 @@ export const metadata: Metadata = {
 
 import { Toaster } from "@/components/ui/sonner";
 
+/**
+ * Root layout. Mounts next-themes so every page can follow the user's
+ * opt-in theme choice (issue #51).
+ */
 export default function RootLayout({
   children,
 }: Readonly<{

@@ -80,6 +80,10 @@ const iconMap: Record<SidebarIcon, React.ComponentType<{ className?: string }>> 
   ShieldCheck,
 };
 
+/**
+ * Dashboard sidebar: branding, permission-filtered navigation links, and the
+ * signed-in user's badge with sign-out. Also rendered inside the mobile drawer.
+ */
 export default function Sidebar({ user, navItems, onLinkClick, className }: SidebarProps) {
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
