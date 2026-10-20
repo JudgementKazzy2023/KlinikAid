@@ -17,7 +17,7 @@ psql "$FRESH_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f src/lib/db/schema.sql
 Use a database administrator connection with permission to create the app's auth
 triggers and storage policies. Supabase must already supply its `auth`, `storage`,
 `extensions` schemas and platform roles; this is not a standalone Postgres installer.
-The snapshot includes the current state **through migration_37**, system role and
+The snapshot includes the current state **through migration_38**, system role and
 permission reference data, a private `patient-documents` bucket, auth triggers,
 Realtime membership, and migration coverage records. It contains no application data.
 It runs in a transaction and refuses an existing public table before changing anything.
@@ -31,8 +31,8 @@ records, not additional fresh-project setup steps. Legacy databases without reli
 history need their actual schema checked before choosing a migration starting point.
 The snapshot assigns coverage markers `20261017000007`–`20261017000026` to previously
 untracked migrations 07–26, retains the two July versions from `applied/`, and uses
-`20261017000027`–`20261017000029` and `20261018000030`–`20261018000036` for 27–36, and
-`20261020000037` for 37.
+`20261017000027`–`20261017000029` and `20261018000030`–`20261018000036` for 27–36,
+`20261020000037` for 37, and `20261021000038` for 38.
 Those markers describe snapshot coverage, not individual historical executions.
 
 ### Regenerating the snapshot
@@ -214,10 +214,8 @@ migration 38 adds no index for it.
 ## Migration History
 
 Historical migrations are retained under `src/lib/db/` through migration 38.
-Migration 38 (the dashboard's query indexes) is **written but not applied**: it
-needs a database deploy, and `src/lib/db/schema.sql` is a generated picture of
-the live database, so it stays as it is until the migration has been applied
-and the snapshot regenerated from the database that has them.
+Migration 38 (the dashboard's query indexes) was applied to production on
+2026-10-21 and is included in the `schema.sql` snapshot.
 
 The following are early milestones, not a fresh-project execution sequence:
 
