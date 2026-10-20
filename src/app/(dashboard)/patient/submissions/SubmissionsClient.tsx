@@ -212,9 +212,9 @@ export default function SubmissionsClient({
       case "waiting":
         return <Badge className="bg-accentBlue-500 hover:bg-accentBlue-600 text-white font-medium">Waiting</Badge>;
       case "in_progress":
-        return <Badge className="bg-purple-500 hover:bg-purple-600 text-white font-medium animate-pulse">In Progress</Badge>;
+        return <Badge className="bg-purple-700 hover:bg-purple-800 text-white font-medium animate-pulse">In Progress</Badge>;
       case "completed":
-        return <Badge className="bg-green-500 hover:bg-green-600 text-white font-medium">Completed</Badge>;
+        return <Badge className="bg-green-700 hover:bg-green-800 text-white font-medium">Completed</Badge>;
       default:
         return <Badge variant="secondary" className="font-medium">Cancelled</Badge>;
     }
@@ -223,11 +223,11 @@ export default function SubmissionsClient({
   const getDocStatusBadge = (status: string) => {
     switch (status) {
       case "approved":
-        return <Badge className="bg-emerald-500 text-white font-medium">Approved</Badge>;
+        return <Badge className="bg-emerald-700 text-white font-medium">Approved</Badge>;
       case "rejected":
         return <Badge variant="destructive" className="font-medium">Rejected</Badge>;
       default:
-        return <Badge className="bg-yellow-500 text-white font-medium">Pending Review</Badge>;
+        return <Badge className="bg-yellow-700 text-white font-medium">Pending Review</Badge>;
     }
   };
 
@@ -275,7 +275,7 @@ export default function SubmissionsClient({
             </CardHeader>
             <CardContent className="pt-6 space-y-4">
               {activeQueueList.length === 0 ? (
-                <div className="text-center py-8 text-slate-400 dark:text-slate-500 flex flex-col items-center justify-center space-y-2">
+                <div className="text-center py-8 text-slate-500 dark:text-slate-400 flex flex-col items-center justify-center space-y-2">
                   <Clock className="h-10 w-10 text-slate-400 stroke-1" />
                   <p className="text-sm font-semibold">Not currently in clinic queue</p>
                   <p className="text-xs max-w-[200px] leading-relaxed">
@@ -377,7 +377,7 @@ export default function SubmissionsClient({
             </CardHeader>
             <CardContent className="pt-6">
               {documents.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 dark:text-slate-500 flex flex-col items-center justify-center space-y-2">
+                <div className="text-center py-12 text-slate-500 dark:text-slate-400 flex flex-col items-center justify-center space-y-2">
                   <FileText className="h-12 w-12 text-slate-400 stroke-1" />
                   <p className="text-sm font-semibold">No uploaded documents found</p>
                   <p className="text-xs max-w-sm leading-relaxed">
@@ -397,7 +397,7 @@ export default function SubmissionsClient({
                           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate pr-4" title={doc.file_name}>
                             {doc.file_name}
                           </p>
-                          <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-400 dark:text-slate-500">
+                          <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
                             <span>Uploaded: {formatPhTimeFull(doc.created_at)}</span>
                             <span>•</span>
                             <span className="capitalize">{doc.file_type.split("/")[1] || "Unknown"}</span>

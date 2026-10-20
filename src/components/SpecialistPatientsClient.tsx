@@ -258,7 +258,7 @@ export default function SpecialistPatientsClient({
         <div>
           <Button 
             onClick={() => setIsModalOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-2"
+            className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />
             Add Private Patient
@@ -272,7 +272,7 @@ export default function SpecialistPatientsClient({
           <div className="grid gap-4 md:grid-cols-12">
             {/* Search Input */}
             <div className="md:col-span-5 relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
+              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500 dark:text-slate-400" />
               <input
                 type="text"
                 placeholder="Search patient name or code (e.g. PT-123456)..."
@@ -284,7 +284,7 @@ export default function SpecialistPatientsClient({
 
             {/* Department Filter */}
             <div className="md:col-span-3 relative">
-              <Layers className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+              <Layers className="absolute left-3 top-3 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
               <select
                 value={deptFilter}
                 onChange={(e) => setDeptFilter(e.target.value)}
@@ -301,7 +301,7 @@ export default function SpecialistPatientsClient({
             {/* Date Filters */}
             <div className="md:col-span-4 flex gap-2">
               <div className="relative flex-1">
-                <Calendar className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                <Calendar className="absolute left-3 top-3 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
                 <input
                   type="date"
                   value={startDate}
@@ -311,7 +311,7 @@ export default function SpecialistPatientsClient({
                 />
               </div>
               <div className="relative flex-1">
-                <Calendar className="absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+                <Calendar className="absolute left-3 top-3 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
                 <input
                   type="date"
                   value={endDate}
@@ -343,7 +343,7 @@ export default function SpecialistPatientsClient({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 font-semibold border-y border-slate-100 dark:border-slate-800">
+                <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold border-y border-slate-100 dark:border-slate-800">
                   <th className="p-4">Code</th>
                   <th className="p-4">Patient Name</th>
                   <th className="p-4">Demographics</th>
@@ -353,10 +353,10 @@ export default function SpecialistPatientsClient({
                   <th className="p-4 pr-6 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {loading ? (
                   <tr>
-                    <td colSpan={7} className="p-12 text-center text-slate-400 dark:text-slate-500">
+                    <td colSpan={7} className="p-12 text-center text-slate-500 dark:text-slate-400">
                       <div className="flex items-center justify-center gap-2">
                         <RefreshCw className="h-4 w-4 animate-spin text-indigo-500" />
                         <span>Searching directory database...</span>
@@ -371,7 +371,7 @@ export default function SpecialistPatientsClient({
                   </tr>
                 ) : currentItems.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-12 text-center text-slate-400 dark:text-slate-500">
+                    <td colSpan={7} className="p-12 text-center text-slate-500 dark:text-slate-400">
                       {hasActiveFilter
                         ? "No patients match search terms or department filters."
                         : "No patients in this directory yet."}
@@ -405,7 +405,7 @@ export default function SpecialistPatientsClient({
                           <span className="text-[10px] text-slate-400">No records</span>
                         )}
                       </td>
-                      <td className="p-4 font-mono text-[10px] text-slate-400 dark:text-slate-500">
+                      <td className="p-4 font-mono text-[10px] text-slate-500 dark:text-slate-400">
                         {formatPhDate(patient.last_test_date)}
                       </td>
                       <td className="p-4 pr-6 text-right flex items-center justify-end gap-2">
@@ -534,7 +534,7 @@ export default function SpecialistPatientsClient({
               <DialogTitle className="text-lg font-bold text-slate-900 dark:text-white">
                 Add Private Patient
               </DialogTitle>
-              <DialogDescription className="text-xs text-slate-500">
+              <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
                 Create a patient record visible exclusively to your specialist account.
               </DialogDescription>
             </DialogHeader>
@@ -599,7 +599,7 @@ export default function SpecialistPatientsClient({
               <Button
                 type="submit"
                 disabled={isSavingPatient}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-9 font-semibold"
+                className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs h-9 font-semibold"
               >
                 {isSavingPatient ? "Saving..." : "Save Patient"}
               </Button>

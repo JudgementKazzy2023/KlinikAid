@@ -381,7 +381,7 @@ export default function TriageModal({
             <Button
               type="submit"
               disabled={isPending}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-md shadow-emerald-500/10 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-md shadow-emerald-500/10 dark:bg-emerald-700 dark:hover:bg-emerald-800"
             >
               {isPending ? (
                 <>

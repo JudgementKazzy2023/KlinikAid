@@ -25,7 +25,8 @@ export function ThemeToggle({ className }: { className?: string }) {
       <Button
         variant="ghost"
         size="icon"
-        aria-label="Toggle dark mode"
+        aria-label="Dark mode"
+        aria-pressed={false}
         disabled
         className={className}
       />
@@ -34,11 +35,15 @@ export function ThemeToggle({ className }: { className?: string }) {
 
   const isDark = resolvedTheme === "dark";
 
+  // One ARIA pattern (issue #153): a constant name plus `aria-pressed` for
+  // state. A state-dependent name read together with `aria-pressed` produces
+  // "Switch to light mode, pressed", which contradicts itself. The placeholder
+  // above keeps the same name and reports the not-pressed default it shows.
   return (
     <Button
       variant="ghost"
       size="icon"
-      aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      aria-label="Dark mode"
       aria-pressed={isDark}
       onClick={() => setTheme(isDark ? "light" : "dark")}
       className={className}

@@ -44,8 +44,8 @@ export default function ForgotPasswordPage() {
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 overflow-hidden">
       {/* Background clinical-theme decorative circles */}
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[80px]" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[80px]" />
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 dark:bg-primary/25 blur-[80px]" aria-hidden="true" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 dark:bg-emerald-500/20 blur-[80px]" aria-hidden="true" />
 
       <div className="w-full max-w-md z-10 space-y-6">
         <div className="flex flex-col items-center space-y-2 text-center animate-fade-in">
@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
                 </AlertDescription>
               </Alert>
               <div className="text-center pt-2">
-                <Link href="/login" className="inline-flex items-center gap-2 min-h-6 -my-0.5 text-sm text-accentBlue-600 hover:underline">
+                <Link href="/login" className="inline-flex items-center gap-2 min-h-6 -my-0.5 text-sm text-accentBlue-600 dark:text-accentBlue-400 hover:underline">
                   <ArrowLeft className="h-4 w-4" /> Back to Sign In
                 </Link>
               </div>
@@ -115,7 +115,7 @@ export default function ForgotPasswordPage() {
               <CardFooter className="flex flex-col space-y-4">
                 <Button
                   type="submit"
-                  className="w-full bg-primary hover:bg-primary/90 text-white font-medium shadow-md shadow-primary/10 transition-all duration-200"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-md shadow-primary/10 transition-all duration-200"
                   disabled={isPending}
                 >
                   {isPending ? (
@@ -129,7 +129,7 @@ export default function ForgotPasswordPage() {
                 </Button>
 
                 <div className="text-sm text-center">
-                  <Link href="/login" className="inline-flex items-center gap-2 min-h-6 -my-0.5 text-slate-500 hover:text-slate-800 hover:underline">
+                  <Link href="/login" className="inline-flex items-center gap-2 min-h-6 -my-0.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:underline">
                     <ArrowLeft className="h-4 w-4" /> Back to Sign In
                   </Link>
                 </div>

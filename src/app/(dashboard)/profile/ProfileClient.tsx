@@ -117,14 +117,14 @@ export default function ProfileClient({ user, patient }: ProfileClientProps) {
             <CardContent className="space-y-4 pt-4 text-sm">
               <div className="flex justify-between items-center py-1">
                 <span className="text-slate-500 dark:text-slate-400 font-medium">System Role</span>
-                <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded-full ${roleConfig?.color || "bg-slate-100 text-slate-800"}`}>
+                <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded-full ${roleConfig?.color || "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"}`}>
                   {roleConfig?.label || user.role}
                 </span>
               </div>
               {user.department && (
                 <div className="flex justify-between items-center py-1">
                   <span className="text-slate-500 dark:text-slate-400 font-medium">Department</span>
-                  <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded-full ${deptConfig?.color || "bg-slate-100"}`}>
+                  <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded-full ${deptConfig?.color || "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200"}`}>
                     {deptConfig?.label}
                   </span>
                 </div>
@@ -207,7 +207,7 @@ export default function ProfileClient({ user, patient }: ProfileClientProps) {
                 <CardFooter className="border-t border-slate-100 dark:border-slate-800 pt-4 flex justify-end">
                   <Button
                     type="submit"
-                    className="bg-primary hover:bg-primary/90 text-white font-semibold text-xs"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs"
                     disabled={isDetailsPending}
                   >
                     {isDetailsPending ? (
@@ -305,7 +305,7 @@ export default function ProfileClient({ user, patient }: ProfileClientProps) {
               <CardFooter className="border-t border-slate-100 dark:border-slate-800 pt-4 flex justify-end">
                 <Button
                   type="submit"
-                  className="bg-primary hover:bg-primary/90 text-white font-semibold text-xs"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold text-xs"
                   disabled={isPending}
                 >
                   {isPending ? (

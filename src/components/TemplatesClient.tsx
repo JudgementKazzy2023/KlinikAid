@@ -277,7 +277,7 @@ export default function TemplatesClient({ patientIdentity }: TemplatesClientProp
             <Button
               type="submit"
               disabled={isSubmitting || !isFormValid()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-2"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-2"
             >
               <Send className="h-3.5 w-3.5" />
               {isSubmitting ? "Submitting Form..." : "Submit to Reception"}

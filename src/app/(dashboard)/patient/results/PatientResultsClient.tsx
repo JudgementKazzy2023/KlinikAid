@@ -57,13 +57,13 @@ export default function PatientResultsClient({ initialRecords }: PatientResultsC
   const getDepartmentBadge = (dept: string) => {
     switch (dept) {
       case "laboratory":
-        return <Badge className="bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-semibold">Laboratory</Badge>;
+        return <Badge className="bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-semibold">Laboratory</Badge>;
       case "imaging":
-        return <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-semibold">Imaging (X-Ray)</Badge>;
+        return <Badge className="bg-amber-700 hover:bg-amber-800 text-white text-[10px] font-semibold">Imaging (X-Ray)</Badge>;
       case "ultrasound":
-        return <Badge className="bg-teal-500 hover:bg-teal-600 text-white text-[10px] font-semibold">Ultrasound</Badge>;
+        return <Badge className="bg-teal-700 hover:bg-teal-800 text-white text-[10px] font-semibold">Ultrasound</Badge>;
       default:
-        return <Badge className="bg-rose-500 hover:bg-rose-600 text-white text-[10px] font-semibold">ECG</Badge>;
+        return <Badge className="bg-rose-700 hover:bg-rose-800 text-white text-[10px] font-semibold">ECG</Badge>;
     }
   };
 
@@ -82,7 +82,7 @@ export default function PatientResultsClient({ initialRecords }: PatientResultsC
       {/* Filter and Search Bar */}
       <div className="grid gap-4 sm:grid-cols-3 bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
         <div className="sm:col-span-2 relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500 dark:text-slate-400" />
           <Input
             placeholder="Search parameters or comments..."
             value={searchQuery}
@@ -91,7 +91,7 @@ export default function PatientResultsClient({ initialRecords }: PatientResultsC
           />
         </div>
         <div className="relative">
-          <SlidersHorizontal className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 dark:text-slate-500 pointer-events-none" />
+          <SlidersHorizontal className="absolute left-3 top-2.5 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
           <select
             value={selectedDept}
             onChange={(e) => setSelectedDept(e.target.value)}
@@ -123,7 +123,7 @@ export default function PatientResultsClient({ initialRecords }: PatientResultsC
         </CardHeader>
         <CardContent className="p-0">
           {initialRecords.length === 0 ? (
-            <div className="text-center py-16 text-slate-400 dark:text-slate-500 flex flex-col items-center justify-center space-y-2">
+            <div className="text-center py-16 text-slate-500 dark:text-slate-400 flex flex-col items-center justify-center space-y-2">
               <FileText className="h-12 w-12 text-slate-400 stroke-1 animate-pulse" />
               <p className="text-sm font-semibold">No medical records found</p>
               <p className="text-xs max-w-xs leading-relaxed">
@@ -131,11 +131,11 @@ export default function PatientResultsClient({ initialRecords }: PatientResultsC
               </p>
             </div>
           ) : dateKeys.length === 0 ? (
-            <div className="text-center py-16 text-slate-400 dark:text-slate-500 text-xs">
+            <div className="text-center py-16 text-slate-500 dark:text-slate-400 text-xs">
               No results matches your filter parameters.
             </div>
           ) : (
-            <div className="divide-y divide-slate-150 dark:divide-slate-850">
+            <div className="divide-y divide-slate-150 dark:divide-slate-800">
               {dateKeys.map((dateKey) => (
                 <div key={dateKey} className="p-6 space-y-4">
                   {/* Date Heading */}
@@ -153,7 +153,7 @@ export default function PatientResultsClient({ initialRecords }: PatientResultsC
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead>
-                        <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 font-semibold border-y border-slate-100 dark:border-slate-800">
+                        <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold border-y border-slate-100 dark:border-slate-800">
                           <th className="p-3 pl-4">Parameter Name</th>
                           <th className="p-3">Department</th>
                           <th className="p-3 text-center">Observed Value</th>
@@ -162,7 +162,7 @@ export default function PatientResultsClient({ initialRecords }: PatientResultsC
                           <th className="p-3 pr-4">Clinical Annotations</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                         {groupedRecords[dateKey].map((rec) => {
                           const isNumericResult = hasNumericBaseline(rec);
 
