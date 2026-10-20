@@ -213,8 +213,13 @@ lookup into index scans. No policy or result changed.
 
 ## Migration History
 
-Historical migrations are retained under `src/lib/db/` through migration 38. The
-following are early milestones, not a fresh-project execution sequence:
+Historical migrations are retained under `src/lib/db/` through migration 38.
+Migration 38 (the dashboard's query indexes) is **written but not applied**: it
+needs a database deploy, and `src/lib/db/schema.sql` is a generated picture of
+the live database, so it stays as it is until the migration has been applied
+and the snapshot regenerated from the database that has them.
+
+The following are early milestones, not a fresh-project execution sequence:
 
 1. **`migration_07.sql`** (pgvector Search)
    - Created the `match_documents` similarity search RPC.

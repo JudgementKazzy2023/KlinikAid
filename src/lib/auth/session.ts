@@ -1,5 +1,7 @@
 import { cache } from "react";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { AUTH_USER_HEADER } from "@/lib/auth/auth-header";
 import type { User } from "@supabase/supabase-js";
 
 /**
@@ -15,10 +17,15 @@ import type { User } from "@supabase/supabase-js";
  *
  * What this does NOT replace: the middleware still calls `getUser()` once per
  * request. That call is the authoritative check that the session still exists
- * (a signed-out or revoked session is refused there) and the step that
- * refreshes the access token. A request only reaches a server component after
- * that check passed, so the identity read here is the identity the Auth server
- * confirmed moments earlier in the same request.
+ * (a session that was signed out or revoked is refused there, and an account
+ * that was banned is refused there) and the step that refreshes the access
+ * token.
+ *
+ * The two are tied together here: the locally verified identity is only
+ * accepted when it is the identity the middleware confirmed for this request,
+ * which the middleware writes into the `x-klinikaid-auth-user` request header.
+ * Without that comparison a revoked session would still be accepted for as
+ * long as its access token's signature is valid, which is up to an hour.
  *
  * `getClaims()` falls back to asking the Auth server when the token is signed
  * with a symmetric key or when the signing key is unknown, so a change of
@@ -128,6 +135,15 @@ export const getRequestUser = cache(async (): Promise<User | null> => {
       return null;
     }
 
+    // The identity the middleware confirmed for this request. Without it, the
+    // session was not confirmed by the Auth server, and a token whose
+    // signature is still valid is not enough on its own.
+    const requestHeaders = await headers();
+    const verifiedId = requestHeaders.get(AUTH_USER_HEADER);
+    if (!verifiedId) {
+      return null;
+    }
+
     const keys = await getSigningKeys();
     const { data, error } = await supabase.auth.getClaims(sessionData.session.access_token, {
       keys,
@@ -139,6 +155,13 @@ export const getRequestUser = cache(async (): Promise<User | null> => {
     }
 
     const claims = data.claims;
+    if (claims.sub !== verifiedId) {
+      // The token and the session the middleware checked are not the same
+      // person. Refuse rather than trust either side.
+      console.error("The session token does not belong to the confirmed session.");
+      return null;
+    }
+
     return {
       id: claims.sub,
       aud: claims.aud ?? "",

@@ -6,17 +6,27 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
  *
  * The access token is verified locally against the project's signing keys, so
  * these tests sign a real ES256 token and check that the identity the guards
- * receive is the one the token carries - and that a token nobody signed is
+ * receive is the one the token carries - and that a token nobody signed, or a
+ * token that does not belong to the session the middleware confirmed, is
  * refused.
  */
 
-const mocks = vi.hoisted(() => ({ client: null as SupabaseClient | null }));
+const AUTH_USER_HEADER = "x-klinikaid-auth-user";
+
+const mocks = vi.hoisted(() => ({
+  client: null as SupabaseClient | null,
+  requestHeaders: new Headers(),
+}));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: async () => {
     if (!mocks.client) throw new Error("the test did not provide a client");
     return mocks.client;
   },
+}));
+
+vi.mock("next/headers", () => ({
+  headers: async () => mocks.requestHeaders,
 }));
 
 const PROJECT_URL = "https://project.supabase.co";
@@ -105,6 +115,8 @@ beforeEach(() => {
   vi.unstubAllGlobals();
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", PROJECT_URL);
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY", ANON_KEY);
+  // The middleware confirmed this session for the request.
+  mocks.requestHeaders = new Headers({ [AUTH_USER_HEADER]: "user-123" });
 });
 
 describe("getRequestUser", () => {
@@ -149,6 +161,50 @@ describe("getRequestUser", () => {
       vi.fn(async (input: string) => {
         if (String(input).includes("jwks.json")) {
           return new Response(JSON.stringify({ keys: [trusted.jwk] }), { status: 200 });
+        }
+        throw new Error(`unexpected fetch: ${input}`);
+      })
+    );
+
+    const { getRequestUser } = await freshSession();
+    await expect(getRequestUser()).resolves.toBeNull();
+  });
+
+  it("refuses a token that does not belong to the session the middleware confirmed", async () => {
+    const key = await signingKey("kid-1");
+    const token = await signToken(key, claims());
+    mocks.client = clientWithToken(token);
+
+    // The middleware confirmed a different session for this request.
+    mocks.requestHeaders = new Headers({ [AUTH_USER_HEADER]: "someone-else" });
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) => {
+        if (String(input).includes("jwks.json")) {
+          return new Response(JSON.stringify({ keys: [key.jwk] }), { status: 200 });
+        }
+        throw new Error(`unexpected fetch: ${input}`);
+      })
+    );
+
+    const { getRequestUser } = await freshSession();
+    await expect(getRequestUser()).resolves.toBeNull();
+  });
+
+  it("refuses a token when the middleware confirmed no session at all", async () => {
+    const key = await signingKey("kid-1");
+    const token = await signToken(key, claims());
+    mocks.client = clientWithToken(token);
+
+    // The middleware's session check failed, so it wrote no identity.
+    mocks.requestHeaders = new Headers();
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string) => {
+        if (String(input).includes("jwks.json")) {
+          return new Response(JSON.stringify({ keys: [key.jwk] }), { status: 200 });
         }
         throw new Error(`unexpected fetch: ${input}`);
       })

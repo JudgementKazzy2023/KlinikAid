@@ -44,6 +44,12 @@
 -- change behaviour with these indexes; they only make the same queries
 -- cheaper. Apply them at any time.
 --
+-- SNAPSHOT: src/lib/db/schema.sql is a generated picture of the live database,
+-- so it is NOT regenerated in this change: this migration has not been applied
+-- yet, and the live database does not have these indexes. Regenerate the
+-- snapshot (procedure in documentation/DATABASE.md) after applying this file,
+-- so that a fresh project bootstrapped from the snapshot gets the indexes too.
+--
 -- ROLLBACK:
 --   begin;
 --   drop index if exists public.idx_system_logs_created_at_desc;
