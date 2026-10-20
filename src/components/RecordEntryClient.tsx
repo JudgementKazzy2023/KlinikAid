@@ -493,9 +493,10 @@ export default function RecordEntryClient({
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.push(`/department/records?department=${activeDept}`)}
+          aria-label="Back to records"
           className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-slate-600 dark:text-slate-400"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         </button>
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">

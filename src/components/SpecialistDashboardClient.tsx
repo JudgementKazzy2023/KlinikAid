@@ -267,9 +267,10 @@ export default function SpecialistDashboardClient({
                   </div>
                   <Link 
                     href={`/specialist/patients/${p.id}/analytics`}
+                    aria-label={`View analytics for ${p.first_name} ${p.last_name}`}
                     className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 transition"
                   >
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
                 </div>
               ))

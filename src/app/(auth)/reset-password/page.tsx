@@ -288,7 +288,7 @@ export default function ResetPasswordPage() {
                 <div className="space-y-2">
                   <Label htmlFor="totpCode">Authentication Code</Label>
                   <div className="relative">
-                    <Loader2 className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 animate-spin" style={{ display: verifyingMfa ? "block" : "none" }} />
+                    <Loader2 className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400 animate-spin" style={{ display: verifyingMfa ? "block" : "none" }} />
                     <Input
                       id="totpCode"
                       type="text"
@@ -342,7 +342,7 @@ export default function ResetPasswordPage() {
                 <div className="space-y-2">
                   <Label htmlFor="password">New Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Lock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="password"
                       type="password"
@@ -364,7 +364,7 @@ export default function ResetPasswordPage() {
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirm Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Lock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="confirmPassword"
                       type="password"

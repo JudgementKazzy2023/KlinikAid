@@ -13,6 +13,11 @@ import { ShieldAlert, KeyRound, Loader2, ArrowRight } from "lucide-react";
 import Image from "next/image";
 import { getPhoneFactors, getTotpFactors } from "@/lib/auth/mfa";
 
+/**
+ * Forced MFA enrolment card: clears any stale unverified factor, enrols a
+ * TOTP one, shows its QR code and backup secret, and releases the account
+ * only after the first code verifies.
+ */
 export default function MfaEnrollClient() {
   const router = useRouter();
   const supabase = createClient();
@@ -226,7 +231,7 @@ export default function MfaEnrollClient() {
                 <div className="space-y-2 border-t border-slate-100 dark:border-slate-800/80 pt-4">
                   <Label htmlFor="code" className="font-bold">6-Digit Verification Code</Label>
                   <div className="relative">
-                    <KeyRound className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="code"
                       type="text"

@@ -472,9 +472,10 @@ export default function SpecialistPatientsClient({
                 <button
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(prev => prev - 1)}
+                  aria-label="Previous page"
                   className="p-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-50 disabled:pointer-events-none transition"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <span className="flex items-center px-3 font-semibold text-slate-800 dark:text-slate-200 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg">
                   {currentPage} / {totalPages}
@@ -482,9 +483,10 @@ export default function SpecialistPatientsClient({
                 <button
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage(prev => prev + 1)}
+                  aria-label="Next page"
                   className="p-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-50 disabled:pointer-events-none transition"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
             </div>
