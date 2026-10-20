@@ -62,6 +62,16 @@ interface TriageModalProps {
   documentId: string;
 }
 
+/**
+ * Reception triage dialog: routes a patient to a diagnostic department and
+ * records optional vitals.
+ *
+ * Vitals are optional, but a filled value that fails the schema must be
+ * announced, not silently swallowed: each vitals error renders with
+ * `role="alert"` and a stable `<field>-error` id, and the matching input
+ * carries `aria-invalid` plus `aria-describedby` pointing at that id, so the
+ * reason a submit did nothing reaches assistive technology (#139).
+ */
 export default function TriageModal({
   isOpen,
   onClose,
