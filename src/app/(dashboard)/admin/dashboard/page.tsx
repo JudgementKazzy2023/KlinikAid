@@ -223,7 +223,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-900 dark:text-white">{todayPatients}</div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
               Patients queued today
             </p>
           </CardContent>
@@ -239,7 +239,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-900 dark:text-white">{pendingDocs}</div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
               Referrals awaiting validation
             </p>
           </CardContent>
@@ -255,7 +255,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-900 dark:text-white">{activeStaff}</div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
               Personnel with active access
             </p>
           </CardContent>
@@ -271,7 +271,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-900 dark:text-white">{todayChatbotQueries}</div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
               Conversations processed today
             </p>
           </CardContent>
@@ -283,7 +283,7 @@ export default async function AdminDashboardPage() {
         <Card className="col-span-4 border border-slate-200/80 dark:border-slate-800 shadow-sm">
           <CardHeader>
             <CardTitle className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Activity className="h-4 w-4 text-accentBlue-600" />
+              <Activity className="h-4 w-4 text-accentBlue-600 dark:text-accentBlue-400" />
               Department Workload
             </CardTitle>
             <CardDescription className="text-xs">

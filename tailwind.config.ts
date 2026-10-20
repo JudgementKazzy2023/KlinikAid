@@ -1,4 +1,75 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
+
+/**
+ * Attribute-selector body for a `key=value` pair, e.g. `slot=card-footer` →
+ * `slot="card-footer"`. Mirrors Tailwind's own `normalizeAttributeSelectors`,
+ * which is not part of the public API.
+ */
+function attributeValue(value: string): string {
+  const separator = value.indexOf("=");
+  if (separator === -1) return value;
+  const raw = value.slice(separator + 1);
+  if (raw.startsWith('"') || raw.startsWith("'")) return value;
+  return `${value.slice(0, separator)}="${raw}"`;
+}
+
+/**
+ * The shadcn "base-nova" ui kit is written for **Tailwind v4**, but this repo
+ * runs **Tailwind v3.4**. v4 understands bare `data-<state>:` variants
+ * (`data-open:`), `in-data-[…]:` ("inside an element carrying that data
+ * attribute") and `has-data-[…]:` ("this element contains one"); v3 only
+ * understands the bracketed `data-[…]:` form, so every one of those classes
+ * compiled to *nothing* — dialog/sheet transitions never ran, the switch never
+ * changed colour, and the icon/button-group paddings never applied
+ * (issue #168).
+ *
+ * Base UI (the primitives the kit is built on) really does set these
+ * attributes — `data-open` / `data-closed` on popups and backdrops,
+ * `data-checked` / `data-unchecked` on the switch root *and* its thumb,
+ * `data-disabled` on disabled controls, `data-placeholder` on an empty select
+ * trigger, and `data-starting-style` / `data-ending-style` while a popup
+ * transitions — so registering the v3 equivalents centrally is enough; no
+ * component class has to change.
+ *
+ * The variant names below are also the marker the regression test uses to
+ * find this plugin (see `src/lib/tailwind-data-variants.test.ts`).
+ */
+const baseUiDataVariants = plugin(({ addVariant, matchVariant }) => {
+  // v4 `data-open:` → `&[data-open]`
+  addVariant("data-open", "&[data-open]");
+  addVariant("data-closed", "&[data-closed]");
+  addVariant("data-checked", "&[data-checked]");
+  addVariant("data-unchecked", "&[data-unchecked]");
+  addVariant("data-disabled", "&[data-disabled]");
+  addVariant("data-placeholder", "&[data-placeholder]");
+  addVariant("data-starting-style", "&[data-starting-style]");
+  addVariant("data-ending-style", "&[data-ending-style]");
+
+  // v4 `in-data-[slot=button-group]:` → `:where([data-slot="button-group"]) &`
+  matchVariant(
+    "in-data",
+    (value) => `:where([data-${attributeValue(value)}]) &`,
+  );
+
+  // v4 `has-data-[slot=card-footer]:` → `&:has([data-slot="card-footer"])`
+  matchVariant(
+    "has-data",
+    (value) => `&:has([data-${attributeValue(value)}])`,
+  );
+
+  // v4 `group-has-data-[slot=alert-dialog-media]/alert-dialog-content:` →
+  // `:where(.group\/alert-dialog-content):has([data-slot="alert-dialog-media"]) &`
+  matchVariant(
+    "group-has-data",
+    (value, { modifier }) =>
+      `${
+        modifier
+          ? `:merge(.group\\/${modifier})`
+          : ":merge(.group)"
+      }:has([data-${attributeValue(value)}]) &`,
+  );
+});
 
 const config: Config = {
   darkMode: ["class"],
@@ -6,6 +77,11 @@ const config: Config = {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    // src/lib holds class-string maps (constants.ts role and department badge
+    // fills, for one). Without this entry Tailwind never generates those
+    // classes, so a badge built from a lib constant renders with no background
+    // at all (issue #153).
+    "./src/lib/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     container: {
@@ -16,6 +92,30 @@ const config: Config = {
       },
     },
     extend: {
+      // Tailwind v3 ships ring widths 0/1/2/4/8 only; `ring-3` is a Tailwind v4
+      // utility. The shadcn "base-nova" ui kit (button, input, select, textarea,
+      // switch) declares `focus-visible:ring-3` / `aria-invalid:ring-3`, which
+      // silently compiled to nothing here — no ring-width utility means
+      // `--tw-ring-shadow` stays at its `0 0 #0000` default and box-shadow is
+      // never set, so keyboard focus painted only a 1px border recolor
+      // (issue #149). Adding the key makes `.ring-3` a first-class utility with
+      // the same ring machinery as `.ring-2`.
+      ringWidth: {
+        3: "3px",
+      },
+      // Same story: `aria-invalid:*` is a built-in Tailwind v4 variant, but v3's
+      // default theme.aria has no `invalid` entry, so every `aria-invalid:*`
+      // class (invalid-state rings/borders in the ui kit) was dead too.
+      aria: {
+        invalid: 'invalid="true"',
+      },
+      // v3's spacing scale stops at 14/16/20; v4 derives any integer from the
+      // `--spacing` multiplier, so `pr-18` (the ui kit's alert-action padding,
+      // used together with the `has-data-[slot=alert-action]:` variant) is a
+      // v4-only utility that compiled to nothing here. 18 × 0.25rem = 4.5rem.
+      spacing: {
+        18: "4.5rem",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -85,6 +185,6 @@ const config: Config = {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [require("tailwindcss-animate"), baseUiDataVariants],
 };
 export default config;

@@ -59,7 +59,7 @@ export default function SpecialistAnalyticsLoading() {
           <div className="p-4 border-b border-slate-100 dark:border-slate-800">
             <div className="h-5 w-48 bg-slate-200 dark:bg-slate-800 rounded-md" />
           </div>
-          <div className="divide-y divide-slate-100 dark:divide-slate-850">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">

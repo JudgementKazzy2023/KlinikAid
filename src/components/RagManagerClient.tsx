@@ -25,6 +25,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import DataLoadError from "@/components/DataLoadError";
+import RagDocumentViewer from "@/components/RagDocumentViewer";
 import { toast } from "sonner";
 import { formatPhTimeFull } from "@/lib/utils";
 import {
@@ -186,7 +187,7 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
         <div className="flex w-full md:w-auto gap-3">
           <Button
             onClick={() => setIsTextDialogOpen(true)}
-            className="flex-1 md:flex-none gap-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-50 dark:hover:bg-slate-100 dark:text-slate-900"
+            className="flex-1 md:flex-none gap-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100"
           >
             <Plus className="h-4 w-4" />
             Add Plain Text
@@ -194,7 +195,7 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
           
           <Button
             onClick={() => setIsPdfDialogOpen(true)}
-            className="flex-1 md:flex-none gap-2 bg-teal-700 hover:bg-teal-800 text-white dark:bg-teal-600 dark:hover:bg-teal-700"
+            className="flex-1 md:flex-none gap-2 bg-teal-700 hover:bg-teal-800 text-white dark:bg-teal-700 dark:hover:bg-teal-800"
           >
             <Upload className="h-4 w-4" />
             Upload PDF
@@ -255,15 +256,18 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
                       {formatPhTimeFull(doc.createdAt)}
                     </TableCell>
                     <TableCell className="text-right pr-6">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleteDoc(doc)}
-                        aria-label={`Delete ${doc.title}`}
-                        className="text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <RagDocumentViewer documentId={doc.documentId} title={doc.title} />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteDoc(doc)}
+                          aria-label={`Delete ${doc.title}`}
+                          className="text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

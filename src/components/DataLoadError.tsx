@@ -10,6 +10,12 @@ interface DataLoadErrorProps {
   error?: unknown;
   /** Optional retry target. Omit to render a non-interactive notice. */
   retryHref?: string;
+  /**
+   * Explains what the failure means for this surface. Defaults to the wording
+   * for a list; a surface that shows one record passes its own, because "this
+   * list is empty" is a claim about a list the surface does not have.
+   */
+  description?: string;
 }
 
 /**
@@ -28,6 +34,7 @@ export function DataLoadError({
   what = "data",
   error,
   retryHref,
+  description = "This list is empty because the request failed, not because there is nothing to show. Nothing below this message can be trusted until it loads.",
 }: DataLoadErrorProps) {
   const detail = extractMessage(error);
 
@@ -43,11 +50,7 @@ export function DataLoadError({
         Could not load {what}
       </AlertTitle>
       <AlertDescription className="text-rose-700/90 dark:text-rose-200/80">
-        <p>
-          This list is empty because the request failed, not because there is
-          nothing to show. Nothing below this message can be trusted until it
-          loads.
-        </p>
+        <p>{description}</p>
         {detail ? (
           <p className="mt-2 font-mono text-xs opacity-80">Reason: {detail}</p>
         ) : null}
