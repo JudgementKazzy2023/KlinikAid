@@ -16,6 +16,12 @@ import { EmailOtpType } from "@supabase/supabase-js";
 import { getTotpFactors } from "@/lib/auth/mfa";
 import { PASSWORD_REQUIREMENT_TEXT, validatePassword } from "@/lib/validation";
 
+/**
+ * Reset-password route. Reads the recovery token from the URL, authorises
+ * the session (adding the MFA step when the account requires it), and only
+ * then renders the new-password form; a missing or expired link shows an
+ * error card instead.
+ */
 export default function ResetPasswordPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -202,7 +208,7 @@ export default function ResetPasswordPage() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             KlinikAid
           </h1>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
             Bloodcare Medical Laboratory
           </p>
         </div>
@@ -245,7 +251,7 @@ export default function ResetPasswordPage() {
             </CardContent>
           ) : !isVerified ? (
             <>
-              <CardContent className="space-y-4 pt-4 text-center">
+              <CardContent className="space-y-4 pt-4 pb-4 text-center">
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800/80 text-sm text-slate-600 dark:text-slate-400">
                   Click the button below to authorize the password recovery session on this browser window.
                 </div>
@@ -269,7 +275,7 @@ export default function ResetPasswordPage() {
             </>
           ) : mfaRequired ? (
             <form onSubmit={handleVerifyMfa}>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pb-4">
                 {error && (
                   <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/50">
                     <ShieldAlert className="h-4 w-4" />
@@ -323,7 +329,7 @@ export default function ResetPasswordPage() {
             </form>
           ) : (
             <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pb-4">
                 {error && (
                   <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/50">
                     <ShieldAlert className="h-4 w-4" />

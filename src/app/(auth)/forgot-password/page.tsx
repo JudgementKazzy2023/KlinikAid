@@ -11,6 +11,11 @@ import { Mail, Loader2, ArrowLeft, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
+/**
+ * Password-recovery request page: sends the address once, then swaps the
+ * form for a neutral confirmation that reads the same whether or not an
+ * account exists.
+ */
 export default function ForgotPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +54,7 @@ export default function ForgotPasswordPage() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             KlinikAid
           </h1>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
             Bloodcare Medical Laboratory
           </p>
         </div>
@@ -81,7 +86,7 @@ export default function ForgotPasswordPage() {
             </CardContent>
           ) : (
             <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pb-4">
                 {error && (
                   <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/50">
                     <AlertTitle>Error</AlertTitle>
