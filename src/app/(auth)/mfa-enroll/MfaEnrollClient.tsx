@@ -13,6 +13,11 @@ import { ShieldAlert, KeyRound, Loader2, ArrowRight } from "lucide-react";
 import Image from "next/image";
 import { getPhoneFactors, getTotpFactors } from "@/lib/auth/mfa";
 
+/**
+ * Forced MFA enrolment card: clears any stale unverified factor, enrols a
+ * TOTP one, shows its QR code and backup secret, and releases the account
+ * only after the first code verifies.
+ */
 export default function MfaEnrollClient() {
   const router = useRouter();
   const supabase = createClient();

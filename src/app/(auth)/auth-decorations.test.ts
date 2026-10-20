@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 
 const AUTH_DIR = fileURLToPath(new URL(".", import.meta.url));
 
+/** Every .tsx file under the auth routes, recursively. */
 function tsxFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const path = join(directory, entry.name);
@@ -24,6 +25,7 @@ function tsxFiles(directory: string): string[] {
   });
 }
 
+/** One row per source line, so a failure can name the file and line it saw. */
 function sourceLines(): Array<{ file: string; line: number; text: string }> {
   return tsxFiles(AUTH_DIR).flatMap((file) =>
     readFileSync(file, "utf8")

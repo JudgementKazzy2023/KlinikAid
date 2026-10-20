@@ -34,12 +34,14 @@ type IconProbe = {
 };
 
 // Serialised into the page by Playwright: every one is self-contained.
+/** How many decorative leading icons the page rendered. */
 const COUNT_ICONS = () =>
   Array.from(document.querySelectorAll("svg.lucide")).filter((svg) => {
     if (getComputedStyle(svg).position !== "absolute") return false;
     return Boolean(svg.parentElement && svg.parentElement.querySelector("input, select, textarea"));
   }).length;
 
+/** One icon's style, aria state, and what the hit test returns at its centre. */
 const PROBE_ICON = (index: number) => {
   const icons = Array.from(document.querySelectorAll("svg.lucide")).filter((svg) => {
     if (getComputedStyle(svg).position !== "absolute") return false;
@@ -63,6 +65,7 @@ const PROBE_ICON = (index: number) => {
   } satisfies IconProbe;
 };
 
+/** Viewport coordinates of one icon's centre, after scrolling it into view. */
 const CLICK_ICON = (index: number) => {
   const icons = Array.from(document.querySelectorAll("svg.lucide")).filter((svg) => {
     if (getComputedStyle(svg).position !== "absolute") return false;
@@ -75,6 +78,7 @@ const CLICK_ICON = (index: number) => {
   return { cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2 };
 };
 
+/** A printable identity for document.activeElement, for the focus assertion. */
 const ACTIVE_ELEMENT = () => {
   const element = document.activeElement;
   return element ? `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ""}` : "null";

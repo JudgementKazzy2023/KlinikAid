@@ -13,6 +13,11 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Lock, Loader2, ShieldAlert } from "lucide-react";
 import { PASSWORD_REQUIREMENT_TEXT } from "@/lib/validation";
 
+/**
+ * Forced password-change form for a temporary-password session: replaces the
+ * password the receptionist issued, then continues to the redirect the
+ * server picked for the account.
+ */
 export default function SetPasswordClient({ email }: { email: string }) {
   const router = useRouter();
   const [password, setPassword] = useState("");

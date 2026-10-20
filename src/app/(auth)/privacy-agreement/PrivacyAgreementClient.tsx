@@ -9,6 +9,11 @@ import { ShieldCheck, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 
+/**
+ * RA 10173 consent gate: the agreement a patient has to scroll to the end of,
+ * four acknowledgements, and the accept/decline actions that either record the
+ * consent or sign the account out again.
+ */
 export default function PrivacyAgreementClient() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
