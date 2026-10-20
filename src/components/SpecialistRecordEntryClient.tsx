@@ -281,7 +281,7 @@ export default function SpecialistRecordEntryClient({ patient }: SpecialistRecor
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-2"
+            className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-2"
           >
             <Save className="h-4 w-4" />
             {isSubmitting ? "Saving..." : "Save Record"}
@@ -317,7 +317,7 @@ export default function SpecialistRecordEntryClient({ patient }: SpecialistRecor
                 setOutOfRangeConfirm([]);
                 await submitRecord(true);
               }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold"
             >
               Save Flagged Results
             </Button>

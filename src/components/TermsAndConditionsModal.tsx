@@ -234,7 +234,7 @@ export default function TermsAndConditionsModal({
             type="button"
             onClick={handleUnderstand}
             disabled={!hasScrolledToBottom}
-            className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white"
+            className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             I Understand
           </Button>

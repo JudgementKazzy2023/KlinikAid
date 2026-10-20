@@ -177,7 +177,7 @@ export default async function PatientDashboardPage() {
                   </Badge>
                 </div>
               ) : (
-                <p className="text-sm font-semibold text-slate-500 py-2">Not In Queue</p>
+                <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 py-2">Not In Queue</p>
               )}
             </div>
             

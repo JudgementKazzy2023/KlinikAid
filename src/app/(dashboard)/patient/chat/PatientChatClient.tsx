@@ -151,7 +151,7 @@ export default function PatientChatClient() {
               <Bot className="h-4 w-4" />
             </div>
             <div className="p-3.5 rounded-2xl rounded-tl-none bg-slate-100 dark:bg-slate-900 border border-slate-200/40 dark:border-slate-800/40 flex items-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin text-accentBlue-600" />
+              <Loader2 className="h-4 w-4 animate-spin text-accentBlue-600 dark:text-accentBlue-400" />
               <span className="text-xs text-slate-500">AI is reading guidelines...</span>
             </div>
           </div>

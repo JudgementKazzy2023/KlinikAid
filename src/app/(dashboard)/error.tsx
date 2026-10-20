@@ -40,7 +40,7 @@ export default function DashboardError({ error, reset }: ErrorBoundaryProps) {
               {error.message || "Unknown Application Error"}
             </p>
             {error.digest && (
-              <p className="mt-2 text-[10px] font-mono text-slate-400 dark:text-slate-500">
+              <p className="mt-2 text-[10px] font-mono text-slate-500 dark:text-slate-400">
                 Digest: {error.digest}
               </p>
             )}
@@ -50,7 +50,7 @@ export default function DashboardError({ error, reset }: ErrorBoundaryProps) {
         <CardFooter className="flex flex-col sm:flex-row gap-2 pt-2">
           <Button
             onClick={() => reset()}
-            className="w-full sm:flex-1 bg-primary text-white hover:bg-primary/90 transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+            className="w-full sm:flex-1 bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
           >
             <RefreshCw className="h-4 w-4 animate-spin-reverse" />
             Try Again

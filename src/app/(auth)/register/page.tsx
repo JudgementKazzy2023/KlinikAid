@@ -80,8 +80,8 @@ function RegisterForm() {
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 overflow-hidden">
       {/* Background clinical-theme decorative circles */}
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[80px] pointer-events-none" />
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 dark:bg-primary/25 blur-[80px] pointer-events-none" aria-hidden="true" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 dark:bg-emerald-500/20 blur-[80px] pointer-events-none" aria-hidden="true" />
 
       <div className="w-full max-w-xl z-10 space-y-6 my-8">
         <div className="flex flex-col items-center space-y-2 text-center">
@@ -112,11 +112,11 @@ function RegisterForm() {
                 </p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Open the link to activate your account, then{" "}
-                  <Link href="/login" className="text-accentBlue-600 hover:underline font-medium">
+                  <Link href="/login" className="text-accentBlue-600 dark:text-accentBlue-400 hover:underline font-medium">
                     log in here
                   </Link>
                   . Already have an account? Sign in, or use{" "}
-                  <Link href="/forgot-password" className="text-accentBlue-600 hover:underline font-medium">
+                  <Link href="/forgot-password" className="text-accentBlue-600 dark:text-accentBlue-400 hover:underline font-medium">
                     Forgot password
                   </Link>
                   .
@@ -324,7 +324,7 @@ function RegisterForm() {
                         onChange={(e) => setAcceptedTerms(e.target.checked)}
                         disabled={!hasReadTerms || isPending}
                         required
-                        className="h-4 w-4 min-h-4 min-w-4 shrink-0 rounded border-slate-400 text-accentBlue-600 focus:ring-accentBlue-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                        className="h-4 w-4 min-h-4 min-w-4 shrink-0 rounded border-slate-400 text-accentBlue-600 dark:text-accentBlue-400 focus:ring-accentBlue-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                       />
                     </label>
                     <label
@@ -332,14 +332,14 @@ function RegisterForm() {
                       className={`text-xs leading-relaxed select-none ${
                         hasReadTerms
                           ? "text-slate-700 dark:text-slate-300"
-                          : "text-slate-500 dark:text-slate-500"
+                          : "text-slate-500 dark:text-slate-400"
                       }`}
                     >
                       I accept the KlinikAid{" "}
                       <button
                         type="button"
                         onClick={() => setIsTermsModalOpen(true)}
-                        className="font-semibold text-accentBlue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-accentBlue-500/40 rounded-sm"
+                        className="font-semibold text-accentBlue-600 dark:text-accentBlue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-accentBlue-500/40 rounded-sm"
                       >
                         Terms and Conditions
                       </button>
@@ -358,7 +358,7 @@ function RegisterForm() {
               <CardFooter className="flex flex-col space-y-4">
                 <Button
                   type="submit"
-                  className="w-full bg-primary hover:bg-primary/90 text-white font-medium shadow-md shadow-primary/10 transition-all duration-200"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-md shadow-primary/10 transition-all duration-200"
                   disabled={isPending || !acceptedTerms}
                 >
                   {isPending ? (
@@ -373,7 +373,7 @@ function RegisterForm() {
 
                 <div className="text-sm text-center text-slate-500 dark:text-slate-400">
                   Already have an account?{" "}
-                  <Link href="/login" className="inline-flex items-center min-h-6 -my-1 text-accentBlue-600 hover:underline">
+                  <Link href="/login" className="inline-flex items-center min-h-6 -my-1 text-accentBlue-600 dark:text-accentBlue-400 hover:underline">
                     Sign In
                   </Link>
                 </div>
@@ -399,7 +399,7 @@ export default function RegisterPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-accentBlue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-accentBlue-600 dark:text-accentBlue-400" />
       </div>
     }>
       <RegisterForm />

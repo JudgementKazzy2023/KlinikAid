@@ -1,18 +1,26 @@
 import { UserRole, Department, DocumentStatus, QueueStatus, ReferenceRangeStatus } from "@/types";
 
+/**
+ * Badge colours for the sidebar and staff tables. White on a *-500/*-600 fill
+ * lands between 2.28:1 and 3.96:1, so the fills are the *-700 step, where
+ * white measures 5.0:1 or better (issue #153). Dark mode steps one shade
+ * darker still: inactive staff rows are dimmed to 90%, which pulls white on
+ * amber-700 to 4.38:1, and *-800 keeps every badge above 4.5:1 through the
+ * dimming.
+ */
 export const USER_ROLES: Record<UserRole, { label: string; color: string }> = {
-  admin: { label: "Administrator", color: "bg-red-500 text-white dark:bg-red-600" },
-  receptionist: { label: "Receptionist", color: "bg-accentBlue-500 text-white dark:bg-accentBlue-600" },
-  department_staff: { label: "Department Staff", color: "bg-purple-500 text-white dark:bg-purple-600" },
-  medical_specialist: { label: "Medical Specialist", color: "bg-indigo-500 text-white dark:bg-indigo-600" },
-  patient: { label: "Patient", color: "bg-green-500 text-white dark:bg-green-600" },
+  admin: { label: "Administrator", color: "bg-red-700 text-white dark:bg-red-800" },
+  receptionist: { label: "Receptionist", color: "bg-accentBlue-700 text-white dark:bg-accentBlue-800" },
+  department_staff: { label: "Department Staff", color: "bg-purple-700 text-white dark:bg-purple-800" },
+  medical_specialist: { label: "Medical Specialist", color: "bg-indigo-700 text-white dark:bg-indigo-800" },
+  patient: { label: "Patient", color: "bg-green-700 text-white dark:bg-green-800" },
 };
 
 export const DEPARTMENTS: Record<Department, { label: string; color: string; path: string }> = {
-  laboratory: { label: "Laboratory", color: "bg-emerald-500 text-white dark:bg-emerald-600", path: "laboratory" },
-  imaging: { label: "Imaging (X-Ray)", color: "bg-amber-500 text-white dark:bg-amber-600", path: "imaging" },
-  ultrasound: { label: "Ultrasound", color: "bg-teal-500 text-white dark:bg-teal-600", path: "ultrasound" },
-  ecg: { label: "ECG", color: "bg-rose-500 text-white dark:bg-rose-600", path: "ecg" },
+  laboratory: { label: "Laboratory", color: "bg-emerald-700 text-white dark:bg-emerald-800", path: "laboratory" },
+  imaging: { label: "Imaging (X-Ray)", color: "bg-amber-700 text-white dark:bg-amber-800", path: "imaging" },
+  ultrasound: { label: "Ultrasound", color: "bg-teal-700 text-white dark:bg-teal-800", path: "ultrasound" },
+  ecg: { label: "ECG", color: "bg-rose-700 text-white dark:bg-rose-800", path: "ecg" },
 };
 
 export const DOCUMENT_STATUSES: Record<DocumentStatus, { label: string; color: string }> = {
