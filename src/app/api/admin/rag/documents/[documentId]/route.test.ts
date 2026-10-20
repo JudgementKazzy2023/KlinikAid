@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   requirePermission: vi.fn(),
   or: vi.fn(),
   order: vi.fn(),
+  range: vi.fn(),
+  page: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/helpers", () => ({ requirePermission: mocks.requirePermission }));
@@ -15,7 +17,17 @@ vi.mock("@/lib/supabase/server", () => ({
       select: () => ({
         or: (...args: unknown[]) => {
           mocks.or(...args);
-          return { order: (...orderArgs: unknown[]) => mocks.order(...orderArgs) };
+          const builder = {
+            order: (...orderArgs: unknown[]) => {
+              mocks.order(...orderArgs);
+              return builder;
+            },
+            range: (...rangeArgs: unknown[]) => {
+              mocks.range(...rangeArgs);
+              return mocks.page(...rangeArgs);
+            },
+          };
+          return builder;
         },
       }),
     }),
@@ -52,12 +64,12 @@ function chunkRow(
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.requirePermission.mockResolvedValue({ id: "admin" });
-  mocks.order.mockResolvedValue({ data: [], error: null });
+  mocks.page.mockResolvedValue({ data: [], error: null });
 });
 
 describe("GET /api/admin/rag/documents/[documentId]", () => {
   it("guards the read with the same permission the RAG manager uses", async () => {
-    mocks.order.mockResolvedValue({ data: [chunkRow("row-0", "text", 0)], error: null });
+    mocks.page.mockResolvedValue({ data: [chunkRow("row-0", "text", 0)], error: null });
 
     const response = await get();
 
@@ -74,7 +86,7 @@ describe("GET /api/admin/rag/documents/[documentId]", () => {
 
     expect(response.status).toBe(403);
     expect((await response.json()).message).toBe("Forbidden: Access denied.");
-    expect(mocks.order).not.toHaveBeenCalled();
+    expect(mocks.page).not.toHaveBeenCalled();
   });
 
   it("answers an unauthenticated caller with 401", async () => {
@@ -86,14 +98,14 @@ describe("GET /api/admin/rag/documents/[documentId]", () => {
 
     expect(response.status).toBe(401);
     expect((await response.json()).message).toBe("Unauthorized: Please sign in.");
-    expect(mocks.order).not.toHaveBeenCalled();
+    expect(mocks.page).not.toHaveBeenCalled();
   });
 
   it("rejects a document id that is not a uuid before querying", async () => {
     const response = await get("not-a-uuid");
 
     expect(response.status).toBe(400);
-    expect(mocks.order).not.toHaveBeenCalled();
+    expect(mocks.page).not.toHaveBeenCalled();
   });
 
   it("answers 404 when the document has no chunks", async () => {
@@ -104,7 +116,7 @@ describe("GET /api/admin/rag/documents/[documentId]", () => {
   });
 
   it("returns the document's chunks in chunk order with its metadata", async () => {
-    mocks.order.mockResolvedValue({
+    mocks.page.mockResolvedValue({
       data: [
         chunkRow("row-1", "second chunk", 1, "2026-07-08T06:18:00+00:00"),
         chunkRow("row-0", "first chunk", 0, "2026-07-08T06:17:59+00:00"),
@@ -133,7 +145,7 @@ describe("GET /api/admin/rag/documents/[documentId]", () => {
   });
 
   it("reads the chunks by their document id, and by the row id only for a legacy row", async () => {
-    mocks.order.mockResolvedValue({ data: [chunkRow("row-0", "text", 0)], error: null });
+    mocks.page.mockResolvedValue({ data: [chunkRow("row-0", "text", 0)], error: null });
 
     await get();
 
@@ -146,7 +158,7 @@ describe("GET /api/admin/rag/documents/[documentId]", () => {
   });
 
   it("looks the document up in lower case, because the stored id is lower case", async () => {
-    mocks.order.mockResolvedValue({ data: [chunkRow("row-0", "text", 0)], error: null });
+    mocks.page.mockResolvedValue({ data: [chunkRow("row-0", "text", 0)], error: null });
 
     const response = await get(DOCUMENT_ID.toUpperCase());
 
@@ -156,8 +168,37 @@ describe("GET /api/admin/rag/documents/[documentId]", () => {
     );
   });
 
+  it("walks the pages when a document has more chunks than one request returns", async () => {
+    // PostgREST stops at 1,000 rows and says nothing, so a full page means
+    // there may be more behind it.
+    const firstPage = Array.from({ length: 1000 }, (_, index) =>
+      chunkRow(`row-${index}`, `chunk ${index}`, index)
+    );
+    mocks.page
+      .mockResolvedValueOnce({ data: firstPage, error: null })
+      .mockResolvedValueOnce({ data: [chunkRow("row-1000", "last chunk", 1000)], error: null });
+
+    const response = await get();
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mocks.page).toHaveBeenCalledTimes(2);
+    expect(mocks.range).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(mocks.range).toHaveBeenNthCalledWith(2, 1000, 1999);
+    expect(body.data.document.chunkCount).toBe(1001);
+    expect(body.data.document.chunks[1000].content).toBe("last chunk");
+  });
+
+  it("stops paging when a page comes back short", async () => {
+    mocks.page.mockResolvedValue({ data: [chunkRow("row-0", "text", 0)], error: null });
+
+    await get();
+
+    expect(mocks.page).toHaveBeenCalledTimes(1);
+  });
+
   it("reports a failed query as a failure, not as a missing document", async () => {
-    mocks.order.mockResolvedValue({ data: null, error: { message: "connection reset" } });
+    mocks.page.mockResolvedValue({ data: null, error: { message: "connection reset" } });
 
     const response = await get();
     const body = await response.json();
