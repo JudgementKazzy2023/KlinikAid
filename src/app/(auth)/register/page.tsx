@@ -13,6 +13,11 @@ import Link from "next/link";
 import { PASSWORD_REQUIREMENT_TEXT, validateAge, validatePassword, ADDRESS_MAX } from "@/lib/validation";
 import TermsAndConditionsModal from "@/components/TermsAndConditionsModal";
 
+/**
+ * The registration form itself: field state, the age/password checks that
+ * gate submission, and the Terms-and-Conditions read-through the checkbox
+ * waits on.
+ */
 function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
   const [emailPending, setEmailPending] = useState<string | null>(null);
@@ -85,7 +90,7 @@ function RegisterForm() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             KlinikAid
           </h1>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
             Create Your Patient Account
           </p>
         </div>
@@ -135,7 +140,7 @@ function RegisterForm() {
             </CardHeader>
 
             <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pb-4">
                 {error && (
                   <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/50">
                     <ShieldAlert className="h-4 w-4" />
@@ -207,19 +212,22 @@ function RegisterForm() {
 
                   <div className="space-y-2">
                     <Label htmlFor="gender">Gender</Label>
-                    <select
-                      id="gender"
-                      autoComplete="sex"
-                      className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 md:text-sm dark:bg-input/30"
-                      value={formData.gender}
-                      onChange={handleChange}
-                      disabled={isPending}
-                      required
-                    >
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
-                    </select>
+                    <div className="relative">
+                      <User className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <select
+                        id="gender"
+                        autoComplete="sex"
+                        className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 pl-10 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 md:text-sm dark:bg-input/30"
+                        value={formData.gender}
+                        onChange={handleChange}
+                        disabled={isPending}
+                        required
+                      >
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
@@ -305,15 +313,20 @@ function RegisterForm() {
 
                 <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/40 p-4 space-y-2">
                   <div className="grid grid-cols-[1rem_1fr] items-start gap-3">
-                    <input
-                      id="acceptedTerms"
-                      type="checkbox"
-                      checked={acceptedTerms}
-                      onChange={(e) => setAcceptedTerms(e.target.checked)}
-                      disabled={!hasReadTerms || isPending}
-                      required
-                      className="mt-1 h-4 w-4 min-h-4 min-w-4 shrink-0 rounded border-slate-400 text-accentBlue-600 focus:ring-accentBlue-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-                    />
+                    <label
+                      htmlFor="acceptedTerms"
+                      className="relative mt-1 flex h-4 w-4 shrink-0 items-center justify-center after:absolute after:-inset-4 after:content-['']"
+                    >
+                      <input
+                        id="acceptedTerms"
+                        type="checkbox"
+                        checked={acceptedTerms}
+                        onChange={(e) => setAcceptedTerms(e.target.checked)}
+                        disabled={!hasReadTerms || isPending}
+                        required
+                        className="h-4 w-4 min-h-4 min-w-4 shrink-0 rounded border-slate-400 text-accentBlue-600 focus:ring-accentBlue-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                      />
+                    </label>
                     <label
                       htmlFor="acceptedTerms"
                       className={`text-xs leading-relaxed select-none ${
@@ -378,6 +391,10 @@ function RegisterForm() {
   );
 }
 
+/**
+ * Registration route. RegisterForm reads the search params, so the page
+ * renders it inside Suspense and shows a spinner until hydration.
+ */
 export default function RegisterPage() {
   return (
     <Suspense fallback={
