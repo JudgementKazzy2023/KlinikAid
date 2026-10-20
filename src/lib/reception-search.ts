@@ -6,9 +6,18 @@
  * the user's term, so two different sets of characters have to be neutralised
  * before the term reaches the database:
  *
- *  - ILIKE treats `%` and `_` as wildcards and `\` as its escape character. A
- *    bare `%` would match *every* row — the "searched for `%`, got the whole
- *    table" over-match — and a bare `_` would match any one character.
+ *  - PostgREST's `like`/`ilike` operators are unusable here. After parsing,
+ *    PostgREST rewrites every `*` in their value into `%` — a wildcard alias
+ *    for clients that cannot URL-encode a percent — and provides no escape for
+ *    it, not even inside the double-quoted values the `or=` grammar accepts.
+ *    A term containing `*` would therefore match unrelated rows. The regex
+ *    operators `match`/`imatch` (Postgres `~`/`~*`) have no such alias, so
+ *    the search matches with `imatch` against a POSIX regular expression built
+ *    from the term: every regex metacharacter (including `*`) is
+ *    backslash-escaped so the term matches literally. `~*` is an unanchored
+ *    substring match, so no `%`-wrapping is needed, and `%`/`_` are not regex
+ *    metacharacters, so they are literal for free.
+ *
  *  - PostgREST's `or=` grammar treats `,` (condition separator), `(` and `)`
  *    (grouping), `.` (field/operator separator) and `"` (value quoting) as
  *    structural. A term containing any of them would be misparsed as extra
@@ -16,15 +25,16 @@
  *
  * The two are escaped in-band, one layer at a time:
  *
- *  1. `escapeIlikeLiteral` backslash-escapes `\`, `%`, `_` so Postgres matches
- *     them literally.
+ *  1. `escapeRegexLiteral` backslash-escapes the term's regex metacharacters
+ *     so Postgres's regex engine matches them literally.
  *  2. `quotePostgrestValue` wraps the result in double quotes and escapes `"`
  *     and `\` for PostgREST's quoted-value lexer, so `,`, `(`, `)` and `.` are
  *     treated as value characters rather than grammar.
  *
  * The two backslash-escapes compose: PostgREST's quoted lexer turns each `\\`
- * back into a single `\`, which is exactly the escape Postgres needs to read
- * `%` and `_` as literals. This is verified end-to-end against the live table.
+ * back into a single `\`, which is exactly the escape the regex engine needs
+ * to read `*`, `.` and friends as literals. This is verified end-to-end
+ * against the live table.
  */
 
 /** Longest search term accepted, in characters after trimming. */
@@ -34,13 +44,16 @@ export const MAX_SEARCH_TERM_LENGTH = 100;
 export const SEARCH_RESULT_LIMIT = 50;
 
 /**
- * Escape the ILIKE metacharacters in a term so they match literally.
+ * Escape the POSIX regular-expression metacharacters in a term so it matches
+ * literally under Postgres `~*`.
  *
  * Backslash is escaped first so that a backslash already in the term is not
- * mistaken for an escape it did not intend.
+ * mistaken for an escape it did not intend. Only punctuation is escaped:
+ * `\<letter>` sequences are regex character classes (`\d`, `\w`, ...), so
+ * escaping a letter would change its meaning instead of pinning it.
  */
-export function escapeIlikeLiteral(term: string): string {
-  return term.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+export function escapeRegexLiteral(term: string): string {
+  return term.replace(/[\\.[\]{}()*+?^$|]/g, "\\$&");
 }
 
 /**
@@ -55,11 +68,12 @@ export function quotePostgrestValue(value: string): string {
 }
 
 /**
- * The ILIKE pattern for "the term appears anywhere", escaped for ILIKE and
- * quoted for PostgREST. Ready to embed as `column.ilike.${buildSearchPattern(term)}`.
+ * The `imatch` pattern for "the term appears anywhere", escaped for the regex
+ * engine and quoted for PostgREST. Ready to embed as
+ * `column.imatch.${buildSearchPattern(term)}`.
  */
 export function buildSearchPattern(term: string): string {
-  return quotePostgrestValue("%" + escapeIlikeLiteral(term) + "%");
+  return quotePostgrestValue(escapeRegexLiteral(term));
 }
 
 /**
@@ -70,12 +84,15 @@ export function buildSearchPattern(term: string): string {
  * per-column conditions.
  */
 export function patientNameConditions(term: string): string[] {
-  const conditions = [`first_name.ilike.${buildSearchPattern(term)}`, `last_name.ilike.${buildSearchPattern(term)}`];
+  const conditions = [
+    `first_name.imatch.${buildSearchPattern(term)}`,
+    `last_name.imatch.${buildSearchPattern(term)}`,
+  ];
   const words = term.split(/\s+/).filter(Boolean);
   for (let i = 1; i < words.length && i <= MAX_NAME_SPLITS; i++) {
     const first = words.slice(0, i).join(" ");
     const last = words.slice(i).join(" ");
-    conditions.push(`and(first_name.ilike.${buildSearchPattern(first)},last_name.ilike.${buildSearchPattern(last)})`);
+    conditions.push(`and(first_name.imatch.${buildSearchPattern(first)},last_name.imatch.${buildSearchPattern(last)})`);
   }
   return conditions;
 }
