@@ -32,7 +32,7 @@ KlinikAid serves five roles, each with hard-enforced access boundaries: **Admin*
 
 ## Quick Start
 
-**Prerequisites:** Node.js 18+, npm, a Supabase project, a Gemini API key.
+**Prerequisites:** Node.js 20.19+ (CI runs Node 22), npm, a Supabase project, a Gemini API key.
 
 ```bash
 git clone <repository-url>
