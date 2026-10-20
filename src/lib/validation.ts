@@ -203,6 +203,53 @@ export function validateNotes(
   return { valid: true };
 }
 
+// Blood pressure: "systolic/diastolic" in whole mmHg, e.g. 120/80.
+//
+// The bounds are physiological possibility limits, not clinical targets: a
+// reading outside them (e.g. 999/999) is a typo or a broken device, not a
+// patient. Systolic must be strictly greater than diastolic because a pulse
+// pressure of zero or less cannot perfuse tissue. Blank input is valid —
+// vitals are optional on every surface that collects them.
+export const BP_SYSTOLIC_MIN = 40;
+export const BP_SYSTOLIC_MAX = 300;
+export const BP_DIASTOLIC_MIN = 20;
+export const BP_DIASTOLIC_MAX = 200;
+
+export const BLOOD_PRESSURE_FORMAT_MESSAGE = "Blood pressure format must be e.g. 120/80.";
+export const BLOOD_PRESSURE_RANGE_MESSAGE = `Systolic must be ${BP_SYSTOLIC_MIN}-${BP_SYSTOLIC_MAX} mmHg and diastolic ${BP_DIASTOLIC_MIN}-${BP_DIASTOLIC_MAX} mmHg.`;
+export const BLOOD_PRESSURE_ORDER_MESSAGE = "Systolic must be higher than diastolic.";
+
+// One rule for both surfaces: the triage form (zod) and the reception triage
+// API call this, so a reading the form accepts cannot be refused by the server
+// and vice versa.
+export function validateBloodPressure(
+  reading: string | null | undefined
+): { valid: boolean; error?: string } {
+  const trimmed = (reading ?? "").trim();
+  if (!trimmed) return { valid: true };
+
+  const match = /^(\d{2,3})\/(\d{2,3})$/.exec(trimmed);
+  if (!match) {
+    return { valid: false, error: BLOOD_PRESSURE_FORMAT_MESSAGE };
+  }
+
+  const systolic = Number(match[1]);
+  const diastolic = Number(match[2]);
+  if (
+    systolic < BP_SYSTOLIC_MIN ||
+    systolic > BP_SYSTOLIC_MAX ||
+    diastolic < BP_DIASTOLIC_MIN ||
+    diastolic > BP_DIASTOLIC_MAX
+  ) {
+    return { valid: false, error: BLOOD_PRESSURE_RANGE_MESSAGE };
+  }
+  if (systolic <= diastolic) {
+    return { valid: false, error: BLOOD_PRESSURE_ORDER_MESSAGE };
+  }
+
+  return { valid: true };
+}
+
 export function validateRejectionReason(
   reason: unknown
 ): { valid: boolean; error?: string } {
