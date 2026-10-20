@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
@@ -19,12 +20,19 @@ import { Toaster } from "@/components/ui/sonner";
 /**
  * Root layout. Mounts next-themes so every page can follow the user's
  * opt-in theme choice (issue #51).
+ *
+ * Reads the per-request CSP nonce (issue #154): next-themes injects a
+ * pre-paint inline script, and without the nonce on it the policy would block
+ * the script and dark mode would flash or fail. Reading a request header makes
+ * every page dynamic — the nonce differs per request, so no page can be
+ * served from a static prerender.
  */
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
     // Theme is opt-in: light unless the user picks dark, and the OS setting is
     // deliberately not followed (issue #51). next-themes applies the class from
@@ -36,7 +44,7 @@ export default function RootLayout({
       className={cn("min-h-screen bg-background font-sans antialiased", inter.variable)}
     >
       <body className="min-h-screen bg-background font-sans antialiased">
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} nonce={nonce}>
           {children}
           <Toaster position="top-right" richColors />
         </ThemeProvider>
