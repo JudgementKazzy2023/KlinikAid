@@ -89,12 +89,25 @@ export interface ParsedStaffFilters {
  */
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Read a role id out of a query parameter.
+ *
+ * Only a uuid is accepted, and "all" and an empty value mean "no role
+ * filter". Anything else is not a role this registry could hold, so it is
+ * dropped rather than turned into a filter that matches nothing.
+ */
 export function parseRoleId(raw: string | null | undefined): string | null {
   const value = (raw ?? "").trim().toLowerCase();
   if (!value || value === FILTER_ALL) return null;
   return UUID_PATTERN.test(value) ? value : null;
 }
 
+/**
+ * Read a department out of a query parameter.
+ *
+ * "all" and an empty value mean "no department filter"; a department the
+ * clinic does not have is dropped.
+ */
 export function parseDepartmentFilter(raw: string | null | undefined): DepartmentFilterValue | null {
   const value = (raw ?? "").trim().toLowerCase();
   if (!value || value === FILTER_ALL) return null;
@@ -103,6 +116,12 @@ export function parseDepartmentFilter(raw: string | null | undefined): Departmen
     : null;
 }
 
+/**
+ * Read a status out of a query parameter.
+ *
+ * "all" and an empty value mean "no status filter"; anything other than
+ * active or inactive is dropped.
+ */
 export function parseStatusFilter(raw: string | null | undefined): StatusFilterValue | null {
   const value = (raw ?? "").trim().toLowerCase();
   if (!value || value === FILTER_ALL) return null;
@@ -142,6 +161,10 @@ export function resolveRoleFilter(
   return { id: roleId, legacyName: entry?.is_system ? entry.name : null };
 }
 
+/**
+ * The filter the table applies: the parsed query, with the role id resolved
+ * against the live catalogue.
+ */
 export function buildStaffFilters(
   parsed: ParsedStaffFilters,
   catalogue: RoleCatalogueEntry[]
@@ -190,22 +213,45 @@ export function applyStaffFilters(
   return next;
 }
 
+/**
+ * Does a staff row carry this role?
+ *
+ * A profile with a role id is matched by that id. A profile created before
+ * `role_id` existed only carries the legacy role text, and only a system role
+ * has a text of its own: a custom role stores its base role there, and that
+ * base role is a different role.
+ */
 export function matchesRole(staff: FilterableStaff, filter: RoleFilter): boolean {
   if (staff.role_id) return staff.role_id === filter.id;
   // No role id: only a system role can still be identified by its legacy text.
   return filter.legacyName !== null && staff.role === filter.legacyName;
 }
 
+/**
+ * Does a staff row belong to this department?
+ *
+ * "none" is the rows without a department, which is not the same as a
+ * department that is spelled differently.
+ */
 export function matchesDepartment(staff: FilterableStaff, value: DepartmentFilterValue): boolean {
   if (value === "none") return !staff.department;
   return staff.department === value;
 }
 
+/**
+ * Is this staff row in this status?
+ */
 export function matchesStatus(staff: FilterableStaff, value: StatusFilterValue): boolean {
   return value === "active" ? staff.is_active : !staff.is_active;
 }
 
 /** The free-text search the registry has always had, over the same fields. */
+/**
+ * Does a staff row match the free-text search?
+ *
+ * The search covers the same fields it always did: name, email, the legacy
+ * role text and the position titles. An empty term matches everything.
+ */
 export function matchesSearch(staff: FilterableStaff, query: string): boolean {
   const term = (query ?? "").trim().toLowerCase();
   if (!term) return true;
@@ -221,6 +267,12 @@ export function matchesSearch(staff: FilterableStaff, query: string): boolean {
  * The rows a filter selects. Every dimension is optional and they combine with
  * AND, so a filtered view is always a subset of the unfiltered one.
  */
+/**
+ * The rows a filter selects.
+ *
+ * Every dimension is optional and they combine with AND, so a filtered view
+ * is always a subset of the unfiltered one.
+ */
 export function filterStaff<T extends FilterableStaff>(
   staff: T[],
   filters: StaffFilters,
@@ -235,6 +287,10 @@ export function filterStaff<T extends FilterableStaff>(
   );
 }
 
+/**
+ * Is any dimension filtered? The "Clear filters" action is only offered when
+ * there is something to clear.
+ */
 export function hasActiveFilters(filters: StaffFilters): boolean {
   return filters.role !== null || filters.department !== null || filters.status !== null;
 }

@@ -480,6 +480,35 @@ export default function StaffManagementPage() {
   const filtersActive = hasActiveFilters(filters) || searchQuery.trim().length > 0;
   const registryReady = !loading && !fetchError && !roleFilterPending && !roleFilterUnavailable;
 
+  // A query parameter the filter dimensions do not know is ignored by the
+  // registry, but it would stay in the link. Drop it, so a shared link does
+  // not carry a filter that is not applied and a later reader is not misled
+  // about what the view shows.
+  useEffect(() => {
+    const current = new URLSearchParams(window.location.search);
+    const next = new URLSearchParams(current);
+    let changed = false;
+    if (current.has("role") && !parsedFilters.roleId) {
+      next.delete("role");
+      changed = true;
+    }
+    if (current.has("department") && !parsedFilters.department) {
+      next.delete("department");
+      changed = true;
+    }
+    if (current.has("status") && !parsedFilters.status) {
+      next.delete("status");
+      changed = true;
+    }
+    if (!changed) return;
+    const query = next.toString();
+    window.history.replaceState(
+      null,
+      "",
+      query ? `${window.location.pathname}?${query}` : window.location.pathname
+    );
+  }, [parsedFilters]);
+
   return (
     <div className="space-y-6">
       {/* Header */}
