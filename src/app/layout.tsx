@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { ThemeProvider } from "next-themes";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -21,10 +22,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn("min-h-screen bg-background font-sans antialiased", inter.variable)} style={{ colorScheme: 'light' }}>
+    // Theme is opt-in: light unless the user picks dark, and the OS setting is
+    // deliberately not followed (issue #51). next-themes applies the class from
+    // its pre-paint inline script, so suppressHydrationWarning absorbs the
+    // server/client class difference it causes on <html>.
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={cn("min-h-screen bg-background font-sans antialiased", inter.variable)}
+    >
       <body className="min-h-screen bg-background font-sans antialiased">
-        {children}
-        <Toaster position="top-right" richColors />
+        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+          {children}
+          <Toaster position="top-right" richColors />
+        </ThemeProvider>
       </body>
     </html>
   );

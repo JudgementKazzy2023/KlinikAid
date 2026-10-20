@@ -6,6 +6,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
 import Image from "next/image";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { UserRole, Department } from "@/types";
 
 interface DashboardLayoutClientProps {
@@ -56,15 +57,18 @@ export default function DashboardLayoutClient({
             </div>
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setIsDrawerOpen(true)}
-            className="text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            aria-label="Open navigation menu"
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <ThemeToggle className="text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsDrawerOpen(true)}
+              className="text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-label="Open navigation menu"
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </div>
         </header>
 
         {/* Main Content Area */}
