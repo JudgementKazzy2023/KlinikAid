@@ -17,6 +17,9 @@ interface RecordedQuery {
   table: string;
   select: string;
   or: { conditions: string; options?: { referencedTable?: string } }[];
+  orders: { column: string; options?: Record<string, unknown> }[];
+  /** Sequence of builder calls that shape the result set, in call order. */
+  operations: ("order" | "limit")[];
   limit?: number;
 }
 
@@ -40,8 +43,13 @@ const branches: Record<BranchKey, Branch> = {
 
 const queries: RecordedQuery[] = [];
 
+/**
+ * Fake `supabase.from()`: records each operation (select, or, order, limit)
+ * on one `RecordedQuery` and, when awaited, answers from the matching branch
+ * in `branches`, bounded by the recorded limit.
+ */
 function fakeFrom(table: string) {
-  const query: RecordedQuery = { table, select: "", or: [] };
+  const query: RecordedQuery = { table, select: "", or: [], orders: [], operations: [] };
   const builder = {
     select(select: string) {
       query.select = select;
@@ -51,10 +59,13 @@ function fakeFrom(table: string) {
       query.or.push({ conditions, options });
       return builder;
     },
-    order() {
+    order(column: string, options?: Record<string, unknown>) {
+      query.operations.push("order");
+      query.orders.push({ column, options });
       return builder;
     },
     limit(limit: number) {
+      query.operations.push("limit");
       query.limit = limit;
       return builder;
     },
@@ -63,8 +74,7 @@ function fakeFrom(table: string) {
       reject?: (reason: unknown) => void
     ) {
       queries.push(query);
-      const referencedTable = query.or[0]?.options?.referencedTable;
-      const key: BranchKey = referencedTable === "patient" ? "patient" : referencedTable === "uploader" ? "uploader" : "file";
+      const key = branchKeyOf(query);
       const branch = branches[key];
       // Model PostgREST: the limit bounds what the branch can report.
       const limit = query.limit ?? branches[key].data.length;
@@ -72,6 +82,12 @@ function fakeFrom(table: string) {
     },
   };
   return builder;
+}
+
+/** Which of the three search branches issued this query. */
+function branchKeyOf(query: RecordedQuery): BranchKey {
+  const referencedTable = query.or[0]?.options?.referencedTable;
+  return referencedTable === "patient" ? "patient" : referencedTable === "uploader" ? "uploader" : "file";
 }
 
 const search = (q: string) => GET(new Request(`http://test/api/reception/documents/search?q=${encodeURIComponent(q)}`));
@@ -197,6 +213,28 @@ describe("reception document search completeness", () => {
 
     expect(body.documents).toHaveLength(SEARCH_RESULT_LIMIT);
     expect(body.truncated).toBe(true);
+  });
+
+  it("orders every search branch newest-first before its limit (#140)", async () => {
+    await search("qa129");
+
+    // Each branch's 51-row limit only keeps the newest documents when the
+    // branch is ordered created_at descending *before* the limit; without it
+    // the bound would keep arbitrary rows and the completeness contract would
+    // silently hold the oldest matches.
+    expect(queries).toHaveLength(3);
+    const ordersByBranch = new Map(
+      queries.map((query) => [branchKeyOf(query), query.orders] as const)
+    );
+    expect([...ordersByBranch.keys()].sort()).toEqual(["file", "patient", "uploader"]);
+    for (const query of queries) {
+      // The order must be declared before the limit that consumes it, so the
+      // bound keeps the newest rows.
+      expect(query.operations).toEqual(["order", "limit"]);
+    }
+    for (const orders of ordersByBranch.values()) {
+      expect(orders).toEqual([{ column: "created_at", options: { ascending: false } }]);
+    }
   });
 
   it("fails the whole search when one branch fails, instead of answering with the rest", async () => {
