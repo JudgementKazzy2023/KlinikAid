@@ -43,7 +43,7 @@ A clean `master` is:
 ```
 npx tsc --noEmit   -> exit 0
 npm run lint       -> no warnings or errors
-npm run build      -> Compiled successfully, 14/14 static pages
+npm run build      -> Compiled successfully; every page is dynamic (the per-request CSP nonce, #154)
 npm test           -> 188 passed (13 files) + 1 passing CSP node test
 ```
 
