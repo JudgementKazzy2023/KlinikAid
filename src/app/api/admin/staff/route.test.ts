@@ -112,6 +112,17 @@ describe("staff create permission preflight", () => {
     expect(mocks.roleSingle).not.toHaveBeenCalled();
     noWrites();
   });
+
+  it("lets a caller with staff.manage, roles.read and profiles.manage create staff without roles.manage", async () => {
+    // The issue's restricted custom-role caller: staff creation must not grow a
+    // roles.manage requirement, and the route must never ask for one.
+    refuse("roles.manage");
+    const response = await post();
+    expect(response.status).toBe(201);
+    expect(checkedPermissions()).toEqual(["staff.manage", "roles.read", "profiles.manage"]);
+    expect(mocks.createAuthUser).toHaveBeenCalled();
+    expect(mocks.profileUpdate).toHaveBeenCalledWith(expect.objectContaining({ role_id: roleId }));
+  });
 });
 
 describe("staff create role validation", () => {
