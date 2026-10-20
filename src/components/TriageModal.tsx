@@ -69,6 +69,16 @@ interface TriageModalProps {
   documentId: string;
 }
 
+/**
+ * Reception triage dialog: routes a patient to a diagnostic department and
+ * records optional vitals.
+ *
+ * Vitals are optional, but a filled value that fails the schema must be
+ * announced, not silently swallowed: each vitals error renders with
+ * `role="alert"` and a stable `<field>-error` id, and the matching input
+ * carries `aria-invalid` plus `aria-describedby` pointing at that id, so the
+ * reason a submit did nothing reaches assistive technology (#139).
+ */
 export default function TriageModal({
   isOpen,
   onClose,
@@ -283,11 +293,15 @@ export default function TriageModal({
                   <Input
                     id="blood_pressure"
                     placeholder="e.g. 120/80"
+                    aria-invalid={!!errors.blood_pressure}
+                    aria-describedby={errors.blood_pressure ? "blood_pressure-error" : undefined}
                     {...register("blood_pressure")}
                     className="border-slate-200 dark:border-slate-800 h-9 text-xs"
                   />
                   {errors.blood_pressure && (
-                    <p className="text-[10px] text-red-500">{errors.blood_pressure.message}</p>
+                    <p id="blood_pressure-error" role="alert" className="text-[10px] text-red-500">
+                      {errors.blood_pressure.message}
+                    </p>
                   )}
                 </div>
 
@@ -302,11 +316,15 @@ export default function TriageModal({
                     type="number"
                     step="0.1"
                     placeholder="e.g. 70"
+                    aria-invalid={!!errors.weight_kg}
+                    aria-describedby={errors.weight_kg ? "weight_kg-error" : undefined}
                     {...register("weight_kg")}
                     className="border-slate-200 dark:border-slate-800 h-9 text-xs"
                   />
                   {errors.weight_kg && (
-                    <p className="text-[10px] text-red-500">{errors.weight_kg.message}</p>
+                    <p id="weight_kg-error" role="alert" className="text-[10px] text-red-500">
+                      {errors.weight_kg.message}
+                    </p>
                   )}
                 </div>
 
@@ -321,11 +339,15 @@ export default function TriageModal({
                     type="number"
                     step="0.1"
                     placeholder="e.g. 36.5"
+                    aria-invalid={!!errors.temperature_c}
+                    aria-describedby={errors.temperature_c ? "temperature_c-error" : undefined}
                     {...register("temperature_c")}
                     className="border-slate-200 dark:border-slate-800 h-9 text-xs"
                   />
                   {errors.temperature_c && (
-                    <p className="text-[10px] text-red-500">{errors.temperature_c.message}</p>
+                    <p id="temperature_c-error" role="alert" className="text-[10px] text-red-500">
+                      {errors.temperature_c.message}
+                    </p>
                   )}
                 </div>
               </div>
