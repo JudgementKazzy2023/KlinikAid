@@ -23,13 +23,15 @@ type EmbedContentFn = (req: {
   outputDimensionality: number;
 }) => Promise<{ embedding: { values: number[] } }>;
 
-// Render the question in English for retrieval and detect the reply language
-// (#73 item 9). The knowledge base is English-only, and embedding a Filipino
-// question demotes the document that answers it below the match_count cutoff
-// (the operating-hours doc ranks 3rd for the English wording, 10th for the
-// Filipino one), which the model then answered with the out-of-scope decline.
-// A failure here must not fail the chat: the original question is embedded
-// instead and the reply language falls back to mirroring the patient.
+/**
+ * Render the question in English for retrieval and detect the reply language
+ * (#73 item 9). The knowledge base is English-only, and embedding a Filipino
+ * question demotes the document that answers it below the match_count cutoff
+ * (the operating-hours doc ranks 3rd for the English wording, 10th for the
+ * Filipino one), which the model then answered with the out-of-scope decline.
+ * A failure here must not fail the chat: the original question is embedded
+ * instead and the reply language falls back to mirroring the patient.
+ */
 async function analyseQuery(userQuery: string): Promise<QueryAnalysis> {
   try {
     const analysisModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -49,6 +51,10 @@ interface MatchedDocument {
   similarity: number;
 }
 
+/**
+ * One patient chat turn: session, consent, rate limit, English-rendered
+ * retrieval, language-matched reply, and the `chatbot_logs` audit row.
+ */
 export async function POST(request: Request) {
   // 1. Session first (Standing Rule #1)
   const supabase = await createClient();
