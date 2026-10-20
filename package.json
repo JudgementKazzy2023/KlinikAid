@@ -10,6 +10,7 @@
     "review": "node scripts/review.js",
     "test": "vitest run && node --test next.config.test.mjs",
     "test:watch": "vitest",
+    "test:chat-eval": "CHAT_RETRIEVAL_EVAL=live NODE_OPTIONS=\"$NODE_OPTIONS --experimental-websocket\" node --env-file=.env.local node_modules/vitest/vitest.mjs run src/lib/chat/retrieval-eval.test.ts",
     "test:rls": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-websocket\" vitest run --config vitest.rls.config.ts",
     "typecheck": "tsc --noEmit",
     "test:browser": "playwright test",
