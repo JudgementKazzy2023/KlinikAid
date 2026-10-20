@@ -24,13 +24,14 @@ export const ROLE_NAME_TOO_LONG_ERROR = `Role name must be ${ROLE_NAME_MAX} char
 
 export type RoleNameResult = { ok: true; name: string } | { ok: false; error: string };
 
-/** Trims the name and applies the shared length bounds. */
+/** Trims the name and applies the shared length bounds, counted in code points to match the database's char_length. */
 export function validateRoleName(input: unknown): RoleNameResult {
   const name = typeof input === "string" ? input.trim() : "";
-  if (name.length < ROLE_NAME_MIN) {
+  const length = [...name].length;
+  if (length < ROLE_NAME_MIN) {
     return { ok: false, error: ROLE_NAME_TOO_SHORT_ERROR };
   }
-  if (name.length > ROLE_NAME_MAX) {
+  if (length > ROLE_NAME_MAX) {
     return { ok: false, error: ROLE_NAME_TOO_LONG_ERROR };
   }
   return { ok: true, name };

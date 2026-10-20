@@ -68,6 +68,17 @@ describe("validateRoleName", () => {
     });
   });
 
+  it("counts code points, matching the database's char_length", () => {
+    // 50 supplementary characters are 50 code points but 100 UTF-16 code
+    // units; counting units would wrongly refuse both names.
+    const emoji = "🧪".repeat(ROLE_NAME_MAX);
+    expect(validateRoleName(emoji)).toEqual({ ok: true, name: emoji });
+    expect(validateRoleName("🧪".repeat(ROLE_NAME_MAX + 1))).toEqual({
+      ok: false,
+      error: ROLE_NAME_TOO_LONG_ERROR,
+    });
+  });
+
   it("measures the trimmed name, so padded input over the limit is refused", () => {
     const padded = `  ${"a".repeat(ROLE_NAME_MAX)}  `;
     expect(validateRoleName(padded)).toEqual({ ok: true, name: "a".repeat(ROLE_NAME_MAX) });

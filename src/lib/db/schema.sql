@@ -803,6 +803,21 @@ $$;
 
 
 --
+-- Name: trim_role_name(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.trim_role_name(p_name text) RETURNS text
+    LANGUAGE sql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+  select btrim(
+    coalesce(p_name, ''),
+    U&'\0009\000A\000B\000C\000D\0020\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF'
+  );
+$$;
+
+
+--
 -- Name: update_custom_role(uuid, text, text, uuid[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -911,7 +926,7 @@ CREATE FUNCTION public.validate_custom_role_input(p_role_id uuid, p_name text, p
     SET search_path TO ''
     AS $$
 declare
-  v_name text := btrim(coalesce(p_name, ''));
+  v_name text := public.trim_role_name(p_name);
   v_known integer;
 begin
   if not public.user_has_permission(auth.uid(), 'roles.manage') then
@@ -928,7 +943,7 @@ begin
 
   if exists (
     select 1 from public.roles r
-    where lower(btrim(r.name)) = lower(v_name)
+    where lower(public.trim_role_name(r.name)) = lower(v_name)
       and r.id is distinct from p_role_id
   ) then
     raise exception 'A role with this name already exists.' using errcode = '23505';
@@ -1197,7 +1212,7 @@ CREATE TABLE public.roles (
     updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     base_role text,
     CONSTRAINT roles_base_role_check CHECK ((base_role = ANY (ARRAY['admin'::text, 'receptionist'::text, 'department_staff'::text, 'medical_specialist'::text, 'patient'::text]))),
-    CONSTRAINT roles_name_length_check CHECK (((char_length(name) >= 3) AND (char_length(name) <= 50)))
+    CONSTRAINT roles_name_length_check CHECK (((name = public.trim_role_name(name)) AND ((char_length(name) >= 3) AND (char_length(name) <= 50))))
 );
 
 
@@ -1511,7 +1526,7 @@ CREATE INDEX rag_documents_embedding_idx ON public.rag_documents USING hnsw (emb
 -- Name: roles_name_folded_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX roles_name_folded_idx ON public.roles USING btree (lower(btrim(name)));
+CREATE UNIQUE INDEX roles_name_folded_idx ON public.roles USING btree (lower(public.trim_role_name(name)));
 
 
 --

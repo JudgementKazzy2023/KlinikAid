@@ -8,20 +8,29 @@
 --
 -- What this changes:
 --
+--   public.trim_role_name()
+--     Trims with the whitespace set JavaScript String.trim() removes, so the
+--     database normalises exactly what the app sends. IMMUTABLE and not
+--     security definer; it keeps the default PUBLIC EXECUTE because the
+--     SECURITY INVOKER write functions and CHECK constraints execute it for
+--     every writer.
+--
 --   public.roles
---     roles_name_length_check: CHECK (char_length(name) between 3 and 50).
---       ADD CONSTRAINT scans and validates every existing row; a violating row
---       fails the migration. Nothing is rewritten or deleted.
---     roles_name_folded_idx: UNIQUE INDEX on (lower(btrim(name))). Two writes
---       that differ only by case or surrounding whitespace collide here even
---       when they race past the validator's read, so the invariant holds under
---       concurrent writes. A role renamed to its own name — including a
---       case-only change — keeps the same index key and is unaffected.
+--     roles_name_length_check: the stored name must already be trimmed and
+--       3-50 characters. ADD CONSTRAINT scans and validates every existing
+--       row; a violating row fails the migration. Nothing is rewritten.
+--     roles_name_folded_idx: UNIQUE INDEX on (lower(trim_role_name(name))).
+--       Two writes that differ only by case or surrounding whitespace collide
+--       here even when they race past the validator's read, so the invariant
+--       holds under concurrent writes. A role renamed to its own name —
+--       including a case-only change — keeps the same index key and is
+--       unaffected.
 --
 --   validate_custom_role_input(): the same 3-50 bound applies to the trimmed
---   name, and the duplicate check compares lower(btrim(name)) against every
---   other role, system roles included. Renaming a role to itself (or only its
---   casing) stays allowed because the comparison excludes the role's own id.
+--   name, and the duplicate check compares the trimmed, lower-cased name
+--   against every other role, system roles included. Renaming a role to
+--   itself (or only its casing) stays allowed because the comparison excludes
+--   the role's own id.
 --
 -- The shared limit lives in src/lib/auth/custom-role-input.ts (ROLE_NAME_MAX)
 -- and is shown in the roles UI; this file repeats the same literal 50, and
@@ -41,15 +50,32 @@
 -- ROLLBACK
 --   drop index if exists public.roles_name_folded_idx;
 --   alter table public.roles drop constraint if exists roles_name_length_check;
+--   drop function if exists public.trim_role_name(text);
 --   and restore validate_custom_role_input() from migration_32.
 
 begin;
+
+-- The whitespace set ECMAScript String.trim() removes: WhiteSpace and
+-- LineTerminator (U+0009-U+000D, U+0020, U+00A0, U+1680, U+2000-U+200A,
+-- U+2028, U+2029, U+202F, U+205F, U+3000, U+FEFF).
+create or replace function public.trim_role_name(p_name text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select btrim(
+    coalesce(p_name, ''),
+    U&'\0009\000A\000B\000C\000D\0020\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF'
+  );
+$$;
 
 -- Preflight: report every violating name in one message instead of failing
 -- halfway through, and never mutate data to make the constraints fit.
 do $$
 declare
   v_collisions text;
+  v_untrimmed text;
   v_out_of_bounds text;
 begin
   select string_agg(format('''%s''', r.name), ', ' order by r.name)
@@ -57,7 +83,7 @@ begin
   from public.roles r
   where exists (
     select 1 from public.roles r2
-    where lower(btrim(r2.name)) = lower(btrim(r.name))
+    where lower(public.trim_role_name(r2.name)) = lower(public.trim_role_name(r.name))
       and r2.id < r.id
   );
 
@@ -65,6 +91,17 @@ begin
     raise exception 'migration_37: role names collide case-insensitively; resolve them by hand before applying: %',
       v_collisions
       using errcode = '23505';
+  end if;
+
+  select string_agg(format('''%s''', r.name), ', ' order by r.name)
+  into v_untrimmed
+  from public.roles r
+  where r.name <> public.trim_role_name(r.name);
+
+  if v_untrimmed is not null then
+    raise exception 'migration_37: role names have surrounding whitespace; resolve them by hand before applying: %',
+      v_untrimmed
+      using errcode = '22023';
   end if;
 
   select string_agg(format('''%s'' (%s characters)', r.name, char_length(r.name)), ', ' order by r.name)
@@ -81,9 +118,12 @@ end;
 $$;
 
 alter table public.roles
-  add constraint roles_name_length_check check (char_length(name) between 3 and 50);
+  add constraint roles_name_length_check check (
+    name = public.trim_role_name(name)
+    and char_length(name) between 3 and 50
+  );
 
-create unique index roles_name_folded_idx on public.roles (lower(btrim(name)));
+create unique index roles_name_folded_idx on public.roles (lower(public.trim_role_name(name)));
 
 -- The same bound and comparison as the index, raised with the messages the
 -- app shows. The permission checks are unchanged from migration 32.
@@ -99,7 +139,7 @@ security invoker
 set search_path = ''
 as $$
 declare
-  v_name text := btrim(coalesce(p_name, ''));
+  v_name text := public.trim_role_name(p_name);
   v_known integer;
 begin
   if not public.user_has_permission(auth.uid(), 'roles.manage') then
@@ -116,7 +156,7 @@ begin
 
   if exists (
     select 1 from public.roles r
-    where lower(btrim(r.name)) = lower(v_name)
+    where lower(public.trim_role_name(r.name)) = lower(v_name)
       and r.id is distinct from p_role_id
   ) then
     raise exception 'A role with this name already exists.' using errcode = '23505';
