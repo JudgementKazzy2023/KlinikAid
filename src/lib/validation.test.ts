@@ -6,6 +6,14 @@ import {
   validateAddress,
   validateNotes,
   validateRejectionReason,
+  validateBloodPressure,
+  BP_SYSTOLIC_MIN,
+  BP_SYSTOLIC_MAX,
+  BP_DIASTOLIC_MIN,
+  BP_DIASTOLIC_MAX,
+  BLOOD_PRESSURE_FORMAT_MESSAGE,
+  BLOOD_PRESSURE_RANGE_MESSAGE,
+  BLOOD_PRESSURE_ORDER_MESSAGE,
   NAME_MIN,
   NAME_MAX,
   ADDRESS_MAX,
@@ -168,5 +176,71 @@ describe("validateRejectionReason — minimum and maximum", () => {
     expect(validateRejectionReason(123)).toEqual({ valid: false, error: "Rejection reason must be text." });
     expect(validateRejectionReason({ text: "a".repeat(30) }).valid).toBe(false);
     expect(validateRejectionReason(null).valid).toBe(false);
+  });
+});
+
+describe("validateBloodPressure — optional blank, physiological bounds, systolic > diastolic", () => {
+  it("accepts blank readings because vitals are optional", () => {
+    expect(validateBloodPressure("").valid).toBe(true);
+    expect(validateBloodPressure("   ").valid).toBe(true);
+    expect(validateBloodPressure(null).valid).toBe(true);
+    expect(validateBloodPressure(undefined).valid).toBe(true);
+  });
+
+  it("accepts a typical reading and trims surrounding whitespace", () => {
+    expect(validateBloodPressure("120/80").valid).toBe(true);
+    expect(validateBloodPressure(" 120/80 ").valid).toBe(true);
+  });
+
+  it("accepts readings exactly on every bound", () => {
+    expect(validateBloodPressure(`${BP_SYSTOLIC_MIN}/${BP_DIASTOLIC_MIN}`).valid).toBe(true);
+    expect(validateBloodPressure(`${BP_SYSTOLIC_MAX}/${BP_DIASTOLIC_MAX}`).valid).toBe(true);
+    expect(validateBloodPressure(`${BP_DIASTOLIC_MAX + 1}/${BP_DIASTOLIC_MAX}`).valid).toBe(true);
+  });
+
+  it("rejects each value one step past a bound", () => {
+    const belowSystolic = validateBloodPressure(`${BP_SYSTOLIC_MIN - 1}/${BP_DIASTOLIC_MIN}`);
+    expect(belowSystolic.valid).toBe(false);
+    expect(belowSystolic.error).toBe(BLOOD_PRESSURE_RANGE_MESSAGE);
+
+    const aboveSystolic = validateBloodPressure(`${BP_SYSTOLIC_MAX + 1}/${BP_DIASTOLIC_MAX}`);
+    expect(aboveSystolic.valid).toBe(false);
+    expect(aboveSystolic.error).toBe(BLOOD_PRESSURE_RANGE_MESSAGE);
+
+    const belowDiastolic = validateBloodPressure(`${BP_SYSTOLIC_MIN}/${BP_DIASTOLIC_MIN - 1}`);
+    expect(belowDiastolic.valid).toBe(false);
+    expect(belowDiastolic.error).toBe(BLOOD_PRESSURE_RANGE_MESSAGE);
+
+    const aboveDiastolic = validateBloodPressure(`210/${BP_DIASTOLIC_MAX + 1}`);
+    expect(aboveDiastolic.valid).toBe(false);
+    expect(aboveDiastolic.error).toBe(BLOOD_PRESSURE_RANGE_MESSAGE);
+  });
+
+  it("rejects impossible readings such as 999/999", () => {
+    const reading = validateBloodPressure("999/999");
+    expect(reading.valid).toBe(false);
+    expect(reading.error).toBe(BLOOD_PRESSURE_RANGE_MESSAGE);
+  });
+
+  it("requires systolic to be strictly higher than diastolic", () => {
+    const reversed = validateBloodPressure("80/120");
+    expect(reversed.valid).toBe(false);
+    expect(reversed.error).toBe(BLOOD_PRESSURE_ORDER_MESSAGE);
+
+    const equal = validateBloodPressure("120/120");
+    expect(equal.valid).toBe(false);
+    expect(equal.error).toBe(BLOOD_PRESSURE_ORDER_MESSAGE);
+
+    const equalInBounds = validateBloodPressure("200/200");
+    expect(equalInBounds.valid).toBe(false);
+    expect(equalInBounds.error).toBe(BLOOD_PRESSURE_ORDER_MESSAGE);
+  });
+
+  it("rejects malformed readings with the format message", () => {
+    for (const malformed of ["120", "1/2", "120/80/90", "abc", "1200/80", "12o/80", "120 //80", "-"]) {
+      const result = validateBloodPressure(malformed);
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe(BLOOD_PRESSURE_FORMAT_MESSAGE);
+    }
   });
 });
