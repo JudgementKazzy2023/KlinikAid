@@ -149,6 +149,10 @@ describe("reception document search completeness", () => {
     expect(patientQuery?.select).toContain("patient:patient_id!inner");
     const uploaderQuery = queries.find((query) => query.or[0]?.options?.referencedTable === "uploader");
     expect(uploaderQuery?.select).toContain("uploader:uploader_id!inner");
+    // The file-field branch must keep a plain join: an inner join there would
+    // drop documents whose patient_id is null out of file-name matches.
+    const fileQuery = queries.find((query) => query.or[0]?.options?.referencedTable === undefined);
+    expect(fileQuery?.select).not.toContain("!inner");
   });
 
   it("reports a complete search without truncation and de-duplicates documents across branches", async () => {
