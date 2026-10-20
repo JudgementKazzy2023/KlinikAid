@@ -4,7 +4,11 @@ import {
   DUPLICATE_ROLE_NAME_ERROR,
   isUuid,
   normalizePermissionIds,
+  ROLE_NAME_MAX,
+  ROLE_NAME_TOO_LONG_ERROR,
+  ROLE_NAME_TOO_SHORT_ERROR,
   UNKNOWN_PERMISSION_ERROR,
+  validateRoleName,
 } from "./custom-role-input";
 
 const A = "1e4af016-b81b-4836-a6e7-fdcfe401a49c";
@@ -44,6 +48,56 @@ describe("normalizePermissionIds", () => {
 
   it("keeps a malformed id so the caller can reject it", () => {
     expect(normalizePermissionIds(["nope"])).toEqual(["nope"]);
+  });
+});
+
+describe("validateRoleName", () => {
+  it("trims surrounding whitespace", () => {
+    expect(validateRoleName("  Senior Nurse  ")).toEqual({ ok: true, name: "Senior Nurse" });
+  });
+
+  it("accepts a name at exactly the shared maximum", () => {
+    const exact = "a".repeat(ROLE_NAME_MAX);
+    expect(validateRoleName(exact)).toEqual({ ok: true, name: exact });
+  });
+
+  it("refuses one character over the shared maximum", () => {
+    expect(validateRoleName("a".repeat(ROLE_NAME_MAX + 1))).toEqual({
+      ok: false,
+      error: ROLE_NAME_TOO_LONG_ERROR,
+    });
+  });
+
+  it("counts code points, matching the database's char_length", () => {
+    // 50 supplementary characters are 50 code points but 100 UTF-16 code
+    // units; counting units would wrongly refuse both names.
+    const emoji = "🧪".repeat(ROLE_NAME_MAX);
+    expect(validateRoleName(emoji)).toEqual({ ok: true, name: emoji });
+    expect(validateRoleName("🧪".repeat(ROLE_NAME_MAX + 1))).toEqual({
+      ok: false,
+      error: ROLE_NAME_TOO_LONG_ERROR,
+    });
+  });
+
+  it("measures the trimmed name, so padded input over the limit is refused", () => {
+    const padded = `  ${"a".repeat(ROLE_NAME_MAX)}  `;
+    expect(validateRoleName(padded)).toEqual({ ok: true, name: "a".repeat(ROLE_NAME_MAX) });
+    expect(validateRoleName(`  ${"a".repeat(ROLE_NAME_MAX + 1)}  `).ok).toBe(false);
+  });
+
+  it.each([
+    ["empty", ""],
+    ["whitespace only", "   "],
+    ["below the minimum", "ab"],
+    ["a non-string", 42],
+    ["null", null],
+    ["undefined", undefined],
+  ])("refuses %s", (_, value) => {
+    expect(validateRoleName(value)).toEqual({ ok: false, error: ROLE_NAME_TOO_SHORT_ERROR });
+  });
+
+  it("accepts the minimum length", () => {
+    expect(validateRoleName("abc")).toEqual({ ok: true, name: "abc" });
   });
 });
 

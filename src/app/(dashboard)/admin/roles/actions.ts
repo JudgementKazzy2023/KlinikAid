@@ -10,6 +10,7 @@ import {
   isUuid,
   normalizePermissionIds,
   UNKNOWN_PERMISSION_ERROR,
+  validateRoleName,
 } from "@/lib/auth/custom-role-input";
 
 type RoleRow = {
@@ -49,12 +50,13 @@ export async function createCustomRoleAction(
 ) {
   try {
     const adminProfile = await requirePermission("roles.manage");
-    
-    if (!name || name.trim().length < 3) {
-      return { success: false, error: "Role name must be at least 3 characters." };
+
+    const nameCheck = validateRoleName(name);
+    if (!nameCheck.ok) {
+      return { success: false, error: nameCheck.error };
     }
-    
-    const cleanName = name.trim();
+
+    const cleanName = nameCheck.name;
     const permissionIds = normalizePermissionIds(rawPermissionIds);
 
     if (!permissionIds.every(isUuid)) {
@@ -127,11 +129,12 @@ export async function updateCustomRoleAction(
       return { success: false, error: "You cannot modify your own assigned role." };
     }
 
-    if (!values.name || values.name.trim().length < 3) {
-      return { success: false, error: "Role name must be at least 3 characters." };
+    const nameCheck = validateRoleName(values.name);
+    if (!nameCheck.ok) {
+      return { success: false, error: nameCheck.error };
     }
 
-    const cleanName = values.name.trim();
+    const cleanName = nameCheck.name;
     const cleanDescription = values.description?.trim() || null;
     const permissionIds = normalizePermissionIds(values.permissionIds);
 
