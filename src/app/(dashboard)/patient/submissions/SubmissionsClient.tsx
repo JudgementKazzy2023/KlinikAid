@@ -243,17 +243,21 @@ export default function SubmissionsClient({
             Monitor real-time status of clinic queue items and uploaded referrals
           </p>
         </div>
+        {/* The label is hidden below `sm`, so the button is icon-only on a phone.
+            aria-label keeps the accessible name at every width (WCAG 4.1.2); the
+            visible label is unchanged above `sm`. */}
         <Button
           variant="outline"
           size="sm"
           onClick={handleRefresh}
           disabled={isRefreshing}
+          aria-label="Refresh Data"
           className="border-slate-200 dark:border-slate-800"
         >
           {isRefreshing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : (
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className="h-4 w-4" aria-hidden="true" />
           )}
           <span className="ml-2 hidden sm:inline">Refresh Data</span>
         </Button>

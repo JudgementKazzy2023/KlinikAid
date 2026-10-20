@@ -1,48 +1,8 @@
-// The CSP must allow whichever Supabase project this deployment talks to, so
-// derive it from the same env var the clients use. Missing or malformed is a
-// hard error: a policy pinned to the wrong project would block storage images
-// and realtime without anything surfacing in the UI.
-function supabaseOrigin() {
-  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!raw) {
-    throw new Error(
-      "NEXT_PUBLIC_SUPABASE_URL is not set; it is needed to build the Content-Security-Policy"
-    );
-  }
-  let url;
-  try {
-    url = new URL(raw);
-  } catch {
-    throw new Error(`NEXT_PUBLIC_SUPABASE_URL is not a valid URL: ${raw}`);
-  }
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    throw new Error("NEXT_PUBLIC_SUPABASE_URL must use http: or https:");
-  }
-  return { http: url.origin, ws: `${url.protocol === "http:" ? "ws" : "wss"}://${url.host}` };
-}
-
-function contentSecurityPolicy() {
-  const supabase = supabaseOrigin();
-  // React Refresh evaluates modules with eval() in development only.
-  const devEval = process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : "";
-  return [
-    "default-src 'self'",
-    "base-uri 'self'",
-    "object-src 'none'",
-    "frame-ancestors 'self'",
-    "form-action 'self'",
-    `script-src 'self' 'unsafe-inline'${devEval}`,
-    "style-src 'self' 'unsafe-inline'",
-    "font-src 'self' data:",
-    `img-src 'self' data: blob: ${supabase.http}`,
-    `connect-src 'self' ${supabase.http} ${supabase.ws}`,
-    "worker-src 'self' blob:",
-    "manifest-src 'self'",
-  ].join("; ");
-}
-
-// Built inside headers() rather than at module load so that commands which
-// read this config without serving pages (next lint) do not need the env var.
+// The Content-Security-Policy is NOT set here: it carries a per-request nonce
+// (issue #154) that this static headers() block cannot know. src/middleware.ts
+// sets it on every HTML response from the shared template in csp.mjs; the
+// middleware matcher covers every path except static assets, which serve no
+// HTML and need no policy. These headers are the nonce-independent remainder.
 const securityHeaders = () => [
   {
     key: "X-Frame-Options",
@@ -59,10 +19,6 @@ const securityHeaders = () => [
   {
     key: "Permissions-Policy",
     value: "camera=(), microphone=(), geolocation=()",
-  },
-  {
-    key: "Content-Security-Policy",
-    value: contentSecurityPolicy(),
   },
 ];
 

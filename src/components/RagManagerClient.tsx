@@ -259,9 +259,10 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
                         variant="ghost"
                         size="icon"
                         onClick={() => setDeleteDoc(doc)}
+                        aria-label={`Delete ${doc.title}`}
                         className="text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
                       </Button>
                     </TableCell>
                   </TableRow>
