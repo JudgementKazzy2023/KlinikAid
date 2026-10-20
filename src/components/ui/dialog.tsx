@@ -45,6 +45,7 @@ function DialogContent({
   children,
   showCloseButton = true,
   onKeyDown,
+  ref,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
@@ -53,11 +54,22 @@ function DialogContent({
   // Base UI's focus guards refocus via rAF, so a fast Tab can slip out of the
   // dialog for a frame (issue #149); wrap Tab synchronously at the boundary.
   const wrapTab = useDialogTabWrap(popupRef)
+  const setPopupRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      popupRef.current = node
+      if (typeof ref === "function") {
+        ref(node)
+      } else if (ref) {
+        ref.current = node
+      }
+    },
+    [ref]
+  )
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
-        ref={popupRef}
+        ref={setPopupRef}
         data-slot="dialog-content"
         onKeyDown={(event) => {
           wrapTab(event)

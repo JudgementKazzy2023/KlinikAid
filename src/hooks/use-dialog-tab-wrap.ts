@@ -14,18 +14,31 @@ import * as React from "react";
  * means focus never reaches the guard spans at all, so the race cannot occur.
  *
  * Interior Tab presses are left to the browser: default focus order inside a
- * dialog is already correct. Returns the index to focus, or null when the
- * browser's default Tab behavior should run untouched.
+ * dialog is already correct.
  */
-export function wrapTabIndex(
-  currentIndex: number,
+export type TabOrigin =
+  | { kind: "item"; index: number }
+  | { kind: "popup" } // focus is on the popup container itself
+  | { kind: "outside" }; // focus is on a guard span or outside the dialog
+
+/**
+ * Where Tab/Shift+Tab should land, as a tabbable index, or null when the
+ * browser's default behavior should run untouched.
+ */
+export function nextTabTarget(
+  origin: TabOrigin,
   itemCount: number,
   shiftKey: boolean
 ): number | null {
-  if (currentIndex < 0 || itemCount === 0) {
-    return null; // focus is not on a tabbable of this popup; Base UI owns it
+  if (origin.kind === "outside" || itemCount === 0) {
+    return null; // Base UI's guards own this transition
   }
-  const nextIndex = currentIndex + (shiftKey ? -1 : 1);
+  if (origin.kind === "popup") {
+    // Tab: the first tabbable is next anyway. Shift+Tab would reach the
+    // before-guard, re-entering the rAF race — wrap to the last tabbable.
+    return shiftKey ? itemCount - 1 : null;
+  }
+  const nextIndex = origin.index + (shiftKey ? -1 : 1);
   if (nextIndex >= 0 && nextIndex < itemCount) {
     return null; // interior move: browser order is correct
   }
@@ -33,17 +46,36 @@ export function wrapTabIndex(
 }
 
 const TABBABLE_SELECTOR =
-  'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+  'a[href], button, input, select, textarea, summary, [contenteditable]:not([contenteditable="false"]), [tabindex]:not([tabindex="-1"])';
 
 function getTabbables(container: HTMLElement): HTMLElement[] {
-  return Array.from(
+  const candidates = Array.from(
     container.querySelectorAll<HTMLElement>(TABBABLE_SELECTOR)
   ).filter(
     (el) =>
       el.tabIndex >= 0 &&
-      !el.hasAttribute("disabled") &&
+      !el.matches(":disabled") &&
       el.getClientRects().length > 0
   );
+  // Radio groups: browsers offer one tab stop per group — the checked radio,
+  // or the first one when none is checked. Keep only that entry.
+  return candidates.filter((el) => {
+    if (
+      !(el instanceof HTMLInputElement) ||
+      el.type !== "radio" ||
+      !el.name
+    ) {
+      return true;
+    }
+    const group = candidates.filter(
+      (c): c is HTMLInputElement =>
+        c instanceof HTMLInputElement &&
+        c.type === "radio" &&
+        c.name === el.name
+    );
+    const stop = group.find((radio) => radio.checked) ?? group[0];
+    return el === stop;
+  });
 }
 
 export function useDialogTabWrap(
@@ -59,11 +91,15 @@ export function useDialogTabWrap(
         return;
       }
       const tabbables = getTabbables(popup);
-      const target = wrapTabIndex(
-        tabbables.indexOf(document.activeElement as HTMLElement),
-        tabbables.length,
-        event.shiftKey
-      );
+      const active = document.activeElement;
+      const activeIndex = tabbables.indexOf(active as HTMLElement);
+      const origin: TabOrigin =
+        active === popup
+          ? { kind: "popup" }
+          : activeIndex === -1
+            ? { kind: "outside" }
+            : { kind: "item", index: activeIndex };
+      const target = nextTabTarget(origin, tabbables.length, event.shiftKey);
       if (target === null) {
         return;
       }
