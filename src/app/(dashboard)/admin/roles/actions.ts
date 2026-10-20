@@ -278,9 +278,20 @@ export async function deleteCustomRoleAction(roleId: string) {
   }
 }
 
+/**
+ * Read-only role catalogue for the staff form (#137).
+ *
+ * The only consumer is /admin/staff, which needs the same catalogue the staff
+ * write paths validate the assigned role against; those paths and the roles
+ * table's SELECT RLS policy both key on roles.read, so gating this read on
+ * roles.manage made the catalogue unreachable for a caller who may manage staff
+ * but not roles, disabling staff edits in the UI. /admin/roles does not use
+ * this action: its page reads roles under its own roles.read check and its
+ * mutations stay gated on roles.manage.
+ */
 export async function getRolesAction() {
   try {
-    await requirePermission("roles.manage");
+    await requirePermission("roles.read");
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("roles")
