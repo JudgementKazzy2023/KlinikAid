@@ -18,6 +18,8 @@ interface RecordedQuery {
   select: string;
   or: { conditions: string; options?: { referencedTable?: string } }[];
   orders: { column: string; options?: Record<string, unknown> }[];
+  /** Sequence of builder calls that shape the result set, in call order. */
+  operations: ("order" | "limit")[];
   limit?: number;
 }
 
@@ -47,7 +49,7 @@ const queries: RecordedQuery[] = [];
  * in `branches`, bounded by the recorded limit.
  */
 function fakeFrom(table: string) {
-  const query: RecordedQuery = { table, select: "", or: [], orders: [] };
+  const query: RecordedQuery = { table, select: "", or: [], orders: [], operations: [] };
   const builder = {
     select(select: string) {
       query.select = select;
@@ -58,10 +60,12 @@ function fakeFrom(table: string) {
       return builder;
     },
     order(column: string, options?: Record<string, unknown>) {
+      query.operations.push("order");
       query.orders.push({ column, options });
       return builder;
     },
     limit(limit: number) {
+      query.operations.push("limit");
       query.limit = limit;
       return builder;
     },
@@ -223,6 +227,11 @@ describe("reception document search completeness", () => {
       queries.map((query) => [branchKeyOf(query), query.orders] as const)
     );
     expect([...ordersByBranch.keys()].sort()).toEqual(["file", "patient", "uploader"]);
+    for (const query of queries) {
+      // The order must be declared before the limit that consumes it, so the
+      // bound keeps the newest rows.
+      expect(query.operations).toEqual(["order", "limit"]);
+    }
     for (const orders of ordersByBranch.values()) {
       expect(orders).toEqual([{ column: "created_at", options: { ascending: false } }]);
     }
