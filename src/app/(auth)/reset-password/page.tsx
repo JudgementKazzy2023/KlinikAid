@@ -19,8 +19,9 @@ import { PASSWORD_REQUIREMENT_TEXT, validatePassword } from "@/lib/validation";
 /**
  * Reset-password route. Reads the recovery token from the URL, authorises
  * the session (adding the MFA step when the account requires it), and only
- * then renders the new-password form; a missing or expired link shows an
- * error card instead.
+ * then renders the new-password form; a missing link shows an error card
+ * immediately, while an expired link shows an error card after the
+ * authorization attempt fails.
  */
 export default function ResetPasswordPage() {
   const router = useRouter();
