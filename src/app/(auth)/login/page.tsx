@@ -43,6 +43,11 @@ const LOGIN_ERROR_MESSAGES = new Map<string, { title: string; description: strin
   ],
 ]);
 
+/**
+ * Sign-in form state and submission: email/password, the resend-confirmation
+ * branch for unconfirmed addresses, and the MFA code field that replaces the
+ * credentials after a mfa_required status.
+ */
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -137,7 +142,7 @@ function LoginForm() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             KlinikAid
           </h1>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
             Bloodcare Medical Laboratory
           </p>
         </div>
@@ -155,7 +160,7 @@ function LoginForm() {
           </CardHeader>
 
           <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pb-4">
               {loginNotice && (
                 <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/50">
                   <ShieldAlert className="h-4 w-4" />
@@ -328,6 +333,11 @@ function LoginForm() {
   );
 }
 
+/**
+ * Login route. LoginForm reads the search params (redirect target, error and
+ * notice codes), so the page renders it inside Suspense with a spinner until
+ * hydration.
+ */
 export default function LoginPage() {
   return (
     <Suspense fallback={
