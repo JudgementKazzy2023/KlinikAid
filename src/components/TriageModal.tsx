@@ -101,12 +101,18 @@ export default function TriageModal({
   const {
     register,
     handleSubmit,
+    setFocus,
     setValue,
     watch,
     reset,
     formState: { errors },
   } = useForm<TriageFormValues>({
     resolver: zodResolver(triageSchema),
+    // Focus is managed explicitly in onInvalid below: the department select is
+    // a button, not a registered input, so react-hook-form's automatic
+    // _focusError would skip it — and, when a vitals field fails too, its
+    // deferred refocus would steal focus back from the select (#148).
+    shouldFocusError: false,
     defaultValues: {
       blood_pressure: "",
       weight_kg: "",
@@ -136,11 +142,19 @@ export default function TriageModal({
 
   // Called by handleSubmit when the schema rejects the submission. The
   // department select is a button, not a registered input, so react-hook-form
-  // cannot focus it by itself; focus it explicitly when it is the field that
-  // failed. A vitals-only failure leaves focus alone (the collapsed vitals
-  // section already announces via role="alert").
+  // cannot focus it by itself (and with shouldFocusError off it will not try);
+  // focus it explicitly when it is the field that failed, otherwise send focus
+  // to the first invalid vitals input so no failed submit leaves focus behind.
   const onInvalid = (errs: typeof errors) => {
-    if (errs.department) departmentRef.current?.focus();
+    if (errs.department) {
+      departmentRef.current?.focus();
+    } else if (errs.blood_pressure) {
+      setFocus("blood_pressure");
+    } else if (errs.weight_kg) {
+      setFocus("weight_kg");
+    } else if (errs.temperature_c) {
+      setFocus("temperature_c");
+    }
   };
 
   const onSubmit = (values: TriageFormValues) => {
