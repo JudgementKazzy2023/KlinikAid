@@ -48,23 +48,13 @@ const configPath = fileURLToPath(
 );
 
 /**
- * The Tailwind v4 variant names the ui kit uses and Tailwind v3 does not
- * understand. `data-[…]:` (bracketed) is deliberately *not* listed: v3
- * supports that form natively.
+ * The Tailwind v4 variant families the ui kit uses and Tailwind v3 does not
+ * understand. The bare `data-<state>:` forms are matched generically (see
+ * `isV4Variant`), so a state the kit does not use yet is still caught.
+ * `data-[…]:` (bracketed) is deliberately *not* matched: v3 supports that form
+ * natively.
  */
-const V4_VARIANT_NAMES = [
-  "data-open",
-  "data-closed",
-  "data-checked",
-  "data-unchecked",
-  "data-disabled",
-  "data-placeholder",
-  "data-starting-style",
-  "data-ending-style",
-  "in-data",
-  "has-data",
-  "group-has-data",
-];
+const V4_VARIANT_NAMES = ["in-data", "has-data", "group-has-data"];
 
 /**
  * Marker that identifies the plugin in tailwind.config.ts, so the "before the
@@ -104,11 +94,15 @@ function splitCandidate(candidate: string): { variants: string[]; utility: strin
 
 /** True when `part` is one of the v4-only variant names (with an optional value). */
 function isV4Variant(part: string): boolean {
+  // Any bare `data-<state>` variant: v4 turns it into `&[data-<state>]`, v3
+  // has no such variant at all. The bracketed `data-[…]` form is native to v3
+  // and must not match.
+  if (/^data-[a-z][a-z0-9-]*$/.test(part)) return true;
   return V4_VARIANT_NAMES.some(
     (name) =>
       part === name ||
       // `in-data-[slot=button-group]` — the arbitrary value is appended with a
-      // dash, `data-open` and `has-data-[…]` style names without one.
+      // dash, `has-data-[…]` style names without one.
       part.startsWith(`${name}-[`) ||
       part.startsWith(`${name}-`) ||
       part.startsWith(`${name}[`) ||
