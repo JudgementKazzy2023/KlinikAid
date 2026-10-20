@@ -68,9 +68,9 @@ function visibilityOf(className: string): { from: number; until: number } {
     const prefix = token.slice(0, separator);
     const utility = token.slice(separator + 1);
     if (prefix === "print") continue;
-    if (prefix === "max") {
+    if (prefix.startsWith("max-")) {
       // max-sm:hidden hides below sm, so the element appears from sm up.
-      const index = BREAKPOINTS.indexOf(token.slice(4, separator));
+      const index = BREAKPOINTS.indexOf(prefix.slice(4));
       if (index !== -1 && utility === "hidden") from = Math.max(from, index + 1);
       continue;
     }
@@ -537,6 +537,16 @@ describe("accessible names for buttons and links", () => {
       "<Button variant=\"outline\">",
       "  <RefreshCw className=\"h-4 w-4\" />",
       "  <span className={cn(\"ml-2 hidden sm:inline\")}>Refresh Data</span>",
+      "</Button>",
+    ].join("\n");
+    expect(unnamedControls(source)).toHaveLength(1);
+  });
+
+  it("catches a label hidden by a max-width variant", () => {
+    const source = [
+      "<Button type=\"button\">",
+      "  <Trash2 className=\"h-4 w-4\" />",
+      "  <span className=\"max-sm:hidden\">Delete</span>",
       "</Button>",
     ].join("\n");
     expect(unnamedControls(source)).toHaveLength(1);
