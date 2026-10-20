@@ -186,7 +186,7 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
       });
 
       if (result.success) {
-        toast.success(`Custom role '${editRoleName}' updated successfully.`);
+        toast.success(`Custom role '${nameCheck.name}' updated successfully.`);
         setEditingRole(null);
       } else {
         toast.error(result.error || "Failed to update role.");
@@ -230,7 +230,7 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
       );
 
       if (result.success) {
-        toast.success(`Custom role '${newRoleName}' created successfully.`);
+        toast.success(`Custom role '${nameCheck.name}' created successfully.`);
         setNewRoleName("");
         setNewRoleDesc("");
         setShowCreateForm(false);
