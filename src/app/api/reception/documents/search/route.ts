@@ -78,7 +78,7 @@ export async function GET(request: Request) {
       supabase
         .from("profiles")
         .select("id")
-        .or(`full_name.ilike.${pattern}`)
+        .or(`full_name.imatch.${pattern}`)
         .limit(SEARCH_RESULT_LIMIT + 1),
     ]);
 
@@ -100,7 +100,7 @@ export async function GET(request: Request) {
 
     // 5. The documents query: file name/type, or a patient/uploader whose name
     //    matched. The id lists are UUIDs (no PostgREST-special characters).
-    const orParts = [`file_name.ilike.${pattern}`, `file_type.ilike.${pattern}`];
+    const orParts = [`file_name.imatch.${pattern}`, `file_type.imatch.${pattern}`];
     if (patientIds.length > 0) orParts.push(`patient_id.in.(${patientIds.join(",")})`);
     if (uploaderIds.length > 0) orParts.push(`uploader_id.in.(${uploaderIds.join(",")})`);
 
