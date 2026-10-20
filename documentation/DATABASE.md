@@ -214,10 +214,8 @@ migration 38 adds no index for it.
 ## Migration History
 
 Historical migrations are retained under `src/lib/db/` through migration 38.
-Migration 38 (the dashboard's query indexes) is **written but not applied**: it
-needs a database deploy, and `src/lib/db/schema.sql` is a generated picture of
-the live database, so it stays as it is until the migration has been applied
-and the snapshot regenerated from the database that has them.
+Migration 38 (the dashboard's query indexes) was applied to production on
+2026-10-21 and is included in the `schema.sql` snapshot.
 
 The following are early milestones, not a fresh-project execution sequence:
 
