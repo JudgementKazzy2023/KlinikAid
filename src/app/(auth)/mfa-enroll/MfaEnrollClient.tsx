@@ -226,7 +226,7 @@ export default function MfaEnrollClient() {
                 <div className="space-y-2 border-t border-slate-100 dark:border-slate-800/80 pt-4">
                   <Label htmlFor="code" className="font-bold">6-Digit Verification Code</Label>
                   <div className="relative">
-                    <KeyRound className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="code"
                       type="text"

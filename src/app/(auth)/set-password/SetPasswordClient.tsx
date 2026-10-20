@@ -81,7 +81,7 @@ export default function SetPasswordClient({ email }: { email: string }) {
               <div className="space-y-2">
                 <Label htmlFor="password">New Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <Lock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     id="password"
                     type="password"
@@ -101,7 +101,7 @@ export default function SetPasswordClient({ email }: { email: string }) {
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <Lock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     id="confirmPassword"
                     type="password"
