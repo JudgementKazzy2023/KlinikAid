@@ -1,6 +1,7 @@
 import React from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getRequestUser } from "@/lib/auth/session";
 import DocumentSubmitClient from "./DocumentSubmitClient";
 
 export const dynamic = "force-dynamic";
@@ -9,9 +10,7 @@ export default async function PatientSubmitPage() {
   const supabase = await createClient();
 
   // 1. Get current authenticated user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getRequestUser();
 
   if (!user) {
     redirect("/login");

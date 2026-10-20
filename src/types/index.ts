@@ -15,6 +15,14 @@ export interface Profile {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  /**
+   * The row of the `roles` table this profile is assigned to. Authorisation
+   * resolves through it, not through the legacy `role` text column.
+   */
+  role_id?: string | null;
+  /** When the patient accepted the data privacy agreement (RA 10173). */
+  accepted_privacy_at?: string | null;
+  email_verified_at?: string | null;
 }
 
 export interface Patient {

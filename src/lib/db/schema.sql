@@ -1,4 +1,4 @@
--- KlinikAid GENERATED current-state snapshot through migration_37 (2026-10-20).
+-- KlinikAid GENERATED current-state snapshot through migration_38 (2026-10-21).
 -- Fresh Supabase projects ONLY: run this file once in the SQL editor, or:
 --   psql "$FRESH_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f src/lib/db/schema.sql
 -- Requires a Supabase database with auth/storage schemas and platform roles.
@@ -1474,6 +1474,13 @@ CREATE INDEX idx_chatbot_logs_session_id ON public.chatbot_logs USING btree (ses
 
 
 --
+-- Name: idx_documents_patient_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_documents_patient_id ON public.documents USING btree (patient_id);
+
+
+--
 -- Name: idx_email_verification_codes_email; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1488,10 +1495,24 @@ CREATE INDEX idx_email_verification_codes_expires_at ON public.email_verificatio
 
 
 --
+-- Name: idx_patient_queue_patient_id_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_patient_queue_patient_id_created_at ON public.patient_queue USING btree (patient_id, created_at DESC);
+
+
+--
 -- Name: idx_pending_document_ocr_user_created; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_pending_document_ocr_user_created ON public.pending_document_ocr USING btree (user_id, created_at);
+
+
+--
+-- Name: idx_system_logs_created_at_desc; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_system_logs_created_at_desc ON public.system_logs USING btree (created_at DESC);
 
 
 --
@@ -2823,7 +2844,8 @@ INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES
   ('20261018000034', 'legacy_34'),
   ('20261018000035', 'legacy_35'),
   ('20261018000036', 'legacy_36'),
-  ('20261020000037', 'legacy_37')
+  ('20261020000037', 'legacy_37'),
+  ('20261021000038', 'legacy_38')
 ON CONFLICT (version) DO NOTHING;
 
 COMMIT;

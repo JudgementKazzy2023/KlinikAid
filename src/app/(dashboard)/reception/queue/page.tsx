@@ -4,6 +4,7 @@ import { requirePermission } from "@/lib/auth/helpers";
 import ReceptionKanban from "@/components/ReceptionKanban";
 import DataLoadError from "@/components/DataLoadError";
 import { classifyRead } from "@/lib/read-outcome";
+import { timed } from "@/lib/perf/timing";
 import { Document } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -62,29 +63,37 @@ export default async function ReceptionQueuePage() {
   //    the client can disclose anything the caps left out.
   const [actionableResult, completedResult, actionableTotalResult, completedTotalResult] =
     await Promise.all([
-      supabase
-        .from("documents")
-        .select(DOCUMENT_SELECT)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false })
-        .limit(ACTIONABLE_LIMIT),
+      timed("page.receptionQueue.actionable", () =>
+        supabase
+          .from("documents")
+          .select(DOCUMENT_SELECT)
+          .eq("status", "pending")
+          .order("created_at", { ascending: false })
+          .limit(ACTIONABLE_LIMIT)
+      ),
 
-      supabase
-        .from("documents")
-        .select(DOCUMENT_SELECT)
-        .in("status", ["approved", "rejected"])
-        .order("created_at", { ascending: false })
-        .limit(COMPLETED_LIMIT),
+      timed("page.receptionQueue.completed", () =>
+        supabase
+          .from("documents")
+          .select(DOCUMENT_SELECT)
+          .in("status", ["approved", "rejected"])
+          .order("created_at", { ascending: false })
+          .limit(COMPLETED_LIMIT)
+      ),
 
-      supabase
-        .from("documents")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "pending"),
+      timed("page.receptionQueue.actionableTotal", () =>
+        supabase
+          .from("documents")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "pending")
+      ),
 
-      supabase
-        .from("documents")
-        .select("id", { count: "exact", head: true })
-        .in("status", ["approved", "rejected"]),
+      timed("page.receptionQueue.completedTotal", () =>
+        supabase
+          .from("documents")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["approved", "rejected"])
+      ),
     ]);
 
   // A failed fetch must never reach the kanban as an empty board. Reception
