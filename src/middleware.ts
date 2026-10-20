@@ -47,7 +47,9 @@ export async function middleware(request: NextRequest) {
   // carries, and it recreates its response when cookies are refreshed — so a
   // copy made here would be lost on the unauthenticated and cookie-refresh
   // paths, leaving headers() with no x-nonce and next-themes' pre-paint script
-  // un-nonceable. The render stamps the header's nonce on Next.js's own inline
+  // un-nonceable. The full policy also goes on the request headers, as the
+  // guide does, so anything reading headers() during the render can see it.
+  // The render stamps the header's nonce on Next.js's own inline
   // scripts; the layout reads x-nonce for next-themes. Every response gets the
   // matching Content-Security-Policy: via `withCsp`, or inside
   // `forbiddenLanding`, so a redirect, an error JSON, a rewrite and a page
@@ -55,6 +57,7 @@ export async function middleware(request: NextRequest) {
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const csp = contentSecurityPolicy(nonce);
   request.headers.set("x-nonce", nonce);
+  request.headers.set("Content-Security-Policy", csp);
   const withCsp = <T extends NextResponse>(response: T): T => {
     response.headers.set("Content-Security-Policy", csp);
     return response;
