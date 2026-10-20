@@ -575,8 +575,10 @@ export default function ReceptionKanban({
       ) : null)}
 
       {/* Search status. Distinct from "no search run" and from an empty result:
-          a search that failed must not render as "no matches", and a search that
-          searched the whole table and found nothing must say so explicitly. */}
+          a search that failed must not render as "no matches", and the definitive
+          "nothing matches" is stated only for a search the server reported as
+          complete — a truncated search that lists nothing has not proven the
+          absence of matches, so it falls through to the truncation notice. */}
       {searching && searchState.kind === "loading" && (
         <div role="status" aria-live="polite" className="flex shrink-0 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400" />
@@ -586,7 +588,7 @@ export default function ReceptionKanban({
       {searching && searchState.kind === "failed" && (
         <DataLoadError what="the document search" error={searchState.error} />
       )}
-      {searching && searchState.kind === "ok" && searchState.documents.length === 0 && (
+      {searching && searchState.kind === "ok" && searchState.documents.length === 0 && !searchState.truncated && (
         <div role="status" aria-live="polite" className="flex shrink-0 items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
           <Search className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
           <p>
