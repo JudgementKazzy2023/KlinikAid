@@ -9,7 +9,7 @@ describe("buildQueryAnalysisPrompt", () => {
   it("asks for a JSON object and carries the patient's question verbatim", () => {
     const prompt = buildQueryAnalysisPrompt("Anong oras bukas ang clinic?");
     expect(prompt).toContain("Anong oras bukas ang clinic?");
-    expect(prompt).toContain('{"language":"...","english":"..."}');
+    expect(prompt).toContain('{"language":"...","english":"...","queries":["...","..."]}');
   });
 
   it("quotes the question between delimiters and closes them once", () => {
@@ -32,17 +32,35 @@ describe("parseQueryAnalysis", () => {
   it("parses a plain JSON reply", () => {
     expect(
       parseQueryAnalysis('{"language":"filipino","english":"What time is the clinic open?"}', "Anong oras?")
-    ).toEqual({ language: "filipino", englishQuery: "What time is the clinic open?" });
+    ).toEqual({ language: "filipino", englishQuery: "What time is the clinic open?", searchQueries: [] });
+  });
+
+  it("extracts alternative search phrasings, dropping blanks and the rendering itself", () => {
+    const raw =
+      '{"language":"filipino","english":"What time is the clinic open?","queries":["clinic opening hours","  ","What Time Is The Clinic Open?","lab operating hours"]}';
+    expect(parseQueryAnalysis(raw, "Anong oras bukas?")).toEqual({
+      language: "filipino",
+      englishQuery: "What time is the clinic open?",
+      searchQueries: ["clinic opening hours", "lab operating hours"],
+    });
+  });
+
+  it("ignores non-string or missing query entries instead of failing the chat", () => {
+    expect(
+      parseQueryAnalysis('{"language":"english","english":"Where?","queries":"hours"}', "Where?")
+    ).toEqual({ language: "english", englishQuery: "Where?", searchQueries: [] });
   });
 
   it("accepts the capitalised language values the model actually emits", () => {
     expect(parseQueryAnalysis('{"language":"Filipino","english":"What time?"}', "Anong oras?")).toEqual({
       language: "filipino",
       englishQuery: "What time?",
+      searchQueries: [],
     });
     expect(parseQueryAnalysis('{"language":"TAGLISH","english":"What time?"}', "Anong oras?")).toEqual({
       language: "taglish",
       englishQuery: "What time?",
+      searchQueries: [],
     });
   });
 
@@ -51,6 +69,7 @@ describe("parseQueryAnalysis", () => {
     expect(parseQueryAnalysis(raw, "Anong oras kayo mag-open?")).toEqual({
       language: "taglish",
       englishQuery: "What time do you open?",
+      searchQueries: [],
     });
   });
 
@@ -58,6 +77,7 @@ describe("parseQueryAnalysis", () => {
     expect(parseQueryAnalysis("I cannot translate that.", "  Anong oras bukas?  ")).toEqual({
       language: "unknown",
       englishQuery: "Anong oras bukas?",
+      searchQueries: [],
     });
   });
 
@@ -65,6 +85,7 @@ describe("parseQueryAnalysis", () => {
     expect(parseQueryAnalysis('{"language":"filipino","english":', "Anong oras?")).toEqual({
       language: "unknown",
       englishQuery: "Anong oras?",
+      searchQueries: [],
     });
   });
 
@@ -72,6 +93,7 @@ describe("parseQueryAnalysis", () => {
     expect(parseQueryAnalysis('{"language":"filipino","english":"  "}', "Anong oras?")).toEqual({
       language: "filipino",
       englishQuery: "Anong oras?",
+      searchQueries: [],
     });
   });
 
@@ -79,6 +101,7 @@ describe("parseQueryAnalysis", () => {
     expect(parseQueryAnalysis('{"language":"cebuano","english":"What time?"}', "Anong oras?")).toEqual({
       language: "unknown",
       englishQuery: "What time?",
+      searchQueries: [],
     });
   });
 });
