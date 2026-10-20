@@ -142,6 +142,11 @@ describe("reception document search completeness", () => {
     const conditions = queries.flatMap((query) => query.or.map((or) => or.conditions)).join(",");
     expect(conditions).not.toContain("patient_id.in.");
     expect(conditions).not.toContain("uploader_id.in.");
+    // buildSearchPattern emits a regex for `imatch` (#130). Under `ilike` the
+    // same unwrapped pattern would only match whole values exactly.
+    expect(conditions).not.toMatch(/\.i?like\./);
+    expect(conditions).toContain("file_name.imatch.");
+    expect(conditions).toContain("full_name.imatch.");
     // Each branch is bounded only by the shared result bound (+1 for detection).
     expect(queries.every((query) => query.limit === SEARCH_RESULT_LIMIT + 1)).toBe(true);
     // The name branches filter through embedded-resource joins.
