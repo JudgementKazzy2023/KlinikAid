@@ -1,4 +1,4 @@
--- KlinikAid GENERATED current-state snapshot through migration_36 (2026-10-19).
+-- KlinikAid GENERATED current-state snapshot through migration_37 (2026-10-20).
 -- Fresh Supabase projects ONLY: run this file once in the SQL editor, or:
 --   psql "$FRESH_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f src/lib/db/schema.sql
 -- Requires a Supabase database with auth/storage schemas and platform roles.
@@ -922,9 +922,13 @@ begin
     raise exception 'Role name must be at least 3 characters.' using errcode = '22023';
   end if;
 
+  if char_length(v_name) > 50 then
+    raise exception 'Role name must be 50 characters or fewer.' using errcode = '22023';
+  end if;
+
   if exists (
     select 1 from public.roles r
-    where r.name = v_name
+    where lower(btrim(r.name)) = lower(v_name)
       and r.id is distinct from p_role_id
   ) then
     raise exception 'A role with this name already exists.' using errcode = '23505';
@@ -1192,7 +1196,8 @@ CREATE TABLE public.roles (
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     base_role text,
-    CONSTRAINT roles_base_role_check CHECK ((base_role = ANY (ARRAY['admin'::text, 'receptionist'::text, 'department_staff'::text, 'medical_specialist'::text, 'patient'::text])))
+    CONSTRAINT roles_base_role_check CHECK ((base_role = ANY (ARRAY['admin'::text, 'receptionist'::text, 'department_staff'::text, 'medical_specialist'::text, 'patient'::text]))),
+    CONSTRAINT roles_name_length_check CHECK (((char_length(name) >= 3) AND (char_length(name) <= 50)))
 );
 
 
@@ -1500,6 +1505,13 @@ CREATE UNIQUE INDEX patient_queue_one_open_per_patient ON public.patient_queue U
 --
 
 CREATE INDEX rag_documents_embedding_idx ON public.rag_documents USING hnsw (embedding public.vector_cosine_ops);
+
+
+--
+-- Name: roles_name_folded_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX roles_name_folded_idx ON public.roles USING btree (lower(btrim(name)));
 
 
 --
@@ -2795,7 +2807,8 @@ INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES
   ('20261018000033', 'legacy_33'),
   ('20261018000034', 'legacy_34'),
   ('20261018000035', 'legacy_35'),
-  ('20261018000036', 'legacy_36')
+  ('20261018000036', 'legacy_36'),
+  ('20261020000037', 'legacy_37')
 ON CONFLICT (version) DO NOTHING;
 
 COMMIT;

@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { createCustomRoleAction, deleteCustomRoleAction, updateCustomRoleAction } from "./actions";
+import { ROLE_NAME_MAX, ROLE_NAME_TOO_LONG_ERROR } from "@/lib/auth/custom-role-input";
 import { toast } from "sonner";
 
 interface Role {
@@ -171,6 +172,11 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
       return;
     }
 
+    if (editRoleName.trim().length > ROLE_NAME_MAX) {
+      toast.error(ROLE_NAME_TOO_LONG_ERROR);
+      return;
+    }
+
     startTransition(async () => {
       const result = await updateCustomRoleAction(editingRole.id, {
         name: editRoleName,
@@ -206,6 +212,11 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
     e.preventDefault();
     if (!newRoleName.trim()) {
       toast.error("Please enter a role name.");
+      return;
+    }
+
+    if (newRoleName.trim().length > ROLE_NAME_MAX) {
+      toast.error(ROLE_NAME_TOO_LONG_ERROR);
       return;
     }
 
@@ -280,8 +291,12 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
                       placeholder="e.g. Junior Lab Technician"
                       value={newRoleName}
                       onChange={(e) => setNewRoleName(e.target.value)}
+                      maxLength={ROLE_NAME_MAX}
                       className="text-xs h-10 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/20"
                     />
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                      Up to {ROLE_NAME_MAX} characters; surrounding spaces are ignored.
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -354,8 +369,12 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
                     id="edit-role-name"
                     value={editRoleName}
                     onChange={(e) => setEditRoleName(e.target.value)}
+                    maxLength={ROLE_NAME_MAX}
                     className="text-xs h-10 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/20"
                   />
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                    Up to {ROLE_NAME_MAX} characters; surrounding spaces are ignored.
+                  </p>
                 </div>
 
                 <div className="space-y-2">
