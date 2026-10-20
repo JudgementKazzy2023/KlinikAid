@@ -8,13 +8,13 @@ import { join } from "node:path";
  * name at all (WCAG 4.1.2). The same shape is easy to reintroduce, so this
  * guard states the rule for every button and link in src/:
  *
- *   a control must have a name that does not depend on CSS hiding it
+ *   a control must have a name at every width at which it is rendered
  *
  * A name is either an explicit `aria-label` / `aria-labelledby` / `title`, or
- * text that is rendered at every width. Text behind a `hidden` utility
- * (`hidden`, `hidden sm:inline`, `md:hidden`, ...) is not rendered at some
- * width, so it cannot carry the name there. Text inside an `aria-hidden`
- * subtree is not part of the name either.
+ * text that is rendered wherever the control is. Text that a responsive
+ * utility (`hidden`, `hidden sm:inline`, `md:hidden`, ...) removes at some
+ * width cannot carry the name there. Text inside an `aria-hidden` subtree is
+ * not part of the name at all.
  *
  * This is a source-level check because the repo's unit tests run in node
  * without a DOM. It is deliberately conservative: a name it cannot prove is
@@ -26,17 +26,64 @@ const SRC_ROOT = join(__dirname, "..");
 
 const INTERACTIVE = new Set(["button", "Button", "a", "Link"]);
 
-/** Tailwind utilities that remove an element from the rendering tree. */
-function hidesAtSomeWidth(className: string): boolean {
-  return className
-    .split(/\s+/)
-    .filter(Boolean)
-    .some(
-      (token) =>
-        token === "hidden" ||
-        /^(sm|md|lg|xl|2xl|print):hidden$/.test(token) ||
-        /^max-(sm|md|lg|xl|2xl):hidden$/.test(token)
-    );
+/** Tailwind's responsive breakpoints, as the widths the guard reasons about. */
+const BREAKPOINTS = ["sm", "md", "lg", "xl", "2xl"];
+/** Index of the first width band, and the one past the last breakpoint. */
+const FIRST = 0;
+const LAST = BREAKPOINTS.length + 1;
+
+/** Utilities that put an element back into the rendering tree. */
+const DISPLAY_UTILITIES = new Set([
+  "block",
+  "inline",
+  "inline-block",
+  "inline-flex",
+  "flex",
+  "grid",
+  "table",
+  "table-row",
+  "table-cell",
+  "contents",
+  "list-item",
+  "flow-root",
+]);
+
+/**
+ * The widths at which an element is rendered, as a half-open band of
+ * breakpoint indices. A bare `hidden` with no display override is never
+ * rendered; `hidden md:inline-flex` is rendered from `md` up; `md:hidden` is
+ * rendered below `md`.
+ */
+function visibilityOf(className: string): { from: number; until: number } {
+  let from = FIRST;
+  let until = LAST;
+  let overrideFrom = LAST;
+  let bareHidden = false;
+  for (const token of className.split(/\s+/).filter(Boolean)) {
+    const separator = token.indexOf(":");
+    if (separator === -1) {
+      if (token === "hidden") bareHidden = true;
+      continue;
+    }
+    const prefix = token.slice(0, separator);
+    const utility = token.slice(separator + 1);
+    if (prefix === "print") continue;
+    if (prefix === "max") {
+      // max-sm:hidden hides below sm, so the element appears from sm up.
+      const index = BREAKPOINTS.indexOf(token.slice(4, separator));
+      if (index !== -1 && utility === "hidden") from = Math.max(from, index + 1);
+      continue;
+    }
+    const index = BREAKPOINTS.indexOf(prefix);
+    if (index === -1) continue;
+    const band = index + 1;
+    if (utility === "hidden") until = Math.min(until, band);
+    else if (DISPLAY_UTILITIES.has(utility)) overrideFrom = Math.min(overrideFrom, band);
+  }
+  // A bare `hidden` removes the element at every width, until a display
+  // utility puts it back.
+  if (bareHidden) from = Math.max(from, overrideFrom);
+  return { from, until };
 }
 
 type Element = {
@@ -44,8 +91,12 @@ type Element = {
   attrs: string;
   /** Offset in the original source. */
   start: number;
-  /** Hidden at some width, or hidden from assistive technology. */
-  hidesName: boolean;
+  /** First width band at which the element is rendered. */
+  from: number;
+  /** First width band at which it is no longer rendered. */
+  until: number;
+  /** Inside an aria-hidden subtree. */
+  ariaHidden: boolean;
 };
 
 type TextNode = { text: string; path: Element[] };
@@ -134,32 +185,6 @@ function readExpression(src: string, start: number): { body: string; bodyStart: 
   return { body: src.slice(start + 1, i - 1), bodyStart: start + 1, end: i };
 }
 
-/** Find the closing tag that matches the open tag at `openIdx`. */
-function findClose(src: string, openIdx: number, name: string): { index: number; length: number } | null {
-  const openRe = new RegExp(`<${name}(?=[\\s/>])`, "g");
-  const closeRe = new RegExp(`</${name}\\s*>`, "g");
-  let depth = 0;
-  let i = openIdx;
-  while (i < src.length) {
-    openRe.lastIndex = i;
-    closeRe.lastIndex = i;
-    const open = openRe.exec(src);
-    const close = closeRe.exec(src);
-    if (!close) return null;
-    if (open && open.index < close.index) {
-      const tag = readTag(src, open.index);
-      if (!tag.selfClosing) depth += 1;
-      i = tag.end;
-      continue;
-    }
-    if (depth === 0) return { index: close.index, length: close[0].length };
-    depth -= 1;
-    if (depth === 0) return { index: close.index, length: close[0].length };
-    i = close.index + close[0].length;
-  }
-  return null;
-}
-
 /** Remove every JSX element from an expression, leaving the JavaScript. */
 function stripJsx(body: string): string {
   let out = body;
@@ -235,6 +260,15 @@ function valueProducesText(source: string): boolean {
 }
 
 /**
+ * `cond && value` renders `value` or nothing, so only the last operand can be
+ * text; the condition is a condition, not a value.
+ */
+function branchProducesText(source: string): boolean {
+  const parts = source.split("&&");
+  return valueProducesText(parts[parts.length - 1]);
+}
+
+/**
  * Does this expression produce text? A string literal does, and so does a
  * plain identifier, because it may hold a string at runtime (`{item.label}`).
  * An expression that only picks between elements
@@ -244,14 +278,18 @@ function valueProducesText(source: string): boolean {
 function expressionProducesText(body: string): boolean {
   const stripped = stripJsx(body);
   const ternary = splitTernary(stripped);
-  if (!ternary) return valueProducesText(stripped);
-  return valueProducesText(ternary.consequent) || valueProducesText(ternary.alternate);
+  if (!ternary) return branchProducesText(stripped);
+  return branchProducesText(ternary.consequent) || branchProducesText(ternary.alternate);
 }
 
 function classNameOf(attrs: string): string {
-  const match = attrs.match(/className\s*=\s*(?:"([^"]*)"|'([^']*)'|\{`([^`]*)`\})/);
-  if (!match) return "";
-  return match[1] ?? match[2] ?? match[3] ?? "";
+  const literal = attrs.match(/className\s*=\s*(?:"([^"]*)"|'([^']*)')/);
+  if (literal) return literal[1] ?? literal[2] ?? "";
+  const at = attrs.search(/className\s*=\s*\{/);
+  if (at === -1) return "";
+  const { body } = readExpression(attrs, attrs.indexOf("{", at));
+  // cn("a", cond && "b"), clsx(...), `a ${b}`: every literal may apply.
+  return (body.match(/"[^"]*"|'[^']*'|`[^`]*`/g) ?? []).map((s) => s.slice(1, -1)).join(" ");
 }
 
 function altOf(attrs: string): string | null {
@@ -342,14 +380,15 @@ function scanRegion(ctx: Context, region: string, from: number, to: number, base
       continue;
     }
 
+    const parent = ctx.stack[ctx.stack.length - 1];
+    const own = visibilityOf(classNameOf(tag.attrs));
     const element: Element = {
       name: tag.name,
       attrs: tag.attrs,
       start: base + i,
-      hidesName:
-        hidesAtSomeWidth(classNameOf(tag.attrs)) ||
-        isAriaHidden(tag.attrs) ||
-        ctx.stack.some((open) => open.hidesName),
+      from: Math.max(own.from, parent ? parent.from : FIRST),
+      until: Math.min(own.until, parent ? parent.until : LAST),
+      ariaHidden: isAriaHidden(tag.attrs) || (parent ? parent.ariaHidden : false),
     };
     ctx.elements.push(element);
     ctx.stack.push(element);
@@ -366,6 +405,32 @@ function scanRegion(ctx: Context, region: string, from: number, to: number, base
   }
 }
 
+/** Find the closing tag that matches the open tag at `openIdx`. */
+function findClose(src: string, openIdx: number, name: string): { index: number; length: number } | null {
+  const openRe = new RegExp(`<${name}(?=[\\s/>])`, "g");
+  const closeRe = new RegExp(`</${name}\\s*>`, "g");
+  let depth = 0;
+  let i = openIdx;
+  while (i < src.length) {
+    openRe.lastIndex = i;
+    closeRe.lastIndex = i;
+    const open = openRe.exec(src);
+    const close = closeRe.exec(src);
+    if (!close) return null;
+    if (open && open.index < close.index) {
+      const tag = readTag(src, open.index);
+      if (!tag.selfClosing) depth += 1;
+      i = tag.end;
+      continue;
+    }
+    if (depth === 0) return { index: close.index, length: close[0].length };
+    depth -= 1;
+    if (depth === 0) return { index: close.index, length: close[0].length };
+    i = close.index + close[0].length;
+  }
+  return null;
+}
+
 /** Every button and link in `src` that cannot be named at every width. */
 export function unnamedControls(src: string): Array<{ line: number; name: string; snippet: string }> {
   const ctx: Context = { source: src, elements: [], texts: [], stack: [] };
@@ -376,21 +441,36 @@ export function unnamedControls(src: string): Array<{ line: number; name: string
 
   for (const element of ctx.elements) {
     if (!INTERACTIVE.has(element.name)) continue;
-    // A control that hides itself is absent at that width, not unnamed.
-    if (element.hidesName) continue;
+    // A control that is never rendered is absent, not unnamed. So is one that
+    // is hidden from assistive technology.
+    if (element.from >= element.until) continue;
+    if (element.ariaHidden) continue;
     const hasName = /\baria-label(ledby)?\s*=/.test(element.attrs) || /\btitle\s*=/.test(element.attrs);
     if (hasName) continue;
-    const visible = ctx.texts
-      .filter((node) => {
-        const at = node.path.indexOf(element);
-        if (at === -1) return false;
-        // Anything between the control and the text that hides removes it.
-        return !node.path.slice(at + 1).some((el) => el.hidesName);
-      })
-      .map((node) => node.text)
-      .join("")
-      .trim();
-    if (visible) continue;
+
+    // The widths at which the control carries a name: the union of the bands
+    // its text is rendered in. The control must be named at every width at
+    // which it is itself rendered.
+    const bands: Array<[number, number]> = [];
+    for (const node of ctx.texts) {
+      const at = node.path.indexOf(element);
+      if (at === -1) continue;
+      // Text under an aria-hidden element is not part of the name.
+      if (node.path.slice(at).some((el) => el.ariaHidden)) continue;
+      const host = node.path[node.path.length - 1];
+      if (!host || host.from >= host.until) continue;
+      bands.push([host.from, host.until]);
+    }
+    bands.sort((first, second) => first[0] - second[0]);
+
+    let covered = element.from;
+    for (const [from, until] of bands) {
+      if (until <= covered) continue;
+      if (from > covered) break;
+      covered = until;
+    }
+    if (covered >= element.until) continue;
+
     problems.push({
       line: lineAt(element.start),
       name: element.name,
@@ -442,6 +522,26 @@ describe("accessible names for buttons and links", () => {
     expect(unnamedControls(source)).toHaveLength(1);
   });
 
+  it("catches an icon-only control whose only spinner is conditional", () => {
+    const source = [
+      "<Button type=\"submit\" size=\"icon\">",
+      "  {isSending && <Loader2 className=\"h-4 w-4\" />}",
+      "  <Send className=\"h-4 w-4\" />",
+      "</Button>",
+    ].join("\n");
+    expect(unnamedControls(source)).toHaveLength(1);
+  });
+
+  it("catches a label hidden through a cn() class expression", () => {
+    const source = [
+      "<Button variant=\"outline\">",
+      "  <RefreshCw className=\"h-4 w-4\" />",
+      "  <span className={cn(\"ml-2 hidden sm:inline\")}>Refresh Data</span>",
+      "</Button>",
+    ].join("\n");
+    expect(unnamedControls(source)).toHaveLength(1);
+  });
+
   it("accepts a control whose text is always rendered", () => {
     const source = ["<Button type=\"submit\">", "  <Save className=\"h-4 w-4\" /> Save Results", "</Button>"].join("\n");
     expect(unnamedControls(source)).toHaveLength(0);
@@ -453,6 +553,24 @@ describe("accessible names for buttons and links", () => {
       "  Recently completed",
       "</button>",
     ].join("\n");
+    expect(unnamedControls(source)).toHaveLength(0);
+  });
+
+  it("catches an icon-only control that only appears from md up", () => {
+    const source = [
+      "<div className=\"hidden md:flex\">",
+      "  <button type=\"button\" size=\"icon\">",
+      "    <Trash2 className=\"h-4 w-4\" />",
+      "  </button>",
+      "</div>",
+    ].join("\n");
+    expect(unnamedControls(source)).toHaveLength(1);
+  });
+
+  it("accepts a control that is hidden at every width", () => {
+    const source = ["<button type=\"button\" className=\"hidden\">", "  <Trash2 className=\"h-4 w-4\" />", "</button>"].join(
+      "\n"
+    );
     expect(unnamedControls(source)).toHaveLength(0);
   });
 
