@@ -213,7 +213,7 @@ function RegisterForm() {
                   <div className="space-y-2">
                     <Label htmlFor="gender">Gender</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <User className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                       <select
                         id="gender"
                         autoComplete="sex"
