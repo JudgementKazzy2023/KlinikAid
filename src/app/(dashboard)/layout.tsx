@@ -6,7 +6,8 @@ import { headers } from "next/headers";
 import { logEvent } from "@/lib/logger";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { getTotpFactors } from "@/lib/auth/mfa";
-import { hasAnyPermission, hasPermission } from "@/lib/auth/helpers";
+import { hasAnyPermission, hasPermission, getCurrentUser } from "@/lib/auth/helpers";
+import { timed } from "@/lib/perf/timing";
 import { NavItem } from "@/components/sidebar";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -51,23 +52,19 @@ interface DashboardLayoutProps {
 export default async function DashboardLayout({ children }: DashboardLayoutProps) {
   const supabase = await createClient();
 
-  // 1. Retrieve session
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // 1. Retrieve session and profile.
+  //
+  // The session is verified from the access token's signature and the profile
+  // is read once per request; the page and the auth helpers share both reads
+  // (issue #165). The layout used to make its own getUser() call and its own
+  // profile query on top of the ones the page made.
+  const { user, profile } = await getCurrentUser();
 
   if (!user) {
     redirect("/login");
   }
 
-  // 2. Fetch profile and status
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("id, role, role_id, department, full_name, is_active, accepted_privacy_at")
-    .eq("id", user.id)
-    .single();
-
-  if (error || !profile) {
+  if (!profile) {
     // Session exists but profile is missing
     await supabase.auth.signOut();
     redirect("/login");
@@ -89,7 +86,9 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   if (isStaff) {
     let factorsData: Awaited<ReturnType<typeof supabase.auth.mfa.listFactors>>["data"];
     try {
-      ({ data: factorsData } = await supabase.auth.mfa.listFactors());
+      ({ data: factorsData } = await timed("layout.mfa.listFactors", () =>
+        supabase.auth.mfa.listFactors()
+      ));
     } catch (factorError) {
       // Same reasoning as the assurance check below: a session that cannot
       // describe its own factors cannot be trusted to grant access.
@@ -117,7 +116,9 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     // not as a 500 that leaves the caller on a blank page.
     let aalData: Awaited<ReturnType<typeof supabase.auth.mfa.getAuthenticatorAssuranceLevel>>["data"];
     try {
-      ({ data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel());
+      ({ data: aalData } = await timed("layout.mfa.assuranceLevel", () =>
+        supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      ));
     } catch (gateError) {
       console.error("MFA Gate threw retrieving assurance level:", gateError);
       await supabase.auth.signOut();
@@ -153,17 +154,73 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
   const isPatientRoute = xPathname.startsWith("/patient");
 
   const canEnterPatientArea = profile.role === "patient";
+
+  // The role name is only used for the sidebar's label. It is read with the
+  // service role because the `roles` table is not readable by every signed-in
+  // user, and its error is deliberately not fatal: failing the whole dashboard
+  // because a cosmetic label could not resolve would trade a visible defect
+  // for an invisible one. Logged so the gap is diagnosable rather than silent.
+  //
+  // The read is independent of the permission checks below, so it runs while
+  // they are being resolved instead of after them: each is a round trip to the
+  // database, and the dashboard waits for both (issue #165).
+  const roleNamePromise = (async () => {
+    if (!profile.role_id) return null;
+    const adminSupabase = createAdminClient();
+    const { data: assignedRole, error: roleError } = await timed("layout.roles.name", () =>
+      adminSupabase
+        .from("roles")
+        .select("name")
+        .eq("id", profile.role_id)
+        .maybeSingle()
+    );
+    if (roleError) {
+      console.error("Dashboard layout: could not resolve role name for sidebar:", roleError.message);
+    }
+    return assignedRole?.name || null;
+  })();
+  // A request that is turned away below never awaits this promise; the handler
+  // keeps a failure from surfacing as an unhandled rejection.
+  roleNamePromise.catch(() => {});
+
+  // The area gates and the navigation items ask for permissions that overlap:
+  // an administrator may enter the admin area precisely because it may manage
+  // staff. Asking for all of them at once keeps this to one round trip
+  // instead of two sequential ones, and `hasPermission` is cached per request,
+  // so every permission is still checked exactly once (issue #165).
   const [
     canEnterAdminArea,
     canEnterReceptionArea,
     canEnterDepartmentArea,
     canEnterSpecialistArea,
-  ] = await Promise.all([
-    hasAnyPermission(user.id, ADMIN_AREA_PERMISSIONS),
-    hasAnyPermission(user.id, RECEPTION_AREA_PERMISSIONS),
-    hasAnyPermission(user.id, DEPARTMENT_AREA_PERMISSIONS),
-    hasAnyPermission(user.id, SPECIALIST_AREA_PERMISSIONS),
-  ]);
+    canManageProfiles,
+    canManageStaff,
+    canReadRoles,
+    canManageDocuments,
+    canManageQueue,
+    canManagePatients,
+    canManageRag,
+    canReadSystemLogs,
+    canAccessSpecialistPatients,
+    canAccessChat,
+  ] = await timed("layout.perms", () =>
+    Promise.all([
+      hasAnyPermission(user.id, ADMIN_AREA_PERMISSIONS),
+      hasAnyPermission(user.id, RECEPTION_AREA_PERMISSIONS),
+      hasAnyPermission(user.id, DEPARTMENT_AREA_PERMISSIONS),
+      hasAnyPermission(user.id, SPECIALIST_AREA_PERMISSIONS),
+      hasPermission(user.id, "profiles.manage"),
+      hasPermission(user.id, "staff.manage"),
+      hasPermission(user.id, "roles.read"),
+      hasPermission(user.id, "documents.manage"),
+      hasPermission(user.id, "queue.manage"),
+      hasPermission(user.id, "patients.manage"),
+      hasPermission(user.id, "rag_documents.manage"),
+      hasPermission(user.id, "system_logs.read"),
+      hasPermission(user.id, "specialist.patients"),
+      hasPermission(user.id, "chat.access"),
+    ])
+  );
 
   let isRoleMismatch = false;
   if (isAdminRoute) isRoleMismatch = !canEnterAdminArea;
@@ -185,23 +242,7 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     redirect("/403");
   }
 
-  let roleName: string | null = null;
-  if (profile.role_id) {
-    const adminSupabase = createAdminClient();
-    // Only used for the sidebar's role label. Its error is deliberately not fatal:
-    // failing the whole dashboard because a cosmetic label could not resolve
-    // would trade a visible defect for an invisible one. Logged so the gap is
-    // diagnosable rather than silent.
-    const { data: assignedRole, error: roleError } = await adminSupabase
-      .from("roles")
-      .select("name")
-      .eq("id", profile.role_id)
-      .maybeSingle();
-    if (roleError) {
-      console.error("Dashboard layout: could not resolve role name for sidebar:", roleError.message);
-    }
-    roleName = assignedRole?.name || null;
-  }
+  const roleName = await roleNamePromise;
 
   const sidebarUser = {
     id: profile.id,
@@ -211,30 +252,6 @@ export default async function DashboardLayout({ children }: DashboardLayoutProps
     roleName,
     department: profile.department,
   };
-  const [
-    canManageProfiles,
-    canManageStaff,
-    canReadRoles,
-    canManageDocuments,
-    canManageQueue,
-    canManagePatients,
-    canManageRag,
-    canReadSystemLogs,
-    canAccessSpecialistPatients,
-    canAccessChat,
-  ] = await Promise.all([
-    hasPermission(user.id, "profiles.manage"),
-    hasPermission(user.id, "staff.manage"),
-    hasPermission(user.id, "roles.read"),
-    hasPermission(user.id, "documents.manage"),
-    hasPermission(user.id, "queue.manage"),
-    hasPermission(user.id, "patients.manage"),
-    hasPermission(user.id, "rag_documents.manage"),
-    hasPermission(user.id, "system_logs.read"),
-    hasPermission(user.id, "specialist.patients"),
-    hasPermission(user.id, "chat.access"),
-  ]);
-
   const navItems: NavItem[] = [];
 
   if (profile.role === "admin" && canManageProfiles && canEnterAdminArea) {

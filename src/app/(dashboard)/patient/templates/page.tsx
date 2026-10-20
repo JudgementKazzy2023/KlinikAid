@@ -1,6 +1,7 @@
 import React from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getRequestUser } from "@/lib/auth/session";
 import TemplatesClient from "@/components/TemplatesClient";
 
 export const dynamic = "force-dynamic";
@@ -16,8 +17,8 @@ export default async function PatientTemplatesPage() {
   const supabase = await createClient();
 
   // 1. Auth gate
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
+  const user = await getRequestUser();
+  if (!user) {
     redirect("/login");
   }
 

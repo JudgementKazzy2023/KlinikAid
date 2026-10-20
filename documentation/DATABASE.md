@@ -170,6 +170,7 @@ KlinikAid uses 8 primary tables to manage application state:
   - `description` (text, NOT NULL)
   - `ip_address` (text, nullable)
   - `metadata` (jsonb, nullable)
+- **Indexes**: `idx_system_logs_created_at_desc` on `(created_at DESC)` (migration 38) — the newest-rows-first reads the dashboard and the log view make. Without it, `ORDER BY created_at DESC LIMIT n` had to walk every row and put each of them through the read policy.
 - **RLS Summary**:
   - Admins: Select access.
   - Authenticated Users: Insert access.
@@ -187,6 +188,15 @@ KlinikAid uses 8 primary tables to manage application state:
   - Admins: Select access.
   - Owners (`user_id = auth.uid()`): Full access.
 
+### Permission catalogue indexes
+
+`public.user_has_permission()` is called once per row by every RLS policy that
+filters on a permission, so its own lookup is on the hot path of every
+read. Both halves of that lookup are already index scans: `permissions (name)`
+through the unique constraint `permissions_name_key`, and
+`role_permissions (role_id, permission_id)` through its primary key, so
+migration 38 adds no index for it.
+
 ### 8. `rag_documents`
 - **Purpose**: Stores RAG knowledge chunks for grounding the AI assistant.
 - **Key Columns**:
@@ -203,8 +213,13 @@ KlinikAid uses 8 primary tables to manage application state:
 
 ## Migration History
 
-Historical migrations are retained under `src/lib/db/` through migration 37. The
-following are early milestones, not a fresh-project execution sequence:
+Historical migrations are retained under `src/lib/db/` through migration 38.
+Migration 38 (the dashboard's query indexes) is **written but not applied**: it
+needs a database deploy, and `src/lib/db/schema.sql` is a generated picture of
+the live database, so it stays as it is until the migration has been applied
+and the snapshot regenerated from the database that has them.
+
+The following are early milestones, not a fresh-project execution sequence:
 
 1. **`migration_07.sql`** (pgvector Search)
    - Created the `match_documents` similarity search RPC.

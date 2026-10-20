@@ -7,6 +7,7 @@ import {
   isAllowedWithTemporaryPassword,
   mustChangePassword,
 } from "@/lib/auth/temporary-password";
+import { AUTH_USER_HEADER } from "@/lib/auth/auth-header";
 
 /**
  * The Access Denied landing page (`/403`) is a real page that reads the session
@@ -63,8 +64,26 @@ export async function middleware(request: NextRequest) {
     return response;
   };
 
-  const { supabaseResponse, supabase } = await updateSession(request);
+  // Any value the client sent for the authenticated user's id is dropped
+  // before the request is read: the header below is written by this
+  // middleware from the session it verified, and a client must not be able to
+  // put a name in it.
+  request.headers.delete(AUTH_USER_HEADER);
+
+  // The session was already read - and refreshed - by updateSession() above.
+  // Asking the Auth server again for the same user cost a second round trip
+  // on every request (issue #165); the answer is the one it returned.
+  const { supabaseResponse, supabase, user } = await updateSession(request);
   const path = request.nextUrl.pathname;
+
+  // The identity of the session, for the server code that verifies the
+  // access token locally instead of asking the Auth server who the user is
+  // (src/lib/auth/session.ts). The header is only written when the Auth
+  // server confirmed the session in the call above, so server code can tell
+  // "the session is valid" from "the token still has a valid signature".
+  if (user) {
+    request.headers.set(AUTH_USER_HEADER, user.id);
+  }
 
   // Already carries x-nonce (set above on the request itself).
   const requestHeaders = new Headers(request.headers);
@@ -78,11 +97,6 @@ export async function middleware(request: NextRequest) {
 
   const isProtectedRoute =
     isAdminRoute || isReceptionRoute || isDepartmentRoute || isSpecialistRoute || isPatientRoute;
-
-  // Retrieve user session
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   // 1. Unauthenticated users trying to access protected routes -> redirect to /login
   if (!user && isProtectedRoute) {

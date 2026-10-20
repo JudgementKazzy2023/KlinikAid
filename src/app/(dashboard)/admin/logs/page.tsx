@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, hasPermission } from "@/lib/auth/helpers";
 import { createClient } from "@/lib/supabase/server";
 import LogsDashboardClient from "./LogsDashboardClient";
+import { timed } from "@/lib/perf/timing";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +27,12 @@ export default async function AdminLogsPage() {
   const supabase = await createClient();
 
   // 2. Fetch profiles for user filter dropdown (excluding patient role for ease of audit)
-  const { data: profilesData, error: profilesError } = await supabase
-    .from("profiles")
-    .select("id, full_name, role")
-    .order("full_name", { ascending: true });
+  const { data: profilesData, error: profilesError } = await timed("page.logs.profiles", () =>
+    supabase
+      .from("profiles")
+      .select("id, full_name, role")
+      .order("full_name", { ascending: true })
+  );
 
   if (profilesError) {
     console.error("Failed to fetch profiles for filter dropdown:", profilesError);
