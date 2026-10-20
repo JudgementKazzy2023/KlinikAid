@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Loader2, Thermometer, Weight, Activity } from "lucide-react";
+import { validateBloodPressure, BLOOD_PRESSURE_FORMAT_MESSAGE } from "@/lib/validation";
 
 const triageSchema = z.object({
   department: z.enum(["laboratory", "imaging", "ultrasound", "ecg"], {
@@ -34,8 +35,14 @@ const triageSchema = z.object({
   blood_pressure: z
     .string()
     .optional()
-    .refine((val) => !val || /^\d{2,3}\/\d{2,3}$/.test(val), {
-      message: "Format must be e.g. 120/80",
+    // Same rule as the server (validateBloodPressure): format, physiological
+    // bounds, systolic > diastolic — surfaced with the specific message that
+    // failed so the receptionist knows what to correct.
+    .superRefine((val, ctx) => {
+      const result = validateBloodPressure(val);
+      if (!result.valid) {
+        ctx.addIssue({ code: "custom", message: result.error || BLOOD_PRESSURE_FORMAT_MESSAGE });
+      }
     }),
   weight_kg: z
     .string()
