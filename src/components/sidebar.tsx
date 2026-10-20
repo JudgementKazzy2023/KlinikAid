@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/app/(auth)/logout/actions";
 import { cn } from "@/lib/utils";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { USER_ROLES, DEPARTMENTS } from "@/lib/constants";
@@ -79,6 +80,10 @@ const iconMap: Record<SidebarIcon, React.ComponentType<{ className?: string }>> 
   ShieldCheck,
 };
 
+/**
+ * Dashboard sidebar: branding, permission-filtered navigation links, and the
+ * signed-in user's badge with sign-out. Also rendered inside the mobile drawer.
+ */
 export default function Sidebar({ user, navItems, onLinkClick, className }: SidebarProps) {
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
@@ -105,6 +110,7 @@ export default function Sidebar({ user, navItems, onLinkClick, className }: Side
             Bloodcare Lab Portal
           </span>
         </div>
+        <ThemeToggle className="ml-auto text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" />
       </div>
 
       {/* Navigation Links */}
