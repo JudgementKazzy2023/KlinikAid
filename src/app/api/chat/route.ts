@@ -155,9 +155,10 @@ export async function POST(request: Request) {
           // Threshold and counts: see the tuning rationale in chat/retrieval.ts
           // (#150). 0.45, not the pre-#150 0.6: several answering documents
           // never reach 0.6 in any phrasing (measured 0.467-0.573), so the
-          // assistant declined questions it could answer. 8 per query is
-          // headroom for phrasing variance inside one query; the merge below
-          // cuts the union back to RETRIEVAL_TOP_K documents.
+          // assistant declined questions it could answer. RETRIEVAL_MATCH_COUNT
+          // (15, the corpus's size) gives the union the full above-threshold
+          // set per query -- a document at rank 9 never reaches the merge at a
+          // lower count -- and the merge below cuts the union to RETRIEVAL_TOP_K.
           match_threshold: RETRIEVAL_MATCH_THRESHOLD,
           match_count: RETRIEVAL_MATCH_COUNT,
         })

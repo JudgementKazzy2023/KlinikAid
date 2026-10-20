@@ -20,7 +20,8 @@
  * threshold, where the pipeline cannot see it -- where the answering document
  * actually ranked for the English rendering, so misses are diagnosable. For the
  * out-of-scope questions it also runs the answer step (same system prompt, same
- * model) and asserts each reply still declines with a referral -- the #150
+ * model) and asserts each reply still refuses with a referral
+ * (`isDeclineReply` matches refusal phrasing, never bare referral nouns) -- the #150
  * requirement that the lower threshold must not buy recall by making the
  * assistant answer questions the knowledge base does not cover. The
  * full per-question record is written as JSON to the path in
@@ -46,6 +47,7 @@ import {
   QUERY_ANALYSIS_INSTRUCTION,
   type QueryAnalysis,
 } from "./query-language";
+import { isDeclineReply } from "./decline";
 import {
   buildRetrievalQueries,
   mergeMatchLists,
@@ -207,14 +209,6 @@ interface QuestionRecord {
   error: string | null;
 }
 
-/**
- * What a decline looks like across the three reply languages. A non-decline
- * answers the question instead ("yes we sell...", a dosage, a price), so this
- * pattern must not match an answer -- it only matches refusals and referrals.
- */
-const DECLINE_PATTERN =
-  /reception|specialist|front desk|clinic staff|unable|cannot|can not|can only assist|not covered|makipag-ugnayan|please contact/i;
-
 type EmbedContentFn = (req: {
   content: { role: string; parts: Array<{ text: string }> };
   outputDimensionality: number;
@@ -348,7 +342,7 @@ describe.skipIf(!LIVE)("live knowledge-base retrieval eval (#150)", () => {
             question.expectedTitle === null
               ? await answerQuestion(question.text, retrieved, analysis.language)
               : null;
-          const declined = answer === null ? null : DECLINE_PATTERN.test(answer);
+          const declined = answer === null ? null : isDeclineReply(answer);
 
           return {
             topic: question.topic,
