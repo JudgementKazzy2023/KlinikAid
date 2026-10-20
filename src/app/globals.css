@@ -34,6 +34,20 @@
     --ring: 133 21% 31%;
 
     --radius: 0.75rem;
+
+    /* Tailwind v4 theme variables the shadcn "base-nova" ui kit expects.
+       v4's shadcn theme derives them from --radius:
+         --radius-sm: calc(var(--radius) - 4px);
+         --radius-md: calc(var(--radius) - 2px);
+         --radius-lg: var(--radius);
+         --radius-xl: calc(var(--radius) + 4px);
+       Without --radius-md the kit's `rounded-[min(var(--radius-md),10px)]`
+       is invalid at computed-value time, so the xs/sm buttons and the small
+       select trigger lost their corner radius (issue #175). */
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
   }
 
   .dark {
