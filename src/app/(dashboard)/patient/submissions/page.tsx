@@ -5,6 +5,8 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import SubmissionsClient from "./SubmissionsClient";
 import DataLoadError from "@/components/DataLoadError";
+import { timed } from "@/lib/perf/timing";
+import { getRequestUser } from "@/lib/auth/session";
 import { Document, PatientQueue } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -13,20 +15,20 @@ export default async function PatientSubmissionsPage() {
   const supabase = await createClient();
 
   // 1. Get current authenticated user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getRequestUser();
 
   if (!user) {
     redirect("/login");
   }
 
   // 2. Fetch patient record linked via profile_id
-  const { data: patient, error: patientError } = await supabase
-    .from("patients")
-    .select("id")
-    .eq("profile_id", user.id)
-    .single();
+  const { data: patient, error: patientError } = await timed("page.patientSubmissions.patient", () =>
+    supabase
+      .from("patients")
+      .select("id")
+      .eq("profile_id", user.id)
+      .single()
+  );
 
   if (patientError || !patient) {
     return (
@@ -44,16 +46,20 @@ export default async function PatientSubmissionsPage() {
 
   // 3. Fetch documents and queue in parallel
   const [docsResult, queueResult] = await Promise.all([
-    supabase
-      .from("documents")
-      .select("*")
-      .eq("patient_id", patient.id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("patient_queue")
-      .select("*")
-      .eq("patient_id", patient.id)
-      .order("created_at", { ascending: false })
+    timed("page.patientSubmissions.documents", () =>
+      supabase
+        .from("documents")
+        .select("*")
+        .eq("patient_id", patient.id)
+        .order("created_at", { ascending: false })
+    ),
+    timed("page.patientSubmissions.queue", () =>
+      supabase
+        .from("patient_queue")
+        .select("*")
+        .eq("patient_id", patient.id)
+        .order("created_at", { ascending: false })
+    )
   ]);
 
   const documents = (docsResult.data || []) as Document[];

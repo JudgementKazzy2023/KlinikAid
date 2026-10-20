@@ -170,6 +170,7 @@ KlinikAid uses 8 primary tables to manage application state:
   - `description` (text, NOT NULL)
   - `ip_address` (text, nullable)
   - `metadata` (jsonb, nullable)
+- **Indexes**: `idx_system_logs_created_at_desc` on `(created_at DESC)` (migration 38) — the newest-rows-first reads the dashboard and the log view make. Without it, `ORDER BY created_at DESC LIMIT n` had to walk every row and put each of them through the read policy.
 - **RLS Summary**:
   - Admins: Select access.
   - Authenticated Users: Insert access.
@@ -187,6 +188,15 @@ KlinikAid uses 8 primary tables to manage application state:
   - Admins: Select access.
   - Owners (`user_id = auth.uid()`): Full access.
 
+### Permission catalogue indexes
+
+`public.user_has_permission()` is called once per row by every RLS policy that
+filters on a permission, so its own lookup is on the hot path of every
+read. Migration 38 added `idx_permissions_name` on `permissions (name)` and
+`idx_role_permissions_role_id_permission_id` on
+`role_permissions (role_id, permission_id)`, which turn both halves of that
+lookup into index scans. No policy or result changed.
+
 ### 8. `rag_documents`
 - **Purpose**: Stores RAG knowledge chunks for grounding the AI assistant.
 - **Key Columns**:
@@ -203,7 +213,7 @@ KlinikAid uses 8 primary tables to manage application state:
 
 ## Migration History
 
-Historical migrations are retained under `src/lib/db/` through migration 37. The
+Historical migrations are retained under `src/lib/db/` through migration 38. The
 following are early milestones, not a fresh-project execution sequence:
 
 1. **`migration_07.sql`** (pgvector Search)

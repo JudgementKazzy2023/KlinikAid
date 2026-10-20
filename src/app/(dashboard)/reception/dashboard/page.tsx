@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/helpers";
 import { getPhtStartOfToday } from "@/lib/utils";
 import DataLoadError from "@/components/DataLoadError";
+import { timed } from "@/lib/perf/timing";
 import { 
   ClipboardList, 
   UserCheck, 
@@ -51,39 +52,47 @@ export default async function ReceptionDashboardPage() {
     recentQueueResult
   ] = await Promise.all([
     // Active Queue (waiting or in progress)
-    supabase
-      .from("patient_queue")
-      .select("id", { count: "exact", head: true })
-      .in("status", ["waiting", "in_progress"]),
+    timed("page.receptionDashboard.activeQueue", () =>
+      supabase
+        .from("patient_queue")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["waiting", "in_progress"])
+    ),
 
     // Pending Referrals
-    supabase
-      .from("documents")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
+    timed("page.receptionDashboard.pendingDocs", () =>
+      supabase
+        .from("documents")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending")
+    ),
 
     // Routed today
-    supabase
-      .from("patient_queue")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", startOfToday),
+    timed("page.receptionDashboard.routedToday", () =>
+      supabase
+        .from("patient_queue")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", startOfToday)
+    ),
 
     // Recent queue entries for list
-    supabase
-      .from("patient_queue")
-      .select(`
-        id,
-        status,
-        department,
-        triage_notes,
-        created_at,
-        patient:patient_id (
-          first_name,
-          last_name
-        )
-      `)
-      .order("created_at", { ascending: false })
-      .limit(5)
+    timed("page.receptionDashboard.recentQueue", () =>
+      supabase
+        .from("patient_queue")
+        .select(`
+          id,
+          status,
+          department,
+          triage_notes,
+          created_at,
+          patient:patient_id (
+            first_name,
+            last_name
+          )
+        `)
+        .order("created_at", { ascending: false })
+        .limit(5)
+    )
   ]);
 
   // Parallel fetches whose errors were never read. On failure every count became

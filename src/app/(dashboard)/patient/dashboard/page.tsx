@@ -14,6 +14,8 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import DataLoadError from "@/components/DataLoadError";
+import { timed } from "@/lib/perf/timing";
+import { getRequestUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -21,20 +23,20 @@ export default async function PatientDashboardPage() {
   const supabase = await createClient();
 
   // 1. Get current authenticated user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getRequestUser();
 
   if (!user) {
     redirect("/login");
   }
 
   // 2. Fetch patient record linked via profile_id
-  const { data: patient, error: patientError } = await supabase
-    .from("patients")
-    .select("id, first_name, last_name, email")
-    .eq("profile_id", user.id)
-    .single();
+  const { data: patient, error: patientError } = await timed("page.patientDashboard.patient", () =>
+    supabase
+      .from("patients")
+      .select("id, first_name, last_name, email")
+      .eq("profile_id", user.id)
+      .single()
+  );
 
   if (patientError || !patient) {
     return (
@@ -57,13 +59,15 @@ export default async function PatientDashboardPage() {
     resultsCountResult
   ] = await Promise.all([
     // Active Queue entries
-    supabase
-      .from("patient_queue")
-      .select("id, status, department, priority_level, triage_notes, created_at")
-      .eq("patient_id", patient.id)
-      .in("status", ["waiting", "in_progress"])
-      .order("created_at", { ascending: false })
-      .limit(1),
+    timed("page.patientDashboard.activeQueue", () =>
+      supabase
+        .from("patient_queue")
+        .select("id, status, department, priority_level, triage_notes, created_at")
+        .eq("patient_id", patient.id)
+        .in("status", ["waiting", "in_progress"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+    ),
 
     // Total and pending documents.
     //
@@ -74,16 +78,20 @@ export default async function PatientDashboardPage() {
     // was one policy change away from telling a patient that another patient's
     // submissions were theirs. Belt and braces: the other two queries on this
     // page are already filtered by `patient_id`, and this one now is too.
-    supabase
-      .from("documents")
-      .select("id, status")
-      .eq("patient_id", patient.id),
+    timed("page.patientDashboard.documents", () =>
+      supabase
+        .from("documents")
+        .select("id, status")
+        .eq("patient_id", patient.id)
+    ),
 
     // Results count
-    supabase
-      .from("department_records")
-      .select("id", { count: "exact", head: true })
-      .eq("patient_id", patient.id)
+    timed("page.patientDashboard.resultsCount", () =>
+      supabase
+        .from("department_records")
+        .select("id", { count: "exact", head: true })
+        .eq("patient_id", patient.id)
+    )
   ]);
 
   const activeQueue = activeQueueResult.data?.[0] || null;

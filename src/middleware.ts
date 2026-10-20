@@ -63,7 +63,10 @@ export async function middleware(request: NextRequest) {
     return response;
   };
 
-  const { supabaseResponse, supabase } = await updateSession(request);
+  // The session was already read - and refreshed - by updateSession() above.
+  // Asking the Auth server again for the same user cost a second round trip
+  // on every request (issue #165); the answer is the one it returned.
+  const { supabaseResponse, supabase, user } = await updateSession(request);
   const path = request.nextUrl.pathname;
 
   // Already carries x-nonce (set above on the request itself).
@@ -78,11 +81,6 @@ export async function middleware(request: NextRequest) {
 
   const isProtectedRoute =
     isAdminRoute || isReceptionRoute || isDepartmentRoute || isSpecialistRoute || isPatientRoute;
-
-  // Retrieve user session
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   // 1. Unauthenticated users trying to access protected routes -> redirect to /login
   if (!user && isProtectedRoute) {
