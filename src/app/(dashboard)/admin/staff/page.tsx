@@ -387,6 +387,12 @@ export default function StaffManagementPage() {
   const rolesSettled = rolesLoaded || rolesError !== null;
   const roleFilterPending = parsedFilters.roleId !== null && !rolesSettled;
 
+  // A failed catalogue read is not the same as a slow one. Without the
+  // catalogue the role filter cannot be applied completely -- staff created
+  // before roles existed would be dropped -- so the filtered table and its
+  // count are not shown at all rather than shown short.
+  const roleFilterUnavailable = parsedFilters.roleId !== null && rolesError !== null;
+
   // The label of the role the URL points at. A role the catalogue does not
   // know keeps its filter -- the rows carrying it are simply not rows this
   // registry holds -- but the operator is told what they are looking at.
@@ -394,8 +400,9 @@ export default function StaffManagementPage() {
     if (!parsedFilters.roleId) return null;
     const known = dbRoles.find((role) => role.id === parsedFilters.roleId);
     if (known) return roleLabel(known);
+    if (rolesError) return "Role unavailable";
     return rolesSettled ? "Unknown role" : "Loading roles...";
-  }, [parsedFilters.roleId, dbRoles, rolesSettled]);
+  }, [parsedFilters.roleId, dbRoles, rolesSettled, rolesError]);
 
   // The role the URL points at is offered as an option even when it is not one
   // of the roles the staff form may grant, so the selector never shows a bare
@@ -471,7 +478,7 @@ export default function StaffManagementPage() {
   };
 
   const filtersActive = hasActiveFilters(filters) || searchQuery.trim().length > 0;
-  const registryReady = !loading && !fetchError && !roleFilterPending;
+  const registryReady = !loading && !fetchError && !roleFilterPending && !roleFilterUnavailable;
 
   return (
     <div className="space-y-6">
@@ -648,6 +655,25 @@ export default function StaffManagementPage() {
                 error={fetchError}
                 retryHref="/admin/staff"
               />
+            </div>
+          ) : roleFilterUnavailable ? (
+            <div className="space-y-3 px-6 py-16 text-center">
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                The role filter cannot be applied
+              </p>
+              <p className="mx-auto max-w-md text-xs text-slate-500 dark:text-slate-400">
+                The role catalogue could not be loaded, so staff created before roles
+                existed cannot be told apart from staff with another role. Clear the
+                filters to see the whole registry.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClearFilters}
+                className="mt-1"
+              >
+                Clear filters
+              </Button>
             </div>
           ) : filteredStaff.length === 0 ? (
             <div className="text-center py-16 text-slate-500 space-y-2">
