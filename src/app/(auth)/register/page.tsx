@@ -154,7 +154,7 @@ function RegisterForm() {
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <User className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                       <Input
                         id="firstName"
                         type="text"
@@ -172,7 +172,7 @@ function RegisterForm() {
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last Name</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <User className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                       <Input
                         id="lastName"
                         type="text"
@@ -234,7 +234,7 @@ function RegisterForm() {
                 <div className="space-y-2">
                   <Label htmlFor="contactNumber">Contact Number</Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Phone className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="contactNumber"
                       type="tel"
@@ -252,7 +252,7 @@ function RegisterForm() {
                 <div className="space-y-2">
                   <Label htmlFor="address">Address</Label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <MapPin className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="address"
                       type="text"
@@ -274,7 +274,7 @@ function RegisterForm() {
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Mail className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="email"
                       type="email"
@@ -292,7 +292,7 @@ function RegisterForm() {
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Lock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="password"
                       type="password"
