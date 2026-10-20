@@ -53,8 +53,6 @@
 -- ROLLBACK:
 --   begin;
 --   drop index if exists public.idx_system_logs_created_at_desc;
---   drop index if exists public.idx_permissions_name;
---   drop index if exists public.idx_role_permissions_role_id_permission_id;
 --   drop index if exists public.idx_documents_patient_id;
 --   drop index if exists public.idx_patient_queue_patient_id_created_at;
 --   commit;
@@ -70,13 +68,10 @@ begin;
 create index if not exists idx_system_logs_created_at_desc
   on public.system_logs (created_at desc);
 
--- The permission lookup inside public.user_has_permission(), which every
--- RLS policy calls once per row it filters.
-create index if not exists idx_permissions_name
-  on public.permissions (name);
-
-create index if not exists idx_role_permissions_role_id_permission_id
-  on public.role_permissions (role_id, permission_id);
+-- The permission lookup inside public.user_has_permission() needs no new
+-- index: permissions (name) is already covered by the unique constraint
+-- permissions_name_key, and role_permissions (role_id, permission_id) by its
+-- primary key.
 
 -- The patient's own documents and queue entries.
 create index if not exists idx_documents_patient_id

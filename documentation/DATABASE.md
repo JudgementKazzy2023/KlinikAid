@@ -192,10 +192,10 @@ KlinikAid uses 8 primary tables to manage application state:
 
 `public.user_has_permission()` is called once per row by every RLS policy that
 filters on a permission, so its own lookup is on the hot path of every
-read. Migration 38 added `idx_permissions_name` on `permissions (name)` and
-`idx_role_permissions_role_id_permission_id` on
-`role_permissions (role_id, permission_id)`, which turn both halves of that
-lookup into index scans. No policy or result changed.
+read. Both halves of that lookup are already index scans: `permissions (name)`
+through the unique constraint `permissions_name_key`, and
+`role_permissions (role_id, permission_id)` through its primary key, so
+migration 38 adds no index for it.
 
 ### 8. `rag_documents`
 - **Purpose**: Stores RAG knowledge chunks for grounding the AI assistant.
