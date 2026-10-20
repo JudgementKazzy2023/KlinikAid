@@ -31,6 +31,14 @@ export async function PUT(request: Request, props: { params: Promise<{ id: strin
   const params = await props.params;
   try {
     const adminProfile = await requirePermission("staff.manage");
+    // Preflight every permission the complete update needs before any Auth or
+    // profile work starts, matching the staff-create route (#43, #111): the role
+    // lookup below reads roles through the caller-scoped client (roles.read) and
+    // the profile write goes through the same client (profiles.manage). Checked
+    // only where each step runs, a denial instead surfaces as "Select a valid
+    // role." or as a 500, after Auth has already been touched.
+    await requirePermission("roles.read");
+    await requirePermission("profiles.manage");
     const { id } = params;
     const body = await request.json();
     const { email, fullName, roleId, department } = body;
@@ -156,6 +164,12 @@ export async function PATCH(request: Request, props: { params: Promise<{ id: str
   const params = await props.params;
   try {
     const adminProfile = await requirePermission("staff.manage");
+    // The status write below runs through the caller-scoped client and is
+    // governed by profiles.manage (#43, #111). Check it before any Auth or
+    // profile work: reactivation lifts the Auth ban first, so without this
+    // preflight a caller holding staff.manage alone would change Auth state
+    // and then fail on the profile write.
+    await requirePermission("profiles.manage");
     const { id } = params;
     const body = await request.json();
     const { isActive } = body;
