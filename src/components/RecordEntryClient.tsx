@@ -644,13 +644,13 @@ export default function RecordEntryClient({
                         setLabOcrFile(e.target.files?.[0] || null);
                         setOcrSuggestedParams([]);
                       }}
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white disabled:opacity-50"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-700 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white disabled:opacity-50"
                     />
                     <Button
                       type="button"
                       onClick={handleExtractLabValues}
                       disabled={!labOcrFile || isExtractingLabValues || isSubmitting}
-                      className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold"
+                      className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold"
                     >
                       {isExtractingLabValues ? (
                         <>
@@ -675,7 +675,7 @@ export default function RecordEntryClient({
                 {/* Parameters List */}
                 {!isNarrativeLabTest && (
                 <div className="space-y-4 pt-2">
-                  <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Panel Parameters
                   </h3>
 
@@ -720,7 +720,7 @@ export default function RecordEntryClient({
                             className={`w-full pr-16 pl-4 py-2.5 text-sm rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all ${inputClass}`}
                           />
                           {unit && (
-                            <span className="absolute right-4 top-3 text-xs font-semibold text-slate-400 dark:text-slate-500 pointer-events-none">
+                            <span className="absolute right-4 top-3 text-xs font-semibold text-slate-500 dark:text-slate-400 pointer-events-none">
                               {unit}
                             </span>
                           )}
@@ -935,7 +935,7 @@ export default function RecordEntryClient({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-sm hover:shadow-md disabled:opacity-50 transition-all"
+                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl bg-teal-700 hover:bg-teal-800 text-white shadow-sm hover:shadow-md disabled:opacity-50 transition-all"
               >
                 <Save className="h-4 w-4" />
                 {isSubmitting ? "Saving..." : "Save Results"}
@@ -1005,7 +1005,7 @@ export default function RecordEntryClient({
                 setOcrNameMismatch(null);
                 toast.info("Result sheet values were not applied.");
               }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold"
             >
               Don&apos;t apply
             </Button>
@@ -1025,7 +1025,7 @@ export default function RecordEntryClient({
             <Button
               type="button"
               onClick={() => setIsOcrNoticeOpen(false)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold"
             >
               Got it
             </Button>
@@ -1061,7 +1061,7 @@ export default function RecordEntryClient({
                 setOutOfRangeConfirm([]);
                 await submitRecords(true);
               }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold"
             >
               Save Flagged Results
             </Button>

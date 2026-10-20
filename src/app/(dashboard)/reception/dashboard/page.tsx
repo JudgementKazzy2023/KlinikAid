@@ -171,7 +171,7 @@ export default async function ReceptionDashboardPage() {
         <div className="flex items-center gap-3">
           <NewPatientModal />
           
-          <Link href="/reception/queue" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 transition-colors gap-1.5">
+          <Link href="/reception/queue" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors gap-1.5">
             Open Review Queue
             <ArrowRight className="h-4 w-4" />
           </Link>
@@ -190,7 +190,7 @@ export default async function ReceptionDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-slate-900 dark:text-white">{activeQueueCount}</div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
               Patients currently waiting or in progress
             </p>
           </CardContent>
@@ -206,7 +206,7 @@ export default async function ReceptionDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-slate-900 dark:text-white">{pendingDocsCount}</div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
               Referrals requiring receptionist approval
             </p>
           </CardContent>
@@ -222,7 +222,7 @@ export default async function ReceptionDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-slate-900 dark:text-white">{todayRoutedCount}</div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
               Patients successfully triaged since midnight
             </p>
           </CardContent>
@@ -250,7 +250,7 @@ export default async function ReceptionDashboardPage() {
                 <strong className="text-slate-800 dark:text-slate-200">Validate Patient Info:</strong> Compare the patient name, birthdate, and physician signature on uploaded files with their digital profile before approving.
               </li>
               <li>
-                <strong className="text-slate-800 dark:text-slate-200">AI Confidence Indicators:</strong> Submissions flagged with lower confidence score (&lt; 85%) display in the <strong className="text-amber-600">Staff Review</strong> column. Pay close attention to their parameters.
+                <strong className="text-slate-800 dark:text-slate-200">AI Confidence Indicators:</strong> Submissions flagged with lower confidence score (&lt; 85%) display in the <strong className="text-amber-700 dark:text-amber-400">Staff Review</strong> column. Pay close attention to their parameters.
               </li>
               <li>
                 <strong className="text-slate-800 dark:text-slate-200">Routing & Vitals:</strong> When approving a document, record any vitals (BP, weight, temperature) provided by the patient to assist the medical technologists.
@@ -276,7 +276,7 @@ export default async function ReceptionDashboardPage() {
           <CardContent className="pt-4 p-0">
             <div className="max-h-[300px] overflow-y-auto px-4 pb-4 space-y-3.5">
               {recentQueue.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 dark:text-slate-500 text-xs italic">
+                <div className="text-center py-12 text-slate-500 dark:text-slate-400 text-xs italic">
                   No patient queue records today
                 </div>
               ) : (
@@ -286,7 +286,7 @@ export default async function ReceptionDashboardPage() {
                       <p className="font-bold text-slate-900 dark:text-white">
                         {entry.patient ? `${entry.patient.first_name} ${entry.patient.last_name}` : "Unknown Patient"}
                       </p>
-                      <div className="flex items-center gap-2 text-[10px] text-slate-500 font-medium">
+                      <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 font-medium">
                         <span className="uppercase text-accentBlue-600 dark:text-accentBlue-400 bg-accentBlue-50 dark:bg-accentBlue-950/30 px-1.5 py-0.5 rounded font-mono">
                           {getQueueNumber(entry.triage_notes)}
                         </span>

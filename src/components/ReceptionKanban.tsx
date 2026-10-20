@@ -289,8 +289,8 @@ export default function ReceptionKanban({
       title: "Submitted",
       shortTitle: "Submitted",
       description: "Direct patient web uploads waiting for processing",
-      bar: "bg-slate-400",
-      icon: <Database className="h-4 w-4 text-slate-500" />,
+      bar: "bg-slate-400 dark:bg-slate-500",
+      icon: <Database className="h-4 w-4 text-slate-500 dark:text-slate-400" />,
       completed: false,
     },
     {
@@ -307,8 +307,8 @@ export default function ReceptionKanban({
       title: "Staff Review",
       shortTitle: "Review",
       description: "Needs receptionist verification due to lower confidence (<85%)",
-      bar: "bg-amber-500",
-      icon: <AlertCircle className="h-4 w-4 text-amber-600" />,
+      bar: "bg-amber-500 dark:bg-amber-600",
+      icon: <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />,
       completed: false,
     },
     {
@@ -325,8 +325,8 @@ export default function ReceptionKanban({
       title: "Rejected",
       shortTitle: "Rejected",
       description: "Returned to patient due to legibility or mismatch issues",
-      bar: "bg-rose-500",
-      icon: <XCircle className="h-4 w-4 text-rose-600" />,
+      bar: "bg-rose-500 dark:bg-rose-600",
+      icon: <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400" />,
       completed: true,
     },
   ];
@@ -368,16 +368,16 @@ export default function ReceptionKanban({
   const pill = (doc: Document) => {
     const base = "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-medium leading-4";
     if (doc.file_type === "template") {
-      return <span className={cn(base, "bg-sky-100 text-sky-800")}>Structured form</span>;
+      return <span className={cn(base, "bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200")}>Structured form</span>;
     }
     const metadata = doc.extracted_metadata as { ocr_confidence_score?: number } | null;
     const score = metadata?.ocr_confidence_score;
     if (score === undefined || score === null) {
-      return <span className={cn(base, "bg-slate-200/70 text-slate-700")}>Web upload</span>;
+      return <span className={cn(base, "bg-slate-200/70 text-slate-700 dark:bg-slate-700/60 dark:text-slate-200")}>Web upload</span>;
     }
-    if (score >= 85) return <span className={cn(base, "bg-emerald-100 text-emerald-800")}>AI {score}%</span>;
-    if (score >= 70) return <span className={cn(base, "bg-amber-100 text-amber-800")}>AI {score}%</span>;
-    return <span className={cn(base, "bg-rose-100 text-rose-800")}>AI {score}%</span>;
+    if (score >= 85) return <span className={cn(base, "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200")}>AI {score}%</span>;
+    if (score >= 70) return <span className={cn(base, "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200")}>AI {score}%</span>;
+    return <span className={cn(base, "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200")}>AI {score}%</span>;
   };
 
   const renderCard = (doc: Document, colId: ColumnId) => {
@@ -392,6 +392,7 @@ export default function ReceptionKanban({
           href={`/reception/queue/${doc.id}`}
           className={cn(
             "group block rounded-md border border-slate-200 bg-white px-3 py-2 transition-colors hover:border-slate-400",
+            "dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700",
             "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary",
             colId === "staff_review" && "border-l-[3px] border-l-amber-500"
           )}
@@ -400,7 +401,7 @@ export default function ReceptionKanban({
             <span
               className={cn(
                 "min-w-0 truncate text-[13px] font-semibold",
-                name ? "text-slate-900 group-hover:text-primary" : "font-medium text-slate-500"
+                name ? "text-slate-900 dark:text-slate-100 group-hover:text-primary" : "font-medium text-slate-500 dark:text-slate-400"
               )}
               title={name || "Unknown patient"}
             >
@@ -408,23 +409,23 @@ export default function ReceptionKanban({
             </span>
             {pill(doc)}
           </div>
-          <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-600">
-            <FileText className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+          <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
+            <FileText className="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
             <span className="min-w-0 flex-1 truncate" title={doc.file_name}>{doc.file_name}</span>
-            <span className="shrink-0 tabular-nums text-slate-500" title={`${formatDistanceToNowStrict(new Date(doc.created_at))} ago`}>
+            <span className="shrink-0 tabular-nums text-slate-500 dark:text-slate-400" title={`${formatDistanceToNowStrict(new Date(doc.created_at))} ago`}>
               {shortAge(doc.created_at)}
             </span>
           </div>
           {shown.length > 0 && (
             <div className="mt-1.5 flex items-center gap-1 overflow-hidden">
               {shown.map((t) => (
-                <span key={t.id} className="max-w-[120px] truncate rounded-full border border-slate-200 bg-slate-50 px-2 text-[11px] leading-5 text-slate-700" title={t.label}>
+                <span key={t.id} className="max-w-[120px] truncate rounded-full border border-slate-200 bg-slate-50 px-2 text-[11px] leading-5 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300" title={t.label}>
                   {t.label}
                 </span>
               ))}
               {extra > 0 && (
                 <span
-                  className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 text-[11px] leading-5 text-slate-600"
+                  className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 text-[11px] leading-5 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
                   title={tests.slice(2).map((t) => t.label).join(", ")}
                 >
                   +{extra}
@@ -444,7 +445,7 @@ export default function ReceptionKanban({
     return (
       <>
         {list.length === 0 ? (
-          <p className="rounded-md border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-slate-500">
+          <p className="rounded-md border border-dashed border-slate-300 px-3 py-6 text-center text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
             {searching ? "No matches" : "No documents"}
           </p>
         ) : (
@@ -454,10 +455,10 @@ export default function ReceptionKanban({
           <button
             type="button"
             onClick={() => loadMore(col.id)}
-            className="mt-2 w-full rounded-md border border-slate-300 bg-white py-2 text-xs font-medium text-slate-700 hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            className="mt-2 w-full rounded-md border border-slate-300 bg-white py-2 text-xs font-medium text-slate-700 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
           >
             Show {Math.min(PAGE_SIZE, remaining)} more
-            <span className="ml-1 text-slate-500">({remaining} not yet shown)</span>
+            <span className="ml-1 text-slate-500 dark:text-slate-400">({remaining} not yet shown)</span>
           </button>
         )}
       </>
@@ -493,28 +494,28 @@ export default function ReceptionKanban({
       {/* Search */}
       <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative w-full sm:max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400 dark:text-slate-500" />
           <Input
             placeholder="Search patient, file name, type…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-10 bg-white pl-9 text-sm"
+            className="h-10 bg-white dark:bg-slate-800 pl-9 text-sm"
             aria-label="Search the queue"
           />
         </div>
         <div className="flex items-center gap-3 sm:ml-auto">
-          <span className="whitespace-nowrap text-xs text-slate-600 tabular-nums">
+          <span className="whitespace-nowrap text-xs text-slate-600 dark:text-slate-400 tabular-nums">
             {statusText}
           </span>
           <button
             type="button"
             onClick={() => setShowCompleted((v) => !v)}
             aria-expanded={showCompleted}
-            className="hidden items-center gap-1.5 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:border-slate-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary md:inline-flex"
+            className="hidden items-center gap-1.5 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary md:inline-flex"
           >
             {showCompleted ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
             Recently completed
-            <span className="rounded-full bg-slate-100 px-1.5 text-[11px] tabular-nums text-slate-700">{completedCount}</span>
+            <span className="rounded-full bg-slate-100 px-1.5 text-[11px] tabular-nums text-slate-700 dark:bg-slate-700 dark:text-slate-200">{completedCount}</span>
           </button>
         </div>
       </div>
@@ -525,7 +526,7 @@ export default function ReceptionKanban({
           omitting referrals is how a referral is never actioned. Collapsed to one line;
           the full statement is one click away. */}
       {!searching && (anythingOmitted ? (
-        <details role="status" className="group shrink-0 rounded-md border border-amber-200 bg-amber-50 text-xs text-amber-900">
+        <details role="status" className="group shrink-0 rounded-md border border-amber-200 bg-amber-50 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-medium">
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span className="min-w-0 flex-1">
@@ -556,7 +557,7 @@ export default function ReceptionKanban({
                 </li>
               ) : null}
             </ul>
-            <p className="text-amber-800">
+            <p className="text-amber-800 dark:text-amber-200">
               Every pending document{" "}
               {actionableOmitted ? "up to the cap" : "currently"} is loaded, so
               nothing awaiting triage has been dropped from the top of the queue.
@@ -564,7 +565,7 @@ export default function ReceptionKanban({
           </div>
         </details>
       ) : totalsUnknown ? (
-        <div role="status" className="flex shrink-0 items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700">
+        <div role="status" className="flex shrink-0 items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
             The total document count could not be read, so this board cannot
@@ -580,8 +581,8 @@ export default function ReceptionKanban({
           complete — a truncated search that lists nothing has not proven the
           absence of matches, so it falls through to the truncation notice. */}
       {searching && searchState.kind === "loading" && (
-        <div role="status" aria-live="polite" className="flex shrink-0 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400" />
+        <div role="status" aria-live="polite" className="flex shrink-0 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400 dark:text-slate-500" />
           <p>Searching all records…</p>
         </div>
       )}
@@ -589,15 +590,15 @@ export default function ReceptionKanban({
         <DataLoadError what="the document search" error={searchState.error} />
       )}
       {searching && searchState.kind === "ok" && searchState.documents.length === 0 && !searchState.truncated && (
-        <div role="status" aria-live="polite" className="flex shrink-0 items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
-          <Search className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+        <div role="status" aria-live="polite" className="flex shrink-0 items-start gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
+          <Search className="mt-0.5 h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500" />
           <p>
             No documents match <span className="font-medium">“{trimmedQuery}”</span> across all records.
           </p>
         </div>
       )}
       {showMoreResults && (
-        <div role="status" className="flex shrink-0 items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <div role="status" className="flex shrink-0 items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <p>
             There are more matches for <span className="font-medium">“{trimmedQuery}”</span> than can be shown.
@@ -623,17 +624,17 @@ export default function ReceptionKanban({
                 className={cn(
                   "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium",
                   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary",
-                  selected ? "border-primary bg-primary text-primary-foreground" : "border-slate-300 bg-white text-slate-700"
+                  selected ? "border-primary bg-primary text-primary-foreground" : "border-slate-300 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
                 )}
               >
                 {col.shortTitle}
-                <span className={cn("tabular-nums", selected ? "text-primary-foreground/85" : "text-slate-500")}>{columnsData[col.id].length}</span>
+                <span className={cn("tabular-nums", selected ? "text-primary-foreground/85" : "text-slate-500 dark:text-slate-400")}>{columnsData[col.id].length}</span>
               </button>
             );
           })}
         </div>
-        <section role="tabpanel" aria-label={activeCol.title} className="min-h-0 flex-1 overflow-y-auto rounded-lg bg-slate-900/[0.035] p-2">
-          <p className="px-1 pb-2 text-xs text-slate-600">{activeCol.description}</p>
+        <section role="tabpanel" aria-label={activeCol.title} className="min-h-0 flex-1 overflow-y-auto rounded-lg bg-slate-900/[0.035] dark:bg-white/[0.04] p-2">
+          <p className="px-1 pb-2 text-xs text-slate-600 dark:text-slate-400">{activeCol.description}</p>
           {renderList(activeCol)}
         </section>
       </div>
@@ -653,13 +654,13 @@ export default function ReceptionKanban({
               return (
                 <div
                   key={col.id}
-                  className="relative flex w-12 shrink-0 snap-start flex-col items-center overflow-hidden rounded-lg bg-slate-900/[0.035] py-3"
+                  className="relative flex w-12 shrink-0 snap-start flex-col items-center overflow-hidden rounded-lg bg-slate-900/[0.035] dark:bg-white/[0.04] py-3"
                   title={`${col.title}: ${searching ? "no matches" : "no documents"}. ${col.description}`}
                 >
                   <span className={cn("absolute inset-x-0 top-0 h-[3px]", col.bar)} />
                   <span className="mt-1">{col.icon}</span>
-                  <span className="mt-2 text-xs tabular-nums text-slate-500">0</span>
-                  <span className="mt-3 text-xs font-medium text-slate-600 [text-orientation:mixed] [writing-mode:vertical-rl]">{col.title}</span>
+                  <span className="mt-2 text-xs tabular-nums text-slate-600 dark:text-slate-400">0</span>
+                  <span className="mt-3 text-xs font-medium text-slate-600 dark:text-slate-400 [text-orientation:mixed] [writing-mode:vertical-rl]">{col.title}</span>
                 </div>
               );
             }
@@ -667,13 +668,13 @@ export default function ReceptionKanban({
               <section
                 key={col.id}
                 aria-label={`${col.title}, ${list.length} documents`}
-                className="relative flex w-[300px] shrink-0 snap-start flex-col overflow-hidden rounded-lg bg-slate-900/[0.035]"
+                className="relative flex w-[300px] shrink-0 snap-start flex-col overflow-hidden rounded-lg bg-slate-900/[0.035] dark:bg-white/[0.04]"
               >
                 <span className={cn("absolute inset-x-0 top-0 h-[3px]", col.bar)} />
                 <header className="flex shrink-0 items-center gap-2 px-3 pb-2 pt-3.5" title={col.description}>
                   {col.icon}
-                  <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">{col.title}</h2>
-                  <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200">
+                  <h2 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{col.title}</h2>
+                  <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-700 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
                     {list.length}
                   </span>
                 </header>
@@ -685,7 +686,7 @@ export default function ReceptionKanban({
         {edges.left && (
           <>
             <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-background to-transparent" />
-            <button type="button" onClick={() => nudge(-1)} aria-label="Scroll board left" className="absolute left-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm hover:border-slate-400">
+            <button type="button" onClick={() => nudge(-1)} aria-label="Scroll board left" className="absolute left-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm hover:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-600">
               <ChevronRight className="h-4 w-4 rotate-180" />
             </button>
           </>
@@ -693,7 +694,7 @@ export default function ReceptionKanban({
         {edges.right && (
           <>
             <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent" />
-            <button type="button" onClick={() => nudge(1)} aria-label="Scroll board right" className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm hover:border-slate-400">
+            <button type="button" onClick={() => nudge(1)} aria-label="Scroll board right" className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm hover:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-600">
               <ChevronRight className="h-4 w-4" />
             </button>
           </>

@@ -55,13 +55,12 @@ import {
   type StatusFilterValue,
 } from "./staff-filters";
 
-const ROLE_COLORS: Record<string, string> = {
-  admin: "bg-red-500 text-white dark:bg-red-600",
-  receptionist: "bg-accentBlue-500 text-white dark:bg-accentBlue-600",
-  department_staff: "bg-purple-500 text-white dark:bg-purple-600",
-  medical_specialist: "bg-indigo-500 text-white dark:bg-indigo-600",
-  patient: "bg-green-500 text-white dark:bg-green-600",
-};
+/**
+ * Role badge fill, shared with the sidebar badge (issue #153): white on the
+ * *-500/*-600 fills measured 2.28:1 to 4.47:1, so the *-700 step is used in
+ * both themes. One map, not a second copy with its own shades.
+ */
+const ROLE_COLORS: Record<string, { label: string; color: string } | undefined> = USER_ROLES;
 
 /** The department filter offers the clinical departments and "no department". */
 const DEPARTMENT_FILTER_OPTIONS: { value: DepartmentFilterValue; label: string }[] = [
@@ -523,7 +522,7 @@ export default function StaffManagementPage() {
         <Button
           onClick={handleCreateOpen}
           disabled={!rolesLoaded}
-          className="gap-2 bg-primary hover:bg-primary/90 text-white font-semibold"
+          className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
         >
           <Plus className="h-4 w-4" />
           Add Staff
@@ -673,8 +672,8 @@ export default function StaffManagementPage() {
         </CardHeader>
         <CardContent className="p-0">
           {loading || roleFilterPending ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500">
-              <Loader2 className="h-8 w-8 animate-spin text-accentBlue-600" />
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500 dark:text-slate-400">
+              <Loader2 className="h-8 w-8 animate-spin text-accentBlue-600 dark:text-accentBlue-400" />
               <span className="text-xs font-medium">Loading personnel registry...</span>
             </div>
           ) : fetchError ? (
@@ -705,7 +704,7 @@ export default function StaffManagementPage() {
               </Button>
             </div>
           ) : filteredStaff.length === 0 ? (
-            <div className="text-center py-16 text-slate-500 space-y-2">
+            <div className="text-center py-16 text-slate-500 dark:text-slate-400 space-y-2">
               <p className="text-sm font-semibold">
                 {staffList.length === 0
                   ? "No staff members found"
@@ -747,7 +746,11 @@ export default function StaffManagementPage() {
                   return (
                     <TableRow
                       key={staff.id}
-                      className={`transition-opacity duration-150 ${!staff.is_active ? "opacity-60 bg-slate-50/30 dark:bg-slate-950/20" : ""}`}
+                      // Inactive rows are marked by the tinted background and
+                      // the "Inactive" badge rather than by dimming the whole
+                      // row: even at 90% opacity the white-on-colour role
+                      // badges inside fall below 4.5:1 (issue #153).
+                      className={`transition-colors duration-150 ${!staff.is_active ? "bg-slate-50/40 dark:bg-slate-950/30" : ""}`}
                     >
                       {/* Name */}
                       <TableCell>
@@ -774,7 +777,7 @@ export default function StaffManagementPage() {
 
                       {/* Role Badge */}
                       <TableCell>
-                        <Badge className={`text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 ${ROLE_COLORS[staff.role] || "bg-slate-200 text-slate-800"}`}>
+                        <Badge className={`text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 ${ROLE_COLORS[staff.role]?.color || "bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-100"}`}>
                           {(() => {
                             const dbRoleObj = dbRoles.find(r => r.id === staff.role_id);
                             return dbRoleObj ? dbRoleObj.name : (USER_ROLES[staff.role as UserRole]?.label || staff.role);
@@ -789,7 +792,7 @@ export default function StaffManagementPage() {
                             {deptConfig.label}
                           </Badge>
                         ) : (
-                          <span className="text-slate-400 font-mono text-xs">—</span>
+                          <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">—</span>
                         )}
                       </TableCell>
 

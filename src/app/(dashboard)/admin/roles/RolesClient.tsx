@@ -68,7 +68,7 @@ function PermissionCatalogPicker({
   onDeselectAll,
 }: PermissionCatalogPickerProps) {
   return (
-    <div className="min-w-0 overflow-hidden rounded-lg border border-slate-150 bg-slate-50/50 dark:border-slate-850 dark:bg-slate-950/20">
+    <div className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-950/20">
       <div className="flex flex-col gap-3 border-b border-slate-100 bg-white/70 px-4 py-3 dark:border-slate-900 dark:bg-slate-950/40 lg:flex-row lg:items-center lg:justify-between">
         <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Toggle Permissions Catalog</Label>
         <div className="flex flex-wrap items-center gap-2">
@@ -85,7 +85,7 @@ function PermissionCatalogPicker({
           const modPerms = permissions.filter((p) => p.module === mod);
           return (
             <div key={mod} className="space-y-2">
-              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-900 pb-1">{mod}</h4>
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-900 pb-1">{mod}</h4>
               <div className="space-y-2 pl-1">
                 {modPerms.map((perm) => {
                   const checked = selectedPermissionIds.includes(perm.id);
@@ -101,8 +101,8 @@ function PermissionCatalogPicker({
                         className="mt-0.5 rounded border-slate-300 dark:border-slate-800 text-indigo-600 focus:ring-indigo-500/20 h-3.5 w-3.5"
                       />
                       <div className="min-w-0 space-y-0.5">
-                        <span className="break-words font-semibold text-slate-850 dark:text-slate-200 group-hover:text-indigo-500 transition-colors">{perm.name}</span>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-snug">{perm.description}</p>
+                        <span className="break-words font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-500 transition-colors">{perm.name}</span>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">{perm.description}</p>
                       </div>
                     </label>
                   );
@@ -272,7 +272,7 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
       {/* Create Custom Role Dialog / Panel */}
       {showCreateForm && (
         <Card className="border border-indigo-150 dark:border-slate-800 bg-white/50 dark:bg-slate-950/40 backdrop-blur-md shadow-md animate-in fade-in slide-in-from-top-3 duration-250">
-          <CardHeader className="border-b border-slate-100 dark:border-slate-850/50 pb-4">
+          <CardHeader className="border-b border-slate-100 dark:border-slate-800/50 pb-4">
             <CardTitle className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Settings className="h-4 w-4 text-indigo-500" />
               Build Custom Role
@@ -295,7 +295,7 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
                       onChange={(e) => setNewRoleName(e.target.value)}
                       className="text-xs h-10 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/20"
                     />
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
                       Up to {ROLE_NAME_MAX} characters; surrounding spaces are ignored.
                     </p>
                   </div>
@@ -327,7 +327,7 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-850/50 pt-4">
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800/50 pt-4">
                 <Button
                   type="button"
                   variant="outline"
@@ -372,7 +372,7 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
                     onChange={(e) => setEditRoleName(e.target.value)}
                     className="text-xs h-10 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/20"
                   />
-                  <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
                     Up to {ROLE_NAME_MAX} characters; surrounding spaces are ignored.
                   </p>
                 </div>
@@ -468,7 +468,7 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
           const rolePerms = permissions.filter((p) => rolePermIds.has(p.id));
           
           return (
-            <Card key={role.id} className="border border-slate-200/80 dark:border-slate-850 bg-white/70 dark:bg-slate-950/20 hover:shadow-md transition-all flex flex-col h-full relative overflow-hidden group">
+            <Card key={role.id} className="border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-950/20 hover:shadow-md transition-all flex flex-col h-full relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-full h-[2px] bg-slate-100 dark:bg-slate-900 group-hover:bg-indigo-500 transition-colors" />
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
@@ -480,12 +480,12 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
                     <p className="text-[10px] text-slate-400 font-mono mt-0.5 leading-snug">{role.description || "No description provided."}</p>
                   </div>
                   {role.is_system ? (
-                    <Badge variant="outline" className="text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border-indigo-100 dark:border-indigo-950 text-indigo-600 bg-indigo-50/30 dark:bg-indigo-950/10 flex items-center gap-1 shrink-0">
+                    <Badge variant="outline" className="text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border-indigo-100 dark:border-indigo-950 text-indigo-600 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-950/10 flex items-center gap-1 shrink-0">
                       <Lock className="h-2.5 w-2.5" />
                       System
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border-emerald-100 dark:border-emerald-950 text-emerald-600 bg-emerald-50/30 dark:bg-emerald-950/10 flex items-center gap-1 shrink-0">
+                    <Badge variant="outline" className="text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border-emerald-100 dark:border-emerald-950 text-emerald-700 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/10 flex items-center gap-1 shrink-0">
                       <Server className="h-2.5 w-2.5" />
                       Custom
                     </Badge>
@@ -493,15 +493,15 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
                 </div>
               </CardHeader>
               
-              <CardContent className="pt-3 border-t border-slate-100 dark:border-slate-850/50 flex-grow flex flex-col justify-between">
+              <CardContent className="pt-3 border-t border-slate-100 dark:border-slate-800/50 flex-grow flex flex-col justify-between">
                 <div>
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Granted Permissions ({rolePerms.length})</h4>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Granted Permissions ({rolePerms.length})</h4>
                   {rolePerms.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto pb-2">
                       {rolePerms.map((perm) => (
                         <span 
                           key={perm.id} 
-                          className="inline-flex items-center gap-1 text-[9px] font-semibold text-slate-600 dark:text-slate-350 bg-slate-100 dark:bg-slate-900 border border-slate-150 dark:border-slate-850/60 px-2 py-0.5 rounded shadow-sm"
+                          className="inline-flex items-center gap-1 text-[9px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/60 px-2 py-0.5 rounded shadow-sm"
                           title={perm.description || undefined}
                         >
                           <Check className="h-2.5 w-2.5 text-indigo-500" />
@@ -510,14 +510,14 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
                       ))}
                     </div>
                   ) : (
-                    <p className="text-[10px] text-slate-450 italic flex items-center gap-1">
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 italic flex items-center gap-1">
                       <ShieldAlert className="h-3.5 w-3.5 text-rose-400" />
                       No permissions granted.
                     </p>
                   )}
                 </div>
                 {!role.is_system && (
-                  <div className="flex items-center gap-2 pt-3 mt-3 border-t border-slate-100 dark:border-slate-850/50">
+                  <div className="flex items-center gap-2 pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/50">
                     <Button
                       type="button"
                       variant="outline"
