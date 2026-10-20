@@ -485,7 +485,7 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
                       System
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border-emerald-100 dark:border-emerald-950 text-emerald-600 bg-emerald-50/30 dark:bg-emerald-950/10 flex items-center gap-1 shrink-0">
+                    <Badge variant="outline" className="text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border-emerald-100 dark:border-emerald-950 text-emerald-700 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/10 flex items-center gap-1 shrink-0">
                       <Server className="h-2.5 w-2.5" />
                       Custom
                     </Badge>

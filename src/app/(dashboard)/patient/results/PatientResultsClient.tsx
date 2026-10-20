@@ -135,7 +135,7 @@ export default function PatientResultsClient({ initialRecords }: PatientResultsC
               No results matches your filter parameters.
             </div>
           ) : (
-            <div className="divide-y divide-slate-150 dark:divide-slate-800">
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
               {dateKeys.map((dateKey) => (
                 <div key={dateKey} className="p-6 space-y-4">
                   {/* Date Heading */}
