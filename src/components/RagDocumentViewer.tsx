@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -42,12 +42,20 @@ export default function RagDocumentViewer({
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<ViewState | null>(null);
 
+  // Which load is the current one. The sheet stays mounted when it closes, so
+  // a close and a reopen can have two loads in flight; without this the older
+  // answer would be allowed to overwrite the newer one.
+  const currentLoad = useRef(0);
+
   const load = useCallback(async () => {
+    const loadId = ++currentLoad.current;
     setState({ kind: "loading" });
 
     const outcome = await fetchJson<{ document: RagDocumentContent }>(
       `/api/admin/rag/documents/${encodeURIComponent(documentId)}`
     );
+
+    if (loadId !== currentLoad.current) return;
 
     if (outcome.kind === "failed") {
       setState({ kind: "failed", error: outcome.error });
@@ -108,6 +116,7 @@ export default function RagDocumentViewer({
                 <DataLoadError
                   what="the indexed text of this document"
                   error={state.error}
+                  description="This document's text is unknown because the request failed, not because the document is empty. Nothing below this message can be trusted until it loads."
                 />
                 <Button variant="outline" size="sm" onClick={() => void load()}>
                   Try again
