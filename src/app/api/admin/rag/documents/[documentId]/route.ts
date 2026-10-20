@@ -38,6 +38,12 @@ export async function GET(
       return errorResponse("Invalid document id.", 400);
     }
 
+    // A uuid is the same uuid in either case, but the stored document id is
+    // lower case, and the metadata comparison is case sensitive. An upper case
+    // request would therefore find nothing and answer 404 for a document that
+    // is there.
+    const normalizedDocumentId = documentId.toLowerCase();
+
     const supabase = await createClient();
 
     // A document's chunks all carry the same `metadata.document_id`. The row
@@ -51,7 +57,7 @@ export async function GET(
         .from("rag_documents")
         .select("id, title, content, metadata, created_at")
         .or(
-          `metadata->>document_id.eq.${documentId},and(id.eq.${documentId},metadata->>document_id.is.null)`
+          `metadata->>document_id.eq.${normalizedDocumentId},and(id.eq.${normalizedDocumentId},metadata->>document_id.is.null)`
         )
         .order("created_at", { ascending: true })
     );
@@ -66,7 +72,10 @@ export async function GET(
       return errorResponse("Document not found.", 404);
     }
 
-    const document = assembleRagDocument(read.data as unknown as RagChunkRow[], documentId);
+    const document = assembleRagDocument(
+      read.data as unknown as RagChunkRow[],
+      normalizedDocumentId
+    );
 
     if (!document) {
       // The query ran and matched nothing: the document is not there.

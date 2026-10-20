@@ -145,6 +145,17 @@ describe("GET /api/admin/rag/documents/[documentId]", () => {
     );
   });
 
+  it("looks the document up in lower case, because the stored id is lower case", async () => {
+    mocks.order.mockResolvedValue({ data: [chunkRow("row-0", "text", 0)], error: null });
+
+    const response = await get(DOCUMENT_ID.toUpperCase());
+
+    expect(response.status).toBe(200);
+    expect(mocks.or).toHaveBeenCalledWith(
+      `metadata->>document_id.eq.${DOCUMENT_ID},and(id.eq.${DOCUMENT_ID},metadata->>document_id.is.null)`
+    );
+  });
+
   it("reports a failed query as a failure, not as a missing document", async () => {
     mocks.order.mockResolvedValue({ data: null, error: { message: "connection reset" } });
 
