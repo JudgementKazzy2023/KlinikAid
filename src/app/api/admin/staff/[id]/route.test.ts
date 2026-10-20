@@ -186,6 +186,8 @@ describe("staff status Auth failures", () => {
 
   it("finishes Auth cleanup before making a profile active", async () => {
     expect((await patch(true)).status).toBe(200);
+    expect(mocks.unban).toHaveBeenCalledWith(expect.anything(), targetId);
+    expect(mocks.update).toHaveBeenCalledWith({ is_active: true });
     expect(mocks.unban.mock.invocationCallOrder[0]).toBeLessThan(mocks.revoke.mock.invocationCallOrder[0]);
     expect(mocks.revoke.mock.invocationCallOrder[0]).toBeLessThan(mocks.update.mock.invocationCallOrder[0]);
   });
