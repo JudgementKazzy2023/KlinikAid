@@ -102,9 +102,14 @@ export async function POST(request: Request) {
   try {
     const adminProfile = await requirePermission("staff.manage");
     creatorId = adminProfile.id;
-    // The caller-scoped profile update below is governed by profiles.manage.
-    // Check it before creating an Auth user so staff.manage alone cannot strand
-    // the signup trigger's patient profile.
+    // Preflight every permission the create needs before any Auth or profile
+    // work starts (#43, #111, #133, #137): the role lookup below reads roles
+    // through the caller-scoped client (roles.read) and the profile update is
+    // governed by profiles.manage, which also keeps staff.manage alone from
+    // stranding the signup trigger's patient profile. Checked only where each
+    // step runs, a denial surfaces as "Select a valid role." after Auth already
+    // holds a new user, instead of the established 403.
+    await requirePermission("roles.read");
     await requirePermission("profiles.manage");
     const body = await request.json();
     const { email, password, fullName, roleId, department } = body;
