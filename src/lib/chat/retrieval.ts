@@ -42,8 +42,14 @@
 // 0.45, not the pre-#150 0.6: measured, several answering documents never
 // reach 0.6 in any phrasing (module comment above).
 export const RETRIEVAL_MATCH_THRESHOLD = 0.45;
-/** Per-query candidate count fed into the merge; the context is cut to RETRIEVAL_TOP_K. */
-export const RETRIEVAL_MATCH_COUNT = 8;
+/**
+ * Per-query candidate count fed into the merge; the context is cut to RETRIEVAL_TOP_K.
+ * 15 (the corpus's size), not 8: a document ranked #9 in its own query's list
+ * never reaches the union at a lower count, and a run of the eval measured
+ * exactly that loss (the answering document at similarity 0.553, rank 9).
+ * The union is bounded by RETRIEVAL_TOP_K, not by this.
+ */
+export const RETRIEVAL_MATCH_COUNT = 15;
 // 12, not 8: at 0.45 more documents score above the answering document's
 // similarity (measured 0.467-0.573) than an 8-document cut leaves room for,
 // and 5 of 48 paraphrases lost their answering document to that cut. Still a

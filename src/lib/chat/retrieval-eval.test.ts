@@ -18,7 +18,11 @@
  * threshold/count/topK constants, same merge helpers). It records whether the
  * answering document made it into the retrieved context, and -- below the
  * threshold, where the pipeline cannot see it -- where the answering document
- * actually ranked for the English rendering, so misses are diagnosable. The
+ * actually ranked for the English rendering, so misses are diagnosable. For the
+ * out-of-scope questions it also runs the answer step (same system prompt, same
+ * model) and asserts each reply still declines with a referral -- the #150
+ * requirement that the lower threshold must not buy recall by making the
+ * assistant answer questions the knowledge base does not cover. The
  * full per-question record is written as JSON to the path in
  * `CHAT_RETRIEVAL_EVAL_OUT` (default /tmp) and a summary table is printed.
  *
@@ -37,6 +41,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { writeFileSync } from "node:fs";
 import {
   buildQueryAnalysisPrompt,
+  buildSystemPrompt,
   parseQueryAnalysis,
   QUERY_ANALYSIS_INSTRUCTION,
   type QueryAnalysis,
@@ -132,13 +137,13 @@ const PARAPHRASES: Record<string, string[]> = {
     "How many hours should I fast before blood work?",
     "Is there anything I need to do before getting tested?",
     // Filipino
-    "Kailangan po ba mag-laman bago magpa-blood test?",
+    "Kailangan po bang walang laman ang tiyan bago magpa-blood test?",
     "Ano po ang dapat kong gawin bago magpa-lab test?",
-    "Ilang oras po ang dapat mag-laman bago magpa-blood test?",
+    "Ilang oras po ang dapat na walang kinakain bago magpa-blood test?",
     "Kailangan po ba mag-fast?",
     // Taglish
     "Need po ba mag fasting before blood extraction?",
-    "Ano po ang dapat kong gawin bago magpa-lab test?",
+    "Empty stomach po ba bago magpa-blood test?",
     "Pwede po bang kumain bago magpa-blood test?",
     "Fasting po ba required bago magpa-blood test?",
   ],
@@ -195,8 +200,20 @@ interface QuestionRecord {
   deepSimilarity: number | null;
   /** Top-3 of the full ranking: what a lower threshold would let into context. */
   deepTop3: Array<{ title: string; similarity: number }>;
+  /** Answer-step reply for out-of-scope questions; null when in scope. */
+  answer: string | null;
+  /** Whether the reply declined with a referral (out-of-scope only). */
+  declined: boolean | null;
   error: string | null;
 }
+
+/**
+ * What a decline looks like across the three reply languages. A non-decline
+ * answers the question instead ("yes we sell...", a dosage, a price), so this
+ * pattern must not match an answer -- it only matches refusals and referrals.
+ */
+const DECLINE_PATTERN =
+  /reception|specialist|front desk|clinic staff|unable|cannot|can not|can only assist|not covered|makipag-ugnayan|please contact/i;
 
 type EmbedContentFn = (req: {
   content: { role: string; parts: Array<{ text: string }> };
@@ -239,7 +256,7 @@ async function mapPool<T, R>(items: readonly T[], limit: number, fn: (item: T) =
 
 describe.skipIf(!LIVE)("live knowledge-base retrieval eval (#150)", () => {
   it(
-    "retrieves the answering document for every paraphrase and stays quiet out of scope",
+    "retrieves the answering document for every paraphrase and declines the out-of-scope questions",
     async () => {
       const genAI = new GoogleGenerativeAI(env("GEMINI_API_KEY"));
       const supabase: SupabaseClient = createClient(
@@ -282,6 +299,21 @@ describe.skipIf(!LIVE)("live knowledge-base retrieval eval (#150)", () => {
           return parseQueryAnalysis(result.response.text(), question);
         });
 
+      /** The production answer step: same system prompt and model as the route. */
+      const answerQuestion = (question: string, retrieved: RetrievalMatch[], language: QueryAnalysis["language"]): Promise<string> =>
+        withRetry(async () => {
+          const context =
+            retrieved.length > 0
+              ? retrieved.map((doc) => `Source: ${doc.title}\nContent: ${doc.content}`).join("\n\n")
+              : "No relevant guidelines or clinic documents found.";
+          const answerModel = genAI.getGenerativeModel({
+            model: "gemini-2.5-flash",
+            systemInstruction: buildSystemPrompt(context, language),
+          });
+          const result = await answerModel.generateContent(question);
+          return result.response.text();
+        });
+
       const records = await mapPool(QUESTIONS, 6, async (question): Promise<QuestionRecord> => {
         try {
           const analysis = await analyse(question.text);
@@ -309,6 +341,15 @@ describe.skipIf(!LIVE)("live knowledge-base retrieval eval (#150)", () => {
             ? deep.findIndex((doc) => doc.title.includes(question.expectedTitle as string))
             : -1;
 
+          // Out-of-scope: run the answer step and record whether the reply
+          // still declined with a referral (#150: the lower threshold must not
+          // turn recall into answers for questions the knowledge base lacks).
+          const answer =
+            question.expectedTitle === null
+              ? await answerQuestion(question.text, retrieved, analysis.language)
+              : null;
+          const declined = answer === null ? null : DECLINE_PATTERN.test(answer);
+
           return {
             topic: question.topic,
             text: question.text,
@@ -323,6 +364,8 @@ describe.skipIf(!LIVE)("live knowledge-base retrieval eval (#150)", () => {
             deepRank: deepIndex >= 0 ? deepIndex + 1 : null,
             deepSimilarity: deepIndex >= 0 ? deep[deepIndex].similarity : null,
             deepTop3: deep.slice(0, 3).map((doc) => ({ title: doc.title, similarity: doc.similarity })),
+            answer,
+            declined,
             error: null,
           };
         } catch (error) {
@@ -338,6 +381,8 @@ describe.skipIf(!LIVE)("live knowledge-base retrieval eval (#150)", () => {
             deepRank: null,
             deepSimilarity: null,
             deepTop3: [],
+            answer: null,
+            declined: null,
             error: error instanceof Error ? error.message : String(error),
           };
         }
@@ -358,14 +403,16 @@ describe.skipIf(!LIVE)("live knowledge-base retrieval eval (#150)", () => {
       const totalHits = inScope.filter((r) => r.hit).length;
       lines.push(`${"in-scope".padEnd(12)} ${`${totalHits}/${inScope.length}`.padEnd(11)} ${Math.round((totalHits / inScope.length) * 100)}%`);
       lines.push("");
-      lines.push("out-of-scope questions (retrieved at threshold; full ranking of the rendering): ");
+      lines.push("out-of-scope questions (retrieved at threshold; answer-step verdict): ");
       for (const row of outOfScope) {
         const deep = row.deepTop3
           .map((doc) => `${doc.title}@${doc.similarity.toFixed(3)}`)
           .join(", ");
+        const verdict = row.declined === null ? "no reply" : row.declined ? "declined" : "ANSWERED";
         lines.push(
-          `  ${row.text}\n    -> ${row.retrievedTitles[0] ?? "(nothing)"} | full ranking: ${deep}${row.error ? ` [error: ${row.error}]` : ""}`
+          `  ${row.text}\n    -> ${verdict} | top retrieved: ${row.retrievedTitles[0] ?? "(nothing)"} | full ranking: ${deep}${row.error ? ` [error: ${row.error}]` : ""}`
         );
+        if (row.answer) lines.push(`    reply: ${row.answer.replaceAll("\n", " ").slice(0, 200)}`);
       }
       const misses = inScope.filter((r) => !r.hit);
       if (misses.length > 0) {
@@ -394,6 +441,15 @@ describe.skipIf(!LIVE)("live knowledge-base retrieval eval (#150)", () => {
       // No question may fail for infrastructure reasons: that would skew the
       // hit rate rather than measure retrieval.
       expect(errors.map((r) => `${r.topic}: ${r.text}: ${r.error}`)).toEqual([]);
+
+      // #150: out-of-scope questions must still be declined, in either mode.
+      // Retrieval at 0.45 deliberately pulls weakly related documents into
+      // context; this asserts the system-prompt decline still wins.
+      expect(
+        outOfScope
+          .filter((row) => row.declined !== true)
+          .map((row) => `${row.text} -> ${(row.answer ?? "(no reply)").slice(0, 200)}`)
+      ).toEqual([]);
 
       if (MODE === "multi") {
         // The #150 acceptance bar: every paraphrase retrieves its answering
