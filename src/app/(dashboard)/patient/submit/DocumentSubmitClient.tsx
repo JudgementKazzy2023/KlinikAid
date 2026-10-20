@@ -370,9 +370,10 @@ export default function DocumentSubmitClient() {
                 type="button"
                 onClick={() => void removeFile()}
                 disabled={isSubmitting}
+                aria-label="Remove selected file"
                 className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors disabled:opacity-50"
               >
-                <X className="h-4.5 w-4.5" />
+                <X className="h-4.5 w-4.5" aria-hidden="true" />
               </button>
             </div>
           )}

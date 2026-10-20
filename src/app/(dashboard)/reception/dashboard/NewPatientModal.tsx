@@ -190,9 +190,10 @@ export default function NewPatientModal() {
                     variant="outline" 
                     size="icon" 
                     onClick={handleCopyPassword}
+                    aria-label={copied ? "Copied temporary password" : "Copy temporary password"}
                     className="h-9 w-9 shrink-0"
                   >
-                    {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                    {copied ? <Check className="h-4 w-4 text-emerald-500" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
                   </Button>
                 </div>
               </div>

@@ -184,13 +184,15 @@ export default function PatientChatClient() {
             maxLength={1000}
             required
           />
+          {/* Icon-only submit button: the label is the accessible name (WCAG 4.1.2). */}
           <Button
             type="submit"
             size="icon"
+            aria-label="Send message"
             className="bg-accentBlue-600 hover:bg-accentBlue-700 text-white shrink-0 shadow-md shadow-accentBlue-500/10"
             disabled={isLoading || isRateLimited || !input.trim()}
           >
-            <Send className="h-4 w-4" />
+            <Send className="h-4 w-4" aria-hidden="true" />
           </Button>
         </form>
       </CardFooter>
