@@ -41,6 +41,11 @@ const branches: Record<BranchKey, Branch> = {
 
 const queries: RecordedQuery[] = [];
 
+/**
+ * Fake `supabase.from()`: records each operation (select, or, order, limit)
+ * on one `RecordedQuery` and, when awaited, answers from the matching branch
+ * in `branches`, bounded by the recorded limit.
+ */
 function fakeFrom(table: string) {
   const query: RecordedQuery = { table, select: "", or: [], orders: [] };
   const builder = {
