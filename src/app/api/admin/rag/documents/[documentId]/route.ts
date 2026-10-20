@@ -41,14 +41,18 @@ export async function GET(
     const supabase = await createClient();
 
     // A document's chunks all carry the same `metadata.document_id`. The row
-    // id is matched as well because a chunk stored before the indexer wrote
-    // that metadata is its own document, and the list view lists it under its
-    // own id.
+    // id is matched as well, but only for a row that has no document id of its
+    // own: a chunk stored before the indexer wrote that metadata is its own
+    // document, and the list view lists it under its own id. Without that
+    // restriction, asking for a chunk's row id would hand back that chunk
+    // under a different document's name.
     const read = classifyRead(
       await supabase
         .from("rag_documents")
         .select("id, title, content, metadata, created_at")
-        .or(`metadata->>document_id.eq.${documentId},id.eq.${documentId}`)
+        .or(
+          `metadata->>document_id.eq.${documentId},and(id.eq.${documentId},metadata->>document_id.is.null)`
+        )
         .order("created_at", { ascending: true })
     );
 

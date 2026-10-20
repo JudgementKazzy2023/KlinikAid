@@ -132,13 +132,16 @@ describe("GET /api/admin/rag/documents/[documentId]", () => {
     expect(body.data.document.chunks.map((c: { position: number }) => c.position)).toEqual([1, 2]);
   });
 
-  it("reads the chunks by their document id, and by the row id as a fallback", async () => {
+  it("reads the chunks by their document id, and by the row id only for a legacy row", async () => {
     mocks.order.mockResolvedValue({ data: [chunkRow("row-0", "text", 0)], error: null });
 
     await get();
 
+    // The row id fallback is limited to a row that carries no document id of
+    // its own. Without that, asking for a chunk's row id would return that
+    // chunk under another document's name.
     expect(mocks.or).toHaveBeenCalledWith(
-      `metadata->>document_id.eq.${DOCUMENT_ID},id.eq.${DOCUMENT_ID}`
+      `metadata->>document_id.eq.${DOCUMENT_ID},and(id.eq.${DOCUMENT_ID},metadata->>document_id.is.null)`
     );
   });
 
