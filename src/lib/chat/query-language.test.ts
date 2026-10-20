@@ -1,0 +1,95 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildQueryAnalysisPrompt,
+  buildSystemPrompt,
+  parseQueryAnalysis,
+} from "./query-language";
+
+describe("buildQueryAnalysisPrompt", () => {
+  it("asks for a JSON object and carries the patient's question verbatim", () => {
+    const prompt = buildQueryAnalysisPrompt("Anong oras bukas ang clinic?");
+    expect(prompt).toContain("Anong oras bukas ang clinic?");
+    expect(prompt).toContain('{"language":"...","english":"..."}');
+  });
+});
+
+describe("parseQueryAnalysis", () => {
+  it("parses a plain JSON reply", () => {
+    expect(
+      parseQueryAnalysis('{"language":"filipino","english":"What time is the clinic open?"}', "Anong oras?")
+    ).toEqual({ language: "filipino", englishQuery: "What time is the clinic open?" });
+  });
+
+  it("accepts the capitalised language values the model actually emits", () => {
+    expect(parseQueryAnalysis('{"language":"Filipino","english":"What time?"}', "Anong oras?")).toEqual({
+      language: "filipino",
+      englishQuery: "What time?",
+    });
+    expect(parseQueryAnalysis('{"language":"TAGLISH","english":"What time?"}', "Anong oras?")).toEqual({
+      language: "taglish",
+      englishQuery: "What time?",
+    });
+  });
+
+  it("parses JSON wrapped in code fences and prose", () => {
+    const raw = 'Sure! Here is the translation:\n```json\n{"language":"taglish","english":"What time do you open?"}\n```';
+    expect(parseQueryAnalysis(raw, "Anong oras kayo mag-open?")).toEqual({
+      language: "taglish",
+      englishQuery: "What time do you open?",
+    });
+  });
+
+  it("falls back to the original query when there is no JSON object", () => {
+    expect(parseQueryAnalysis("I cannot translate that.", "  Anong oras bukas?  ")).toEqual({
+      language: "unknown",
+      englishQuery: "Anong oras bukas?",
+    });
+  });
+
+  it("falls back on malformed JSON without throwing", () => {
+    expect(parseQueryAnalysis('{"language":"filipino","english":', "Anong oras?")).toEqual({
+      language: "unknown",
+      englishQuery: "Anong oras?",
+    });
+  });
+
+  it("keeps the original query when the translation is empty but keeps a valid language", () => {
+    expect(parseQueryAnalysis('{"language":"filipino","english":"  "}', "Anong oras?")).toEqual({
+      language: "filipino",
+      englishQuery: "Anong oras?",
+    });
+  });
+
+  it("marks an unrecognised language as unknown but keeps the translation", () => {
+    expect(parseQueryAnalysis('{"language":"cebuano","english":"What time?"}', "Anong oras?")).toEqual({
+      language: "unknown",
+      englishQuery: "What time?",
+    });
+  });
+});
+
+describe("buildSystemPrompt", () => {
+  const context = "Source: 02_Operating_Hours\nContent: Mon-Fri 7am-5pm";
+
+  it("keeps the context grounding and the out-of-scope decline instructions", () => {
+    const prompt = buildSystemPrompt(context, "english");
+    expect(prompt).toContain("answer clinic inquiries");
+    expect(prompt).toContain("ONLY on the provided Clinic Knowledge context");
+    expect(prompt).toContain("If the answer cannot be found in the context");
+    expect(prompt).toContain("refer them to contact the reception desk");
+    expect(prompt).toContain("Do not diagnose conditions");
+    expect(prompt).toContain(context);
+  });
+
+  it("instructs the reply language per detected language", () => {
+    expect(buildSystemPrompt(context, "filipino")).toContain("Answer in Filipino.");
+    expect(buildSystemPrompt(context, "english")).toContain("Answer in English.");
+    expect(buildSystemPrompt(context, "taglish")).toContain("Answer in Taglish");
+  });
+
+  it("mirrors the patient's language when detection failed", () => {
+    const prompt = buildSystemPrompt(context, "unknown");
+    expect(prompt).toContain("same language the patient writes in");
+    expect(prompt).toContain("English, Filipino, or Taglish");
+  });
+});

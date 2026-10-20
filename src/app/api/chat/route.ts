@@ -7,6 +7,12 @@ import {
   PRIVACY_CONSENT_CHECK_FAILED_MESSAGE,
   PRIVACY_CONSENT_REQUIRED_MESSAGE,
 } from "@/lib/auth/privacy-consent";
+import {
+  buildQueryAnalysisPrompt,
+  buildSystemPrompt,
+  parseQueryAnalysis,
+  type QueryAnalysis,
+} from "@/lib/chat/query-language";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import crypto from "crypto";
 
@@ -16,6 +22,24 @@ type EmbedContentFn = (req: {
   content: { role: string; parts: Array<{ text: string }> };
   outputDimensionality: number;
 }) => Promise<{ embedding: { values: number[] } }>;
+
+// Render the question in English for retrieval and detect the reply language
+// (#73 item 9). The knowledge base is English-only, and embedding a Filipino
+// question demotes the document that answers it below the match_count cutoff
+// (the operating-hours doc ranks 3rd for the English wording, 10th for the
+// Filipino one), which the model then answered with the out-of-scope decline.
+// A failure here must not fail the chat: the original question is embedded
+// instead and the reply language falls back to mirroring the patient.
+async function analyseQuery(userQuery: string): Promise<QueryAnalysis> {
+  try {
+    const analysisModel = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const result = await analysisModel.generateContent(buildQueryAnalysisPrompt(userQuery));
+    return parseQueryAnalysis(result.response.text(), userQuery);
+  } catch (err) {
+    console.error("Query language analysis failed; retrieving with the original question:", err);
+    return parseQueryAnalysis("", userQuery);
+  }
+}
 
 interface MatchedDocument {
   id: string;
@@ -69,12 +93,19 @@ export async function POST(request: Request) {
       return errorResponse("Rate limit exceeded. You can only send up to 20 messages per hour.", 429);
     }
 
-    // 3. Generate query embedding via gemini-embedding-001 (768 dimensions)
+    // 3. English rendering for retrieval, language for the reply (#73 item 9)
+    const analysis = await analyseQuery(userQuery);
+
+    // 4. Generate query embedding via gemini-embedding-001 (768 dimensions)
+    // The embedding is built from the English rendering, because the knowledge
+    // base is English-only and a non-English embedding ranks the answering
+    // document below the match_count cutoff. Everything the patient sees still
+    // flows through their own words: history in their language, reply in it.
     // Note: text-embedding-004 is requested by spec, but returned 404 in this environment's Gemini API.
     // We use gemini-embedding-001 with outputDimensionality: 768 to achieve the correct 768-dim vector size.
     const embeddingModel = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
     const embedResult = await (embeddingModel.embedContent as unknown as EmbedContentFn)({
-      content: { role: "user", parts: [{ text: userQuery }] },
+      content: { role: "user", parts: [{ text: analysis.englishQuery }] },
       outputDimensionality: 768,
     });
     const queryEmbedding = embedResult.embedding?.values;
@@ -83,7 +114,7 @@ export async function POST(request: Request) {
       return errorResponse("Failed to process query embeddings.");
     }
 
-    // 4. Perform vector similarity search in public.rag_documents
+    // 5. Perform vector similarity search in public.rag_documents
     //
     // A failed search must not become an answer. The previous `|| []` made
     // "the vector index was unreachable" and "the knowledge base has nothing on
@@ -96,7 +127,14 @@ export async function POST(request: Request) {
       await supabase.rpc("match_documents", {
         query_embedding: queryEmbedding,
         match_threshold: 0.6,
-        match_count: 5,
+        // 8, not 5 (#73). The 0.6 threshold is not what drops the answering
+        // document: measured against the live knowledge base, the operating-hours
+        // doc lands at #6 with similarity 0.628 for the natural English rendering
+        // "What time is the clinic open?" — above the threshold, outside a count
+        // of 5 — and the model then declined with "not in my knowledge". The
+        // English rendering lifts it to #3 for the literal question; the extra
+        // count is headroom for phrasing variance in the rendering.
+        match_count: 8,
       })
     );
 
@@ -114,20 +152,13 @@ export async function POST(request: Request) {
     const matchedDocsList =
       search.kind === "ok" ? ((search.data ?? []) as unknown as MatchedDocument[]) : [];
 
-    // 5. Construct RAG context
+    // 6. Construct RAG context
     const context = matchedDocsList.length > 0
       ? matchedDocsList.map((doc) => `Source: ${doc.title}\nContent: ${doc.content}`).join("\n\n")
       : "No relevant guidelines or clinic documents found.";
 
-    // 6. Call Gemini 1.5 Flash with System Grounding
-    const systemPrompt = `You are KlinikAid's 24/7 AI-driven clinic assistant.
-Your goal is to answer clinic inquiries, guidelines, schedules, services, requirements, or diagnostic test preparations for patients and visitors of "Bloodcare Medical Laboratory".
-
-You must base your answers ONLY on the provided Clinic Knowledge context. Do not make up information.
-If the answer cannot be found in the context, politely state that you can only assist with clinic inquiries and refer them to contact the reception desk or clinical specialists. Do not diagnose conditions or give medical guidance.
-
-Clinic Knowledge context:
-${context}`;
+    // 7. Call Gemini 2.5 Flash with System Grounding, answered in the patient's language
+    const systemPrompt = buildSystemPrompt(context, analysis.language);
 
     const chatModel = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
@@ -150,7 +181,7 @@ ${context}`;
     const botResponse = chatResult.response.text();
     const tokensUsed = chatResult.response.usageMetadata?.totalTokenCount || 0;
 
-    // 7. Log interaction in public.chatbot_logs
+    // 8. Log interaction in public.chatbot_logs (unchanged: the patient's own words, not the English rendering)
     // Note: Although guide mentions user_query, the active Supabase schema uses the user_message column.
     const { error: logError } = await supabase.from("chatbot_logs").insert({
       user_id: user.id,
