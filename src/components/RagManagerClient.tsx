@@ -25,6 +25,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import DataLoadError from "@/components/DataLoadError";
+import RagDocumentViewer from "@/components/RagDocumentViewer";
 import { toast } from "sonner";
 import { formatPhTimeFull } from "@/lib/utils";
 import {
@@ -255,15 +256,18 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
                       {formatPhTimeFull(doc.createdAt)}
                     </TableCell>
                     <TableCell className="text-right pr-6">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleteDoc(doc)}
-                        aria-label={`Delete ${doc.title}`}
-                        className="text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-                      >
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <RagDocumentViewer documentId={doc.documentId} title={doc.title} />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteDoc(doc)}
+                          aria-label={`Delete ${doc.title}`}
+                          className="text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
