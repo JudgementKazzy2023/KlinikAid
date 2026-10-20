@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -78,6 +78,13 @@ interface TriageModalProps {
  * `role="alert"` and a stable `<field>-error` id, and the matching input
  * carries `aria-invalid` plus `aria-describedby` pointing at that id, so the
  * reason a submit did nothing reaches assistive technology (#139).
+ *
+ * The department select gets the same treatment (#148): its error renders
+ * with `role="alert"` and a `department-error` id, the trigger carries
+ * `aria-invalid` plus `aria-describedby`, and a submit that fails only on
+ * department moves focus back to the select so keyboard and screen-reader
+ * users land on what they still have to choose. Picking a department
+ * revalidates and clears the invalid state.
  */
 export default function TriageModal({
   isOpen,
@@ -94,12 +101,18 @@ export default function TriageModal({
   const {
     register,
     handleSubmit,
+    setFocus,
     setValue,
     watch,
     reset,
     formState: { errors },
   } = useForm<TriageFormValues>({
     resolver: zodResolver(triageSchema),
+    // Focus is managed explicitly in onInvalid below: the department select is
+    // a button, not a registered input, so react-hook-form's automatic
+    // _focusError would skip it — and, when a vitals field fails too, its
+    // deferred refocus would steal focus back from the select (#148).
+    shouldFocusError: false,
     defaultValues: {
       blood_pressure: "",
       weight_kg: "",
@@ -109,6 +122,7 @@ export default function TriageModal({
   });
 
   const selectedDept = watch("department");
+  const departmentRef = useRef<HTMLButtonElement>(null);
 
   // Fetch queue preview when department is selected
   React.useEffect(() => {
@@ -125,6 +139,23 @@ export default function TriageModal({
     };
     setPreviewQueueNo(`${deptCodes[selectedDept]}-00+`);
   }, [selectedDept]);
+
+  // Called by handleSubmit when the schema rejects the submission. The
+  // department select is a button, not a registered input, so react-hook-form
+  // cannot focus it by itself (and with shouldFocusError off it will not try);
+  // focus it explicitly when it is the field that failed, otherwise send focus
+  // to the first invalid vitals input so no failed submit leaves focus behind.
+  const onInvalid = (errs: typeof errors) => {
+    if (errs.department) {
+      departmentRef.current?.focus();
+    } else if (errs.blood_pressure) {
+      setFocus("blood_pressure");
+    } else if (errs.weight_kg) {
+      setFocus("weight_kg");
+    } else if (errs.temperature_c) {
+      setFocus("temperature_c");
+    }
+  };
 
   const onSubmit = (values: TriageFormValues) => {
     startTransition(async () => {
@@ -226,7 +257,7 @@ export default function TriageModal({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+        <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-4 py-2">
           {/* Patient Info (Read-Only) */}
           <div className="grid gap-2">
             <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Patient Name</Label>
@@ -241,11 +272,19 @@ export default function TriageModal({
               </Label>
               <Select
                 onValueChange={(val) => {
+                  // Revalidating on change clears errors.department, which also
+                  // drops aria-invalid and aria-describedby on the trigger.
                   if (val) setValue("department", val as "laboratory" | "imaging" | "ultrasound" | "ecg", { shouldValidate: true });
                 }}
                 value={selectedDept}
               >
-                <SelectTrigger id="department" className="border-slate-200 dark:border-slate-800">
+                <SelectTrigger
+                  id="department"
+                  ref={departmentRef}
+                  aria-invalid={!!errors.department || undefined}
+                  aria-describedby={errors.department ? "department-error" : undefined}
+                  className="border-slate-200 dark:border-slate-800"
+                >
                   <SelectValue placeholder="Choose department" />
                 </SelectTrigger>
                 <SelectContent className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
@@ -256,7 +295,9 @@ export default function TriageModal({
                 </SelectContent>
               </Select>
               {errors.department && (
-                <p className="text-xs text-red-500">{errors.department.message}</p>
+                <p id="department-error" role="alert" className="text-xs text-red-500">
+                  {errors.department.message}
+                </p>
               )}
             </div>
           </div>
