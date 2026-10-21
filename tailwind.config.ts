@@ -282,10 +282,19 @@ const config: Config = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
+        // The pending bar for a client navigation (issue #182). The bar is a
+        // third of the window wide and slides along a faint track, so the
+        // indicator is on screen from the first frame and the movement says
+        // "still working" without a spinner on every link.
+        "navigation-progress": {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(200%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "navigation-progress": "navigation-progress 1s ease-in-out infinite",
       },
     },
   },
