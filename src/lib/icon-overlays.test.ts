@@ -33,7 +33,8 @@ import { describe, expect, it } from "vitest";
  * A control counts as covered when it is a sibling of the overlay, or sits
  * under a wrapper chain next to it (`FormField` > `FormItem` >
  * `FormControl` > the control). A decoration that is a sibling of a whole
- * section — a page's background circle next to its card — covers nothing.
+ * section — a page's background circle next to its card, or a background next
+ * to a `<section>` — covers nothing.
  *
  * The check is a source check because the unit tests run in node without a
  * DOM. `e2e/auth-leading-icons.spec.ts` and the browser check in this
@@ -59,6 +60,13 @@ const CONTROLS = new Set([
 
 /** Native elements that are a click target of their own. */
 const INTERACTIVE = new Set(["button", "a", "input", "select", "textarea", "option"]);
+
+/**
+ * Elements that hold a page section rather than a field. A decoration that
+ * is a sibling of one of these is a page decoration — a background next to a
+ * section — and not something that covers the section's control.
+ */
+const SECTIONS = new Set(["section", "main", "article", "aside", "header", "footer", "nav"]);
 
 /** Tailwind utilities that take an element out of the flow. */
 const OUT_OF_FLOW = new Set(["absolute", "fixed"]);
@@ -287,12 +295,14 @@ function findControl(element: Element, depth = 3): Element | null {
 /**
  * The form control this element sits next to, if any. The control is often
  * not a direct sibling: it may sit inside a wrapper (`FormControl`, a styled
- * `label`), so the whole sibling subtree is searched.
+ * `label`), so the whole sibling subtree is searched — but never into a
+ * section, which is a page block and not a field container.
  */
 function controlSibling(element: Element): Element | null {
   const siblings = element.parent?.children ?? [];
   for (const sibling of siblings) {
     if (sibling === element) continue;
+    if (SECTIONS.has(sibling.name)) continue;
     const found = findControl(sibling);
     if (found) return found;
   }
@@ -451,6 +461,24 @@ describe("icons and decorations over a form control (issue #181)", () => {
     const offenders = overlaysWithoutPointerEventsNone(source);
     expect(offenders).toHaveLength(1);
     expect(offenders[0].control).toBe("<Input>");
+  });
+
+  it("leaves a decoration next to a section alone", () => {
+    // A background beside a page section is a page decoration: the section
+    // holds more than the field, so the decoration covers nothing.
+    const source = [
+      '<div className="relative">',
+      '  <div className="absolute inset-0 bg-slate-100" />',
+      "  <section>",
+      "    <div>",
+      "      <div>",
+      '        <input type="text" />',
+      "      </div>",
+      "    </div>",
+      "  </section>",
+      "</div>",
+    ].join("\n");
+    expect(overlaysWithoutPointerEventsNone(source)).toEqual([]);
   });
 
   it("leaves a positioned control of its own alone", () => {
