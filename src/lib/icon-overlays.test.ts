@@ -33,8 +33,8 @@ import { describe, expect, it } from "vitest";
  * A control counts as covered when it is a sibling of the overlay, or sits
  * under a wrapper chain next to it (`FormField` > `FormItem` >
  * `FormControl` > the control). What the overlay does not cover is what
- * paints above it: a sibling that is positioned and comes later in the
- * source, and an overlay with a negative z-index.
+ * paints above it: a sibling that stacks higher, and an overlay with a
+ * negative z-index.
  *
  * The check is a source check because the unit tests run in node without a
  * DOM. `e2e/auth-leading-icons.spec.ts` and the browser check in this
@@ -296,27 +296,56 @@ function isPositioned(element: Element): boolean {
 }
 
 /**
+ * The stacking order the element asks for. `z-auto` and no z-index at all
+ * are the same thing in CSS: zero.
+ */
+function zIndexOf(element: Element): number {
+  for (const value of classNameOf(element.attrs)) {
+    const match = /^(-?)z-(\d+)$/.exec(value);
+    if (match) return (match[1] ? -1 : 1) * Number(match[2]);
+    const arbitrary = /^(-?)z-\[(\d+)\]$/.exec(value);
+    if (arbitrary) return (arbitrary[1] ? -1 : 1) * Number(arbitrary[2]);
+  }
+  return 0;
+}
+
+/**
+ * Does the sibling paint above the overlay? A positioned element paints in
+ * the positioned layer; among those, the higher z-index wins and, at the
+ * same z-index, the one that comes later in the source wins.
+ */
+function paintsAbove(
+  sibling: Element,
+  overlay: Element,
+  siblingIndex: number,
+  overlayIndex: number,
+): boolean {
+  if (!isPositioned(sibling)) return false;
+  const siblingZ = zIndexOf(sibling);
+  const overlayZ = zIndexOf(overlay);
+  if (siblingZ !== overlayZ) return siblingZ > overlayZ;
+  return siblingIndex > overlayIndex;
+}
+
+/**
  * The form control this element covers, if any.
  *
  * The control is often not a direct sibling: it may sit inside a wrapper
  * (`FormControl`, a styled `label`), so the sibling's subtree is searched.
  *
  * What the search leaves out is what paints *above* the overlay: a sibling
- * that is positioned and comes later in the source is painted over it, so
- * the overlay is behind that sibling and covers nothing of it. An overlay
- * with a negative z-index is behind everything in its context, so it covers
- * nothing either.
+ * that is positioned and stacks higher, and an overlay with a negative
+ * z-index, which is behind everything in its context.
  */
 function coveredControl(element: Element): Element | null {
   const siblings = element.parent?.children ?? [];
-  if (classNameOf(element.attrs).some((value) => value.startsWith("-z-"))) return null;
+  if (zIndexOf(element) < 0) return null;
+  const ownIndex = siblings.indexOf(element);
 
   for (let index = 0; index < siblings.length; index += 1) {
     const sibling = siblings[index];
     if (sibling === element) continue;
-    // A positioned sibling that comes later in the source paints above the
-    // overlay, so the overlay is behind it.
-    if (isPositioned(sibling) && index > siblings.indexOf(element)) continue;
+    if (paintsAbove(sibling, element, index, ownIndex)) continue;
     const found = findControl(sibling);
     if (found) return found;
   }
@@ -513,6 +542,24 @@ describe("icons and decorations over a form control (issue #181)", () => {
       "</div>",
     ].join("\n");
     expect(overlaysWithoutPointerEventsNone(source)).toEqual([]);
+  });
+
+  it("catches an overlay that stacks above the control it covers", () => {
+    // The wrapper is stacked at z-10, so it paints above the later sibling
+    // and takes the tap on the control inside it.
+    const source = [
+      '<div className="relative">',
+      '  <div className="absolute inset-y-0 left-3 z-10 flex items-center">',
+      '    <span className="h-4 w-4" />',
+      "  </div>",
+      '  <div className="relative">',
+      '    <Input placeholder="Search" />',
+      "  </div>",
+      "</div>",
+    ].join("\n");
+    const offenders = overlaysWithoutPointerEventsNone(source);
+    expect(offenders).toHaveLength(1);
+    expect(offenders[0].control).toBe("<Input>");
   });
 
   it("leaves a decoration behind a negative z-index alone", () => {
