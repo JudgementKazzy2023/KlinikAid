@@ -1,25 +1,35 @@
 import { describe, expect, it } from "vitest";
 import {
   buildSearchPattern,
-  escapeIlikeLiteral,
+  escapeRegexLiteral,
   patientNameConditions,
   quotePostgrestValue,
 } from "./reception-search";
 
-describe("escapeIlikeLiteral", () => {
+describe("escapeRegexLiteral", () => {
   it("leaves plain text untouched", () => {
-    expect(escapeIlikeLiteral("abc")).toBe("abc");
+    expect(escapeRegexLiteral("abc")).toBe("abc");
   });
 
-  it("escapes the ILIKE wildcards % and _", () => {
-    expect(escapeIlikeLiteral("%")).toBe("\\%");
-    expect(escapeIlikeLiteral("_")).toBe("\\_");
-    expect(escapeIlikeLiteral("a%b_c")).toBe("a\\%b\\_c");
-    expect(escapeIlikeLiteral("50% off")).toBe("50\\% off");
+  it("escapes the regex metacharacters, including the asterisk", () => {
+    expect(escapeRegexLiteral("*")).toBe("\\*");
+    expect(escapeRegexLiteral("a*b")).toBe("a\\*b");
+    expect(escapeRegexLiteral(".+?^${}()|[]\\")).toBe("\\.\\+\\?\\^\\$\\{\\}\\(\\)\\|\\[\\]\\\\");
+  });
+
+  it("leaves % and _ alone; they are literal in a regex, not wildcards", () => {
+    expect(escapeRegexLiteral("%")).toBe("%");
+    expect(escapeRegexLiteral("_")).toBe("_");
   });
 
   it("escapes a backslash first, before it can escape something else", () => {
-    expect(escapeIlikeLiteral("\\")).toBe("\\\\");
+    expect(escapeRegexLiteral("\\")).toBe("\\\\");
+  });
+
+  it("never escapes letters, which would turn them into regex classes", () => {
+    // `\d`, `\w` and friends are character classes; only punctuation may be
+    // escaped or the term would stop matching itself.
+    expect(escapeRegexLiteral("dw s")).toBe("dw s");
   });
 });
 
@@ -35,60 +45,76 @@ describe("quotePostgrestValue", () => {
 });
 
 describe("buildSearchPattern", () => {
-  it("produces a quoted, case-insensitive contains pattern", () => {
-    expect(buildSearchPattern("abc")).toBe('"%abc%"');
+  it("produces a quoted, unanchored substring-match pattern", () => {
+    expect(buildSearchPattern("abc")).toBe('"abc"');
   });
 
-  it("neutralises ILIKE wildcards so they match literally", () => {
-    // The pattern Postgres receives is `%\%%` — a literal `%` between two
-    // wildcards — so `%` cannot turn the search into a match-everything query.
-    expect(buildSearchPattern("%")).toBe('"%\\\\%%"');
-    expect(buildSearchPattern("_")).toBe('"%\\\\_%"');
+  it("neutralises PostgREST's * wildcard alias by escaping the asterisk", () => {
+    // PostgREST rewrites `*` to `%` in like/ilike values with no escape
+    // available. The search uses imatch instead, where `\*` reaches Postgres
+    // as a literal asterisk after the quoting layer.
+    expect(buildSearchPattern("*")).toBe('"\\\\*"');
+    expect(buildSearchPattern("lab*report")).toBe('"lab\\\\*report"');
+  });
+
+  it("keeps % and _ literal without escaping them", () => {
+    // Not regex metacharacters, so the regex engine already matches them
+    // literally — no `%`-wrapping and no escapes.
+    expect(buildSearchPattern("%")).toBe('"%"');
+    expect(buildSearchPattern("_")).toBe('"_"');
   });
 
   it("keeps PostgREST structural characters literal by quoting them", () => {
-    // `,`, `(`, `)` would otherwise be parsed as `or=` grammar. Inside the
-    // double quotes they are value characters.
-    expect(buildSearchPattern(",")).toBe('"%,%"');
-    expect(buildSearchPattern("(")).toBe('"%(%"');
-    expect(buildSearchPattern(")")).toBe('"%)%"');
-    expect(buildSearchPattern("a,b(c)")).toBe('"%a,b(c)%"');
+    // `,` would otherwise be parsed as an `or=` condition separator; `(`, `)`
+    // and `.` are regex metacharacters on top of that. Inside the double
+    // quotes they are value characters.
+    expect(buildSearchPattern(",")).toBe('","');
+    expect(buildSearchPattern("(")).toBe('"\\\\("');
+    expect(buildSearchPattern(")")).toBe('"\\\\)"');
+    expect(buildSearchPattern("a,b(c)")).toBe('"a,b\\\\(c\\\\)"');
   });
 
-  it("composes both escape layers for a term with both wildcards and commas", () => {
-    // `a,b(c)%` → ILIKE-escaped to `a,b(c)\%`, then quoted with the backslash
-    // doubled for PostgREST: `"%a,b(c)\\%%"`.
-    expect(buildSearchPattern("a,b(c)%")).toBe('"%a,b(c)\\\\%%"');
+  it("composes both escape layers for a term with metacharacters and commas", () => {
+    // `a,b(c)*` → regex-escaped to `a,b\(c\)\*`, then quoted with each
+    // backslash doubled for PostgREST: `"a,b\\(c\\)\\*"`.
+    expect(buildSearchPattern("a,b(c)*")).toBe('"a,b\\\\(c\\\\)\\\\*"');
   });
 
   it("handles an embedded double quote without terminating the value", () => {
     // `"` inside the term is escaped as `\"` so it stays part of the value.
-    expect(buildSearchPattern('a"b')).toBe('"%a\\"b%"');
+    expect(buildSearchPattern('a"b')).toBe('"a\\"b"');
   });
 });
 
 describe("patientNameConditions", () => {
   it("matches each name column for a single word", () => {
     expect(patientNameConditions("Cruz")).toEqual([
-      `first_name.ilike.${buildSearchPattern("Cruz")}`,
-      `last_name.ilike.${buildSearchPattern("Cruz")}`,
+      `first_name.imatch.${buildSearchPattern("Cruz")}`,
+      `last_name.imatch.${buildSearchPattern("Cruz")}`,
     ]);
   });
 
   it("adds one first/last split per word boundary for a full name", () => {
     const conditions = patientNameConditions("Juan Dela Cruz");
     expect(conditions).toContain(
-      `and(first_name.ilike.${buildSearchPattern("Juan")},last_name.ilike.${buildSearchPattern("Dela Cruz")})`
+      `and(first_name.imatch.${buildSearchPattern("Juan")},last_name.imatch.${buildSearchPattern("Dela Cruz")})`
     );
     expect(conditions).toContain(
-      `and(first_name.ilike.${buildSearchPattern("Juan Dela")},last_name.ilike.${buildSearchPattern("Cruz")})`
+      `and(first_name.imatch.${buildSearchPattern("Juan Dela")},last_name.imatch.${buildSearchPattern("Cruz")})`
     );
     expect(conditions).toHaveLength(4);
   });
 
   it("keeps PostgREST grammar characters inside quoted values", () => {
     for (const condition of patientNameConditions("a,b (c)")) {
-      expect(condition).not.toMatch(/ilike\.[^"]/);
+      expect(condition).not.toMatch(/imatch\.[^"]/);
+    }
+  });
+
+  it("never uses like/ilike, where PostgREST would rewrite * to %", () => {
+    for (const condition of patientNameConditions("a*b")) {
+      expect(condition).not.toMatch(/\.i?like\./);
+      expect(condition).toContain(buildSearchPattern("a*b"));
     }
   });
 });

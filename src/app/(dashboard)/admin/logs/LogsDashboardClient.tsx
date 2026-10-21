@@ -44,6 +44,7 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { startOfISOWeek, parseISO } from "date-fns";
 import { toZonedTime, format as formatTz, formatInTimeZone } from "date-fns-tz";
+import { focusRingClass } from "@/lib/focus-ring";
 
 interface ProfileItem {
   id: string;
@@ -560,7 +561,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
             activeTab === "system"
               ? "border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400"
               : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400"
-          }`}
+          } ${focusRingClass}`}
         >
           System Events
         </button>
@@ -570,7 +571,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
             activeTab === "chatbot"
               ? "border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400"
               : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400"
-          }`}
+          } ${focusRingClass}`}
         >
           Chatbot Audit
         </button>
@@ -580,7 +581,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
             activeTab === "costs"
               ? "border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400"
               : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400"
-          }`}
+          } ${focusRingClass}`}
         >
           API Cost Tracker
         </button>
@@ -686,7 +687,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
               {/* Free-text Search Bar */}
               <form onSubmit={handleSearchSubmit} className="mt-4 flex gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Search logs description..."
                     value={filterSearch}
@@ -719,8 +720,8 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
                     <TableRow>
                       <TableCell colSpan={5} className="h-48 text-center">
                         <div className="flex flex-col items-center justify-center space-y-2">
-                          <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
-                          <p className="text-sm text-slate-500">Loading audit logs...</p>
+                          <Loader2 className="h-8 w-8 animate-spin text-slate-500 dark:text-slate-400" />
+                          <p className="text-sm text-slate-500 dark:text-slate-400">Loading audit logs...</p>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -738,14 +739,14 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
                     </TableRow>
                   ) : systemLogs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="h-48 text-center text-slate-500">
+                      <TableCell colSpan={5} className="h-48 text-center text-slate-500 dark:text-slate-400">
                         No system events match selected filters.
                       </TableCell>
                     </TableRow>
                   ) : (
                     systemLogs.map((log) => (
                       <TableRow key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20 border-b border-slate-200 dark:border-slate-800">
-                        <TableCell className="font-mono text-xs text-slate-500 whitespace-nowrap">
+                        <TableCell className="font-mono text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
                           {formatPhTime(log.created_at)}
                         </TableCell>
                         <TableCell>
@@ -778,7 +779,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
             {/* Pagination Controls */}
             {systemTotal > 15 && (
               <div className="p-4 bg-slate-50/50 dark:bg-slate-900/20 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Showing {(systemPage - 1) * 15 + 1} to {Math.min(systemPage * 15, systemTotal)} of {systemTotal} records
                 </p>
                 <div className="flex gap-2">
@@ -818,7 +819,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Today&apos;s Queries</p>
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Today&apos;s Queries</p>
                     <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-50">
                       {todayStats ? todayStats.queries.toLocaleString() : "—"}
                     </h3>
@@ -834,7 +835,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Today&apos;s Tokens Used</p>
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Today&apos;s Tokens Used</p>
                     <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-50">
                       {todayStats ? todayStats.tokens.toLocaleString() : "—"}
                     </h3>
@@ -850,7 +851,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Today&apos;s Estimated Cost</p>
+                    <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Today&apos;s Estimated Cost</p>
                     <h3 className="text-3xl font-bold text-slate-900 dark:text-slate-50">
                       {todayStats ? `$${((todayStats.tokens / 1000000) * GEMINI_BLENDED_USD_PER_1M_TOKENS).toFixed(4)}` : "—"}
                     </h3>
@@ -884,8 +885,8 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
                     <TableRow>
                       <TableCell colSpan={7} className="h-48 text-center">
                         <div className="flex flex-col items-center justify-center space-y-2">
-                          <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
-                          <p className="text-sm text-slate-500">Loading chatbot logs...</p>
+                          <Loader2 className="h-8 w-8 animate-spin text-slate-500 dark:text-slate-400" />
+                          <p className="text-sm text-slate-500 dark:text-slate-400">Loading chatbot logs...</p>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -897,7 +898,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
                     </TableRow>
                   ) : chatLogs.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-48 text-center text-slate-500">
+                      <TableCell colSpan={7} className="h-48 text-center text-slate-500 dark:text-slate-400">
                         No chatbot history available.
                       </TableCell>
                     </TableRow>
@@ -913,7 +914,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
                         }}
                         className="hover:bg-slate-50/50 dark:hover:bg-slate-900/20 border-b border-slate-200 dark:border-slate-800 cursor-pointer"
                       >
-                        <TableCell className="font-mono text-xs text-slate-500 whitespace-nowrap">
+                        <TableCell className="font-mono text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
                           {formatPhTime(log.created_at)}
                         </TableCell>
                         <TableCell>
@@ -961,7 +962,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
             {/* Pagination Controls */}
             {chatTotal > 15 && (
               <div className="p-4 bg-slate-50/50 dark:bg-slate-900/20 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
                   Showing {(chatPage - 1) * 15 + 1} to {Math.min(chatPage * 15, chatTotal)} of {chatTotal} records
                 </p>
                 <div className="flex gap-2">
@@ -1017,8 +1018,8 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
               {costLoading ? (
                 <div className="h-72 flex items-center justify-center">
                   <div className="flex flex-col items-center justify-center space-y-2">
-                    <Loader2 className="h-8 w-8 animate-spin text-slate-500" />
-                    <p className="text-sm text-slate-500">Loading cost telemetry...</p>
+                    <Loader2 className="h-8 w-8 animate-spin text-slate-500 dark:text-slate-400" />
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Loading cost telemetry...</p>
                   </div>
                 </div>
               ) : costError ? (
@@ -1026,7 +1027,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
                   <DataLoadError what="API token consumption" error={costError} />
                 </div>
               ) : !costLoaded ? (
-                <div className="h-72 flex items-center justify-center text-slate-500 text-sm">
+                <div className="h-72 flex items-center justify-center text-slate-500 dark:text-slate-400 text-sm">
                   No telemetry has been loaded yet.
                 </div>
               ) : (
@@ -1116,7 +1117,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
                 <TableBody>
                   {costLoading ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-32 text-center text-slate-500">
+                      <TableCell colSpan={6} className="h-32 text-center text-slate-500 dark:text-slate-400">
                         Loading weekly quotas...
                       </TableCell>
                     </TableRow>
@@ -1128,13 +1129,13 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
                     </TableRow>
                   ) : !costLoaded ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-32 text-center text-slate-500">
+                      <TableCell colSpan={6} className="h-32 text-center text-slate-500 dark:text-slate-400">
                         No weekly quotas have been loaded yet.
                       </TableCell>
                     </TableRow>
                   ) : weeklyBreakdown.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="h-32 text-center text-slate-500">
+                      <TableCell colSpan={6} className="h-32 text-center text-slate-500 dark:text-slate-400">
                         No weekly quotas calculated.
                       </TableCell>
                     </TableRow>
@@ -1144,13 +1145,13 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
                         <TableCell className="font-semibold text-slate-950 dark:text-slate-50">
                           Week of {week.weekLabel} {week.isPartialWeek && <span className="text-[10px] text-amber-500 font-normal italic">(Partial)</span>}
                         </TableCell>
-                        <TableCell className="text-right text-slate-500 text-xs">
+                        <TableCell className="text-right text-slate-500 dark:text-slate-400 text-xs">
                           {week.daysInWeek} / 7 days
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm text-slate-900 dark:text-slate-100">
                           {week.totalTokens.toLocaleString()}
                         </TableCell>
-                        <TableCell className="text-right font-mono text-xs text-slate-500">
+                        <TableCell className="text-right font-mono text-xs text-slate-500 dark:text-slate-400">
                           {week.weekBudget.toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm font-semibold text-emerald-600 dark:text-emerald-400">
@@ -1214,7 +1215,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
                   <div key={msg.id || i} className="space-y-3">
                     {/* User Prompt bubble (align right) */}
                     <div className="flex justify-end pl-12">
-                      <div className="bg-teal-600 text-white rounded-2xl rounded-tr-none px-4 py-2.5 shadow-sm text-sm">
+                      <div className="bg-teal-700 text-white rounded-2xl rounded-tr-none px-4 py-2.5 shadow-sm text-sm">
                         <p className="whitespace-pre-wrap">{msg.user_message}</p>
                         <p className="text-[9px] text-teal-200 mt-1 font-mono text-right">
                           {formatPhTime(msg.created_at)}

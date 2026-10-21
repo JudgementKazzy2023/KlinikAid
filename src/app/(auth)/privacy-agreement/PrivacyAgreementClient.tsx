@@ -9,6 +9,11 @@ import { ShieldCheck, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { toast } from "sonner";
 
+/**
+ * RA 10173 consent gate: the agreement a patient has to scroll to the end of,
+ * four acknowledgements, and the accept/decline actions that either record the
+ * consent or sign the account out again.
+ */
 export default function PrivacyAgreementClient() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -80,10 +85,10 @@ export default function PrivacyAgreementClient() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 overflow-y-auto">
+    <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 overflow-hidden">
       {/* Background clinical-theme decorative circles */}
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[80px] pointer-events-none" />
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 dark:bg-primary/25 blur-[80px] pointer-events-none" aria-hidden="true" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 dark:bg-emerald-500/20 blur-[80px] pointer-events-none" aria-hidden="true" />
 
       <div className="w-full max-w-2xl z-10 space-y-6 my-8">
         <div className="flex flex-col items-center space-y-2 text-center">
@@ -193,7 +198,7 @@ export default function PrivacyAgreementClient() {
                         }))
                       }
                       disabled={!hasScrolledToBottom}
-                      className="mt-0.5 h-4 w-4 min-h-4 min-w-4 shrink-0 rounded border-slate-400 text-accentBlue-600 focus:ring-accentBlue-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                      className="mt-0.5 h-4 w-4 min-h-4 min-w-4 shrink-0 rounded border-slate-400 text-accentBlue-600 dark:text-accentBlue-400 focus:ring-accentBlue-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                       required
                     />
                     <label
@@ -215,7 +220,7 @@ export default function PrivacyAgreementClient() {
               <Button
                 type="submit"
                 disabled={!allAcknowledgementsChecked || !hasScrolledToBottom || isPending || isDisagreeing}
-                className="w-full bg-primary hover:bg-primary/90 text-white font-medium shadow-md shadow-primary/10 transition-all duration-200"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-md shadow-primary/10 transition-all duration-200"
               >
                 {isPending ? (
                   <>

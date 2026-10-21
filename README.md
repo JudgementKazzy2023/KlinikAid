@@ -32,7 +32,7 @@ KlinikAid serves five roles, each with hard-enforced access boundaries: **Admin*
 
 ## Quick Start
 
-**Prerequisites:** Node.js 18+, npm, a Supabase project, a Gemini API key.
+**Prerequisites:** Node.js 20.19+ (CI runs Node 22), npm, a Supabase project, a Gemini API key.
 
 ```bash
 git clone <repository-url>
@@ -41,7 +41,7 @@ npm install
 ```
 
 1. Copy `.env.example` to `.env.local` and fill in your own values.
-2. **Fresh Supabase project:** run `src/lib/db/schema.sql` once via the SQL editor or `psql` (see [database setup](documentation/DATABASE.md#database-setup)). It includes the current schema through migration 36; do not replay those migrations. **Existing database:** apply only `migration_N.sql` files newer than your recorded history, in order.
+2. **Fresh Supabase project:** run `src/lib/db/schema.sql` once via the SQL editor or `psql` (see [database setup](documentation/DATABASE.md#database-setup)). It includes the current schema through migration 37; do not replay those migrations. **Existing database:** apply only `migration_N.sql` files newer than your recorded history, in order.
 3. Run the dev server:
 
 ```bash

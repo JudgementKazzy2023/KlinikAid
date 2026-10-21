@@ -13,6 +13,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Lock, Mail, Loader2, KeyRound, ShieldAlert, CheckCircle, Info } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { focusRingClass } from "@/lib/focus-ring";
 
 // Every `/login?error=<code>` producer in the app, mapped to an app-owned message.
 // The query string is attacker-controllable, so an unknown code renders nothing
@@ -43,6 +44,11 @@ const LOGIN_ERROR_MESSAGES = new Map<string, { title: string; description: strin
   ],
 ]);
 
+/**
+ * Sign-in form state and submission: email/password, the resend-confirmation
+ * branch for unconfirmed addresses, and the MFA code field that replaces the
+ * credentials after a mfa_required status.
+ */
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -127,8 +133,8 @@ function LoginForm() {
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 overflow-hidden">
       {/* Background clinical-theme decorative circles */}
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[80px]" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[80px]" />
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 dark:bg-primary/25 blur-[80px]" aria-hidden="true" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 dark:bg-emerald-500/20 blur-[80px]" aria-hidden="true" />
 
       <div className="w-full max-w-md z-10 space-y-6">
         <div className="flex flex-col items-center space-y-2 text-center animate-fade-in">
@@ -137,7 +143,7 @@ function LoginForm() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             KlinikAid
           </h1>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
             Bloodcare Medical Laboratory
           </p>
         </div>
@@ -155,7 +161,7 @@ function LoginForm() {
           </CardHeader>
 
           <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pb-4">
               {loginNotice && (
                 <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/50">
                   <ShieldAlert className="h-4 w-4" />
@@ -201,7 +207,7 @@ function LoginForm() {
                             type="button"
                             onClick={handleResendConfirmation}
                             disabled={isPending}
-                            className="font-medium underline"
+                            className={`font-medium underline ${focusRingClass}`}
                           >
                             Send a new confirmation link
                           </button>
@@ -218,7 +224,7 @@ function LoginForm() {
                   <div className="space-y-2">
                     <Label htmlFor="email">Email Address</Label>
                     <div className="relative">
-                      <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <Mail className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                       <Input
                         id="email"
                         type="email"
@@ -236,12 +242,12 @@ function LoginForm() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Password</Label>
-                      <Link href="/forgot-password" className="inline-flex items-center min-h-6 -my-1 text-xs text-accentBlue-600 hover:underline">
+                      <Link href="/forgot-password" className="inline-flex items-center min-h-6 -my-1 text-xs text-accentBlue-600 dark:text-accentBlue-400 hover:underline">
                         Forgot password?
                       </Link>
                     </div>
                     <div className="relative">
-                      <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <Lock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                       <Input
                         id="password"
                         type="password"
@@ -261,7 +267,7 @@ function LoginForm() {
                 <div className="space-y-2">
                   <Label htmlFor="totpCode">Authentication Code</Label>
                   <div className="relative">
-                    <KeyRound className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="totpCode"
                       type="text"
@@ -285,7 +291,7 @@ function LoginForm() {
             <CardFooter className="flex flex-col space-y-4">
               <Button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary/90 text-white font-medium shadow-md shadow-primary/10 transition-all duration-200"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-md shadow-primary/10 transition-all duration-200"
                 disabled={isPending}
               >
                 {isPending ? (
@@ -303,7 +309,7 @@ function LoginForm() {
               {!mfaRequired && (
                 <div className="text-sm text-center text-slate-500 dark:text-slate-400 mt-2">
                   Don&apos;t have an account?{" "}
-                  <Link href="/register" className="inline-flex items-center min-h-6 -my-1 text-accentBlue-600 hover:underline">
+                  <Link href="/register" className="inline-flex items-center min-h-6 -my-1 text-accentBlue-600 dark:text-accentBlue-400 hover:underline">
                     Sign Up
                   </Link>
                 </div>
@@ -328,11 +334,16 @@ function LoginForm() {
   );
 }
 
+/**
+ * Login route. LoginForm reads the search params (redirect target, error and
+ * notice codes), so the page renders it inside Suspense with a spinner until
+ * hydration.
+ */
 export default function LoginPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-accentBlue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-accentBlue-600 dark:text-accentBlue-400" />
       </div>
     }>
       <LoginForm />

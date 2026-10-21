@@ -18,6 +18,7 @@ import {
   type StaffFormValues,
   type StaffMember,
 } from "@/app/(dashboard)/admin/staff/staff-form";
+import { focusRingClass } from "@/lib/focus-ring";
 
 export interface CreatedAccount {
   name: string;
@@ -50,17 +51,17 @@ const DEPARTMENT_OPTIONS = [
   { value: "ecg", label: "ECG" },
 ] as const;
 
-const FIELD = "h-10 text-sm focus-visible:ring-2 focus-visible:ring-ring/40";
+const FIELD = "h-10 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
 
 function Field({ label, htmlFor, error, children }: { label: string; htmlFor: string; error?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-900">
+      <label htmlFor={htmlFor} className="block text-sm font-medium text-slate-900 dark:text-slate-100">
         {label}
       </label>
       {children}
       {error && (
-        <p id={`${htmlFor}-error`} role="alert" className="text-xs text-rose-600">
+        <p id={`${htmlFor}-error`} role="alert" className="text-xs text-rose-600 dark:text-rose-400">
           {error}
         </p>
       )}
@@ -72,8 +73,8 @@ function Group({ title, hint, children }: { title: string; hint?: string; childr
   return (
     <section className="space-y-4">
       <div>
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">{title}</h3>
-        {hint && <p className="mt-0.5 text-xs text-slate-500">{hint}</p>}
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{title}</h3>
+        {hint && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
       </div>
       {children}
     </section>
@@ -116,14 +117,14 @@ export default function StaffSheet(props: StaffSheetProps) {
       disablePointerDismissal={true}
     >
       <SheetContent
-        className="gap-0 bg-white p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-md"
+        className="gap-0 bg-white p-0 dark:bg-slate-900 data-[side=right]:w-full data-[side=right]:sm:max-w-md"
         data-testid="staff-sheet"
       >
-        <SheetHeader className="shrink-0 gap-1 border-b border-slate-200 px-6 py-5 pr-14">
-          <SheetTitle className="text-lg font-semibold tracking-tight text-slate-900">
+        <SheetHeader className="shrink-0 gap-1 border-b border-slate-200 px-6 py-5 pr-14 dark:border-slate-800">
+          <SheetTitle className="text-lg font-semibold tracking-tight text-slate-900 dark:text-slate-100">
             {created ? "Account created" : editingStaff ? "Edit staff member" : "Add staff member"}
           </SheetTitle>
-          <SheetDescription className="text-sm text-slate-600">
+          <SheetDescription className="text-sm text-slate-600 dark:text-slate-400">
             {created
               ? "Share the temporary password now. It is not stored and cannot be shown again."
               : editingStaff
@@ -137,37 +138,41 @@ export default function StaffSheet(props: StaffSheetProps) {
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6">
               <div className="flex items-start gap-3 rounded-lg border border-primary/25 bg-primary/5 p-4">
                 <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                <div className="min-w-0 text-sm text-slate-800">
+                <div className="min-w-0 text-sm text-slate-800 dark:text-slate-200">
                   <p><span className="font-semibold">{created.name}</span> can now sign in.</p>
-                  <p className="mt-0.5 truncate text-slate-600" title={created.email}>{created.email}</p>
-                  <p className="mt-2 text-[13px] text-slate-600">They will be asked to set up an authenticator on first login.</p>
+                  <p className="mt-0.5 truncate text-slate-600 dark:text-slate-400" title={created.email}>{created.email}</p>
+                  <p className="mt-2 text-[13px] text-slate-600 dark:text-slate-400">They will be asked to set up an authenticator on first login.</p>
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="created-password" className="block text-sm font-medium text-slate-900">
+                <label htmlFor="created-password" className="block text-sm font-medium text-slate-900 dark:text-slate-100">
                   Temporary password
                 </label>
                 <div className="flex gap-2">
-                  <Input id="created-password" readOnly value={created.password} className={cn(FIELD, "flex-1 bg-slate-50 font-mono tracking-wide")} onFocus={(e) => e.currentTarget.select()} />
+                  <Input id="created-password" readOnly value={created.password} className={cn(FIELD, "flex-1 bg-slate-50 font-mono tracking-wide dark:bg-slate-800")} onFocus={(e) => e.currentTarget.select()} />
                   <Button type="button" variant="outline" onClick={copyPassword} className="h-10 gap-2 px-3.5">
                     <Copy className="h-4 w-4" />
                     {copied ? "Copied" : "Copy"}
                   </Button>
                 </div>
-                <p className="text-xs text-slate-500">Send it over a secure channel. They should change it after signing in.</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Send it over a secure channel. They should change it after signing in.</p>
               </div>
             </div>
-            <div className="shrink-0 border-t border-slate-200 bg-white px-6 py-4">
-              <Button type="button" onClick={() => onOpenChange(false)} className="h-10 w-full bg-primary text-white hover:bg-primary/90">
+            <div className="shrink-0 border-t border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-900">
+              <Button type="button" onClick={() => onOpenChange(false)} className="h-10 w-full bg-primary text-primary-foreground hover:bg-primary/90">
                 Done
               </Button>
             </div>
           </>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex min-h-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1 space-y-8 overflow-y-auto px-6 py-6">
+            {/* `scroll-pb-1` reserves 4px of scroll padding at the bottom of the
+                scroll area: when the browser scrolls a focused card into view it
+                leaves that room, so the card's 3px focus ring is not clipped by
+                the scroll area's bottom edge (issue #188). */}
+            <div className="min-h-0 flex-1 space-y-8 overflow-y-auto scroll-pb-1 px-6 py-6">
               {errorMsg && (
-                <div role="alert" className="flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">
+                <div role="alert" className="flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">
                   <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{errorMsg}</span>
                 </div>
@@ -181,9 +186,9 @@ export default function StaffSheet(props: StaffSheetProps) {
                   <Input id="email" type="email" autoComplete="off" placeholder="name@bloodcare.com" aria-invalid={!!errors.email} aria-describedby={errors.email ? "email-error" : undefined} className={FIELD} {...register("email")} />
                 </Field>
                 {editingStaff && (
-                  <div className="rounded-lg border border-slate-200 p-4">
-                    <p className="text-sm font-medium text-slate-900">Password</p>
-                    <p className="mt-0.5 text-[13px] text-slate-600">Administrators cannot view or set passwords. Email the person a recovery link instead.</p>
+                  <div className="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Password</p>
+                    <p className="mt-0.5 text-[13px] text-slate-600 dark:text-slate-400">Administrators cannot view or set passwords. Email the person a recovery link instead.</p>
                     <Button type="button" variant="outline" onClick={onSendReset} disabled={sendingReset} className="mt-3 h-9 gap-2 border-primary/30 text-primary hover:bg-primary/5">
                       {sendingReset ? (<><Loader2 className="h-4 w-4 animate-spin" />Sending…</>) : "Send password reset email"}
                     </Button>
@@ -213,8 +218,9 @@ export default function StaffSheet(props: StaffSheetProps) {
                             aria-checked={selected}
                             onClick={() => setValue("department", opt.value, { shouldValidate: true, shouldDirty: true })}
                             className={cn(
-                              "h-10 rounded-md border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                              selected ? "border-primary bg-primary/5 text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary))]" : "border-input bg-white text-slate-700 hover:border-slate-400"
+                              "h-10 rounded-md border px-3 text-sm font-medium transition-colors",
+                              focusRingClass,
+                              selected ? "border-primary bg-primary/5 text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary))]" : "border-input bg-white text-slate-700 hover:border-slate-400 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600"
                             )}
                           >
                             {opt.label}
@@ -238,11 +244,11 @@ export default function StaffSheet(props: StaffSheetProps) {
               <input type="hidden" {...register("employeeType")} />
             </div>
 
-            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-200 bg-white px-6 py-4">
+            <div className="flex shrink-0 items-center justify-end gap-2 border-t border-slate-200 bg-white px-6 py-4 dark:border-slate-800 dark:bg-slate-900">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="h-10 px-4">
                 Cancel
               </Button>
-              <Button type="submit" disabled={submitting || !rolesLoaded} className="h-10 min-w-[11rem] bg-primary px-4 font-semibold text-white hover:bg-primary/90">
+              <Button type="submit" disabled={submitting || !rolesLoaded} className="h-10 min-w-[11rem] bg-primary px-4 font-semibold text-primary-foreground hover:bg-primary/90">
                 {submitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</>) : editingStaff ? "Save changes" : "Create account"}
               </Button>
             </div>

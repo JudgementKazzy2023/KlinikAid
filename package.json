@@ -10,6 +10,7 @@
     "review": "npm run verify --",
     "test": "vitest run && node --test next.config.test.mjs",
     "test:watch": "vitest",
+    "test:chat-eval": "CHAT_RETRIEVAL_EVAL=live NODE_OPTIONS=\"$NODE_OPTIONS --experimental-websocket\" node --env-file=.env.local node_modules/vitest/vitest.mjs run src/lib/chat/retrieval-eval.test.ts",
     "test:rls": "NODE_OPTIONS=\"$NODE_OPTIONS --experimental-websocket\" vitest run --config vitest.rls.config.ts",
     "typecheck": "tsc --noEmit",
     "test:browser": "playwright test",
@@ -45,16 +46,16 @@
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
-    "@types/node": "^20",
+    "@types/node": "^22.20.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "eslint": "^8",
     "eslint-config-next": "15.5.28",
     "postcss": "^8",
-    "shadcn": "^4.8.0",
     "tailwindcss": "^3.4.1",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5",
-    "vitest": "^2.1.9"
+    "vite": "^8.3.4",
+    "vitest": "^4.1.12"
   }
 }

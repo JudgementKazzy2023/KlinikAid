@@ -34,6 +34,7 @@ import {
   extractLabResultValuesAction,
   logLabOcrIdentityOverrideAction,
 } from "@/app/(dashboard)/department/records/entry/actions";
+import { focusRingClass } from "@/lib/focus-ring";
 
 const STRICT_NUMBER_REGEX = /^-?\d+(\.\d+)?$/;
 
@@ -493,9 +494,10 @@ export default function RecordEntryClient({
       <div className="flex items-center gap-4">
         <button
           onClick={() => router.push(`/department/records?department=${activeDept}`)}
-          className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-slate-600 dark:text-slate-400"
+          aria-label="Back to records"
+          className={`p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all text-slate-600 dark:text-slate-400 ${focusRingClass}`}
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         </button>
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 dark:text-white">
@@ -601,7 +603,7 @@ export default function RecordEntryClient({
                       setParamTouched({});
                       setOcrSuggestedParams([]);
                     }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white outline-none focus:ring-3 focus:ring-teal-500 font-medium"
                   >
                     <optgroup label="Structured (flagged against reference ranges)">
                       {(Object.keys(LAB_PANEL_LABELS) as LabPanelName[]).map((panel) => (
@@ -643,13 +645,13 @@ export default function RecordEntryClient({
                         setLabOcrFile(e.target.files?.[0] || null);
                         setOcrSuggestedParams([]);
                       }}
-                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white disabled:opacity-50"
+                      className="w-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-xs text-slate-700 dark:text-slate-300 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-700 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white disabled:opacity-50"
                     />
                     <Button
                       type="button"
                       onClick={handleExtractLabValues}
                       disabled={!labOcrFile || isExtractingLabValues || isSubmitting}
-                      className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold"
+                      className="bg-teal-700 hover:bg-teal-800 text-white text-xs font-semibold"
                     >
                       {isExtractingLabValues ? (
                         <>
@@ -674,7 +676,7 @@ export default function RecordEntryClient({
                 {/* Parameters List */}
                 {!isNarrativeLabTest && (
                 <div className="space-y-4 pt-2">
-                  <h3 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                     Panel Parameters
                   </h3>
 
@@ -690,11 +692,11 @@ export default function RecordEntryClient({
                     const isFlagged = paramFlags[paramName];
 
                     // Class highlights on blur
-                    let inputClass = "focus:ring-2 focus:ring-teal-500 border-slate-200 dark:border-slate-800";
+                    let inputClass = "focus:ring-3 focus:ring-teal-500 border-slate-200 dark:border-slate-800";
                     if (touched) {
                       inputClass = isFlagged
-                        ? "border-red-500 bg-red-50/20 text-red-900 dark:text-red-400 focus:ring-red-500"
-                        : "border-green-500 bg-green-50/10 text-green-900 dark:text-green-400 focus:ring-green-500";
+                        ? "border-red-500 bg-red-50/20 text-red-900 dark:text-red-400 focus:ring-3 focus:ring-red-500"
+                        : "border-green-500 bg-green-50/10 text-green-900 dark:text-green-400 focus:ring-3 focus:ring-green-500";
                     }
 
                     return (
@@ -716,10 +718,10 @@ export default function RecordEntryClient({
                             value={value}
                             onChange={(e) => handleParamChange(paramName, e.target.value)}
                             onBlur={() => handleParamBlur(paramName)}
-                            className={`w-full pr-16 pl-4 py-2.5 text-sm rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none transition-all ${inputClass}`}
+                            className={`w-full pr-16 pl-4 py-2.5 text-sm rounded-xl border bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 outline-none transition-all ${inputClass}`}
                           />
                           {unit && (
-                            <span className="absolute right-4 top-3 text-xs font-semibold text-slate-400 dark:text-slate-500 pointer-events-none">
+                            <span className="absolute right-4 top-3 text-xs font-semibold text-slate-500 dark:text-slate-400 pointer-events-none">
                               {unit}
                             </span>
                           )}
@@ -777,7 +779,7 @@ export default function RecordEntryClient({
                         placeholder="Enter the reported values and observations..."
                         value={findings}
                         onChange={(e) => setFindings(e.target.value)}
-                        className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-3 focus:ring-teal-500"
                       />
                     </div>
 
@@ -792,7 +794,7 @@ export default function RecordEntryClient({
                         placeholder="Enter a summary, if the result sheet gives one..."
                         value={impression}
                         onChange={(e) => setImpression(e.target.value)}
-                        className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-3 focus:ring-teal-500"
                       />
                     </div>
                   </div>
@@ -817,7 +819,7 @@ export default function RecordEntryClient({
                     }
                     value={customTestType}
                     onChange={(e) => setCustomTestType(e.target.value)}
-                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-4 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-3 focus:ring-teal-500"
                   />
                 </div>
 
@@ -888,7 +890,7 @@ export default function RecordEntryClient({
                     placeholder="Enter detailed observation / study findings here..."
                     value={findings}
                     onChange={(e) => setFindings(e.target.value)}
-                    className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-3 focus:ring-teal-500"
                   />
                 </div>
 
@@ -902,7 +904,7 @@ export default function RecordEntryClient({
                     placeholder="Enter overall medical impression..."
                     value={impression}
                     onChange={(e) => setImpression(e.target.value)}
-                    className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-3 focus:ring-teal-500"
                   />
                 </div>
               </div>
@@ -918,7 +920,7 @@ export default function RecordEntryClient({
                 placeholder="Any additional notes or comments regarding patient status or equipment..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full px-4 py-3 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-3 focus:ring-teal-500"
               />
             </div>
 
@@ -927,14 +929,14 @@ export default function RecordEntryClient({
               <button
                 type="button"
                 onClick={() => router.push(`/department/records?department=${activeDept}`)}
-                className="px-5 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                className={`px-5 py-2.5 text-sm font-semibold rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all ${focusRingClass}`}
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-sm hover:shadow-md disabled:opacity-50 transition-all"
+                className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold rounded-xl bg-teal-700 hover:bg-teal-800 text-white shadow-sm hover:shadow-md disabled:opacity-50 transition-all ${focusRingClass}`}
               >
                 <Save className="h-4 w-4" />
                 {isSubmitting ? "Saving..." : "Save Results"}
@@ -1004,7 +1006,7 @@ export default function RecordEntryClient({
                 setOcrNameMismatch(null);
                 toast.info("Result sheet values were not applied.");
               }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold"
             >
               Don&apos;t apply
             </Button>
@@ -1024,7 +1026,7 @@ export default function RecordEntryClient({
             <Button
               type="button"
               onClick={() => setIsOcrNoticeOpen(false)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold"
             >
               Got it
             </Button>
@@ -1060,7 +1062,7 @@ export default function RecordEntryClient({
                 setOutOfRangeConfirm([]);
                 await submitRecords(true);
               }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold"
             >
               Save Flagged Results
             </Button>

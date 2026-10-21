@@ -16,6 +16,7 @@ import {
 import { format } from "date-fns";
 import { DEPARTMENTS, testTypeLabel } from "@/lib/constants";
 import { formatPhTimeFull, getAge } from "@/lib/utils";
+import { focusRingClass } from "@/lib/focus-ring";
 
 interface QueuePatient {
   id: string;
@@ -260,8 +261,8 @@ export default function DepartmentRecordsClient({
             className={`flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all flex-1 md:flex-none ${
               activeTab === "queue"
                 ? "bg-white dark:bg-slate-800 text-slate-950 dark:text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-            }`}
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+            } ${focusRingClass}`}
           >
             <Users className="h-4 w-4" />
             Open Queue ({initialQueue.length})
@@ -271,8 +272,8 @@ export default function DepartmentRecordsClient({
             className={`flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all flex-1 md:flex-none ${
               activeTab === "history"
                 ? "bg-white dark:bg-slate-800 text-slate-950 dark:text-white shadow-sm"
-                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-            }`}
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+            } ${focusRingClass}`}
           >
             <History className="h-4 w-4" />
             Records History
@@ -283,13 +284,13 @@ export default function DepartmentRecordsClient({
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-stretch sm:items-center">
           {/* Search bar */}
           <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
               type="text"
               placeholder={activeTab === "queue" ? "Search patient or queue..." : "Search patient or test..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-4 py-2 w-full text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+              className="pl-9 pr-4 py-2 w-full text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-3 focus:ring-teal-500 focus:border-transparent transition-all"
             />
           </div>
         </div>
@@ -376,17 +377,17 @@ export default function DepartmentRecordsClient({
                       {vitals && (
                         <div className="mt-3 grid grid-cols-3 gap-2 bg-slate-50 dark:bg-slate-950 p-2 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
                           <div>
-                            <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 block uppercase">BP</span>
+                            <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block uppercase">BP</span>
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{vitals.blood_pressure || "—"}</span>
                           </div>
                           <div>
-                            <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 block uppercase">Temp</span>
+                            <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block uppercase">Temp</span>
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
                               {vitals.temperature_c ? `${vitals.temperature_c}°C` : "—"}
                             </span>
                           </div>
                           <div>
-                            <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 block uppercase">Weight</span>
+                            <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 block uppercase">Weight</span>
                             <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
                               {vitals.weight_kg ? `${vitals.weight_kg}kg` : "—"}
                             </span>
@@ -405,7 +406,7 @@ export default function DepartmentRecordsClient({
                       <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
                         <Link
                           href={`/department/records/entry/${item.patient_id}?department=${activeDept}`}
-                          className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-teal-600 hover:bg-teal-700 dark:bg-teal-600 dark:hover:bg-teal-500 text-white shadow-sm hover:shadow-md transition-all"
+                          className="w-full flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-bold rounded-xl bg-teal-700 hover:bg-teal-800 dark:bg-teal-700 dark:hover:bg-teal-700 text-white shadow-sm hover:shadow-md transition-all"
                         >
                           {item.status === "in_progress" ? "Edit Results" : "Enter Results"}
                           <ChevronRight className="h-3.5 w-3.5" />
@@ -421,19 +422,19 @@ export default function DepartmentRecordsClient({
           {/* Queue Statistics Sidebar (1 span) */}
           <div className="space-y-6">
             <div className="bg-slate-50 dark:bg-slate-900 p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800 space-y-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Department Overview
               </h3>
               
               <div className="grid grid-cols-2 gap-4">
                 <div className="p-4 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 rounded-xl">
-                  <span className="text-xs text-slate-400 dark:text-slate-500 block">Waiting</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 block">Waiting</span>
                   <span className="text-2xl font-black text-slate-900 dark:text-white mt-1 block">
                     {initialQueue.filter(q => q.status === "waiting").length}
                   </span>
                 </div>
                 <div className="p-4 bg-white dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800 rounded-xl">
-                  <span className="text-xs text-slate-400 dark:text-slate-500 block">In Progress</span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 block">In Progress</span>
                   <span className="text-2xl font-black text-purple-600 dark:text-purple-400 mt-1 block">
                     {initialQueue.filter(q => q.status === "in_progress").length}
                   </span>
@@ -479,7 +480,7 @@ export default function DepartmentRecordsClient({
                     {/* Header: Patient name, Test type, Flag badge, Date */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3">
                       <div>
-                        <span className="text-xs font-semibold text-slate-400 dark:text-slate-500">
+                        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                           {dateFormatted} • Entered by {rec?.full_name || "Unknown"}
                         </span>
                         <h3 className="font-extrabold text-slate-900 dark:text-white text-lg mt-0.5">
@@ -512,7 +513,7 @@ export default function DepartmentRecordsClient({
 
                     {/* Parameters grid */}
                     <div className="mt-4">
-                      <h4 className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+                      <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
                         Test Parameters
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -543,13 +544,13 @@ export default function DepartmentRecordsClient({
                                   {param.test_value}
                                 </span>
                                 {param.unit && (
-                                  <span className="text-xs text-slate-400 dark:text-slate-500 font-semibold">
+                                  <span className="text-xs text-slate-500 dark:text-slate-400 font-semibold">
                                     {param.unit}
                                   </span>
                                 )}
                               </div>
                               {isNumeric && (
-                                <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500 mt-1">
+                                <div className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-1">
                                   Ref: {param.reference_range_min ?? "—"} to {param.reference_range_max ?? "—"}
                                 </div>
                               )}
@@ -562,7 +563,7 @@ export default function DepartmentRecordsClient({
                     {/* Report Notes */}
                     {report.notes && (
                       <div className="mt-4 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-100 dark:border-slate-800">
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
                           Technician Notes
                         </span>
                         <p className="text-sm text-slate-700 dark:text-slate-300 mt-1 whitespace-pre-wrap">

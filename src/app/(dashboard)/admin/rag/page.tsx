@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, hasPermission } from "@/lib/auth/helpers";
 import { createClient } from "@/lib/supabase/server";
 import RagManagerClient from "@/components/RagManagerClient";
+import { timed } from "@/lib/perf/timing";
 
 export const dynamic = "force-dynamic";
 
@@ -30,10 +31,12 @@ export default async function RagPage() {
   }
   
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("rag_documents")
-    .select("id, title, content, metadata, created_at")
-    .order("created_at", { ascending: false });
+  const { data, error } = await timed("page.rag.documents", () =>
+    supabase
+      .from("rag_documents")
+      .select("id, title, content, metadata, created_at")
+      .order("created_at", { ascending: false })
+  );
     
   if (error) {
     console.error("Failed to fetch RAG documents:", error);

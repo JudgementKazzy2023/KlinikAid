@@ -12,7 +12,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { PASSWORD_REQUIREMENT_TEXT, validateAge, validatePassword, ADDRESS_MAX } from "@/lib/validation";
 import TermsAndConditionsModal from "@/components/TermsAndConditionsModal";
+import { focusRingClass } from "@/lib/focus-ring";
 
+/**
+ * The registration form itself: field state, the age/password checks that
+ * gate submission, and the Terms-and-Conditions read-through the checkbox
+ * waits on.
+ */
 function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
   const [emailPending, setEmailPending] = useState<string | null>(null);
@@ -75,8 +81,8 @@ function RegisterForm() {
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 overflow-hidden">
       {/* Background clinical-theme decorative circles */}
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[80px] pointer-events-none" />
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 dark:bg-primary/25 blur-[80px] pointer-events-none" aria-hidden="true" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 dark:bg-emerald-500/20 blur-[80px] pointer-events-none" aria-hidden="true" />
 
       <div className="w-full max-w-xl z-10 space-y-6 my-8">
         <div className="flex flex-col items-center space-y-2 text-center">
@@ -85,7 +91,7 @@ function RegisterForm() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             KlinikAid
           </h1>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
             Create Your Patient Account
           </p>
         </div>
@@ -107,11 +113,11 @@ function RegisterForm() {
                 </p>
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   Open the link to activate your account, then{" "}
-                  <Link href="/login" className="text-accentBlue-600 hover:underline font-medium">
+                  <Link href="/login" className="text-accentBlue-600 dark:text-accentBlue-400 hover:underline font-medium">
                     log in here
                   </Link>
                   . Already have an account? Sign in, or use{" "}
-                  <Link href="/forgot-password" className="text-accentBlue-600 hover:underline font-medium">
+                  <Link href="/forgot-password" className="text-accentBlue-600 dark:text-accentBlue-400 hover:underline font-medium">
                     Forgot password
                   </Link>
                   .
@@ -135,7 +141,7 @@ function RegisterForm() {
             </CardHeader>
 
             <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pb-4">
                 {error && (
                   <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/50">
                     <ShieldAlert className="h-4 w-4" />
@@ -149,7 +155,7 @@ function RegisterForm() {
                   <div className="space-y-2">
                     <Label htmlFor="firstName">First Name</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <User className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                       <Input
                         id="firstName"
                         type="text"
@@ -167,7 +173,7 @@ function RegisterForm() {
                   <div className="space-y-2">
                     <Label htmlFor="lastName">Last Name</Label>
                     <div className="relative">
-                      <User className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <User className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                       <Input
                         id="lastName"
                         type="text"
@@ -207,26 +213,29 @@ function RegisterForm() {
 
                   <div className="space-y-2">
                     <Label htmlFor="gender">Gender</Label>
-                    <select
-                      id="gender"
-                      autoComplete="sex"
-                      className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 md:text-sm dark:bg-input/30"
-                      value={formData.gender}
-                      onChange={handleChange}
-                      disabled={isPending}
-                      required
-                    >
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                      <option value="other">Other</option>
-                    </select>
+                    <div className="relative">
+                      <User className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                      <select
+                        id="gender"
+                        autoComplete="sex"
+                        className="h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 pl-10 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 md:text-sm dark:bg-input/30"
+                        value={formData.gender}
+                        onChange={handleChange}
+                        disabled={isPending}
+                        required
+                      >
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="contactNumber">Contact Number</Label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Phone className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="contactNumber"
                       type="tel"
@@ -244,7 +253,7 @@ function RegisterForm() {
                 <div className="space-y-2">
                   <Label htmlFor="address">Address</Label>
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <MapPin className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="address"
                       type="text"
@@ -266,7 +275,7 @@ function RegisterForm() {
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Mail className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="email"
                       type="email"
@@ -284,7 +293,7 @@ function RegisterForm() {
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Lock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="password"
                       type="password"
@@ -305,28 +314,33 @@ function RegisterForm() {
 
                 <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/40 p-4 space-y-2">
                   <div className="grid grid-cols-[1rem_1fr] items-start gap-3">
-                    <input
-                      id="acceptedTerms"
-                      type="checkbox"
-                      checked={acceptedTerms}
-                      onChange={(e) => setAcceptedTerms(e.target.checked)}
-                      disabled={!hasReadTerms || isPending}
-                      required
-                      className="mt-1 h-4 w-4 min-h-4 min-w-4 shrink-0 rounded border-slate-400 text-accentBlue-600 focus:ring-accentBlue-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-                    />
+                    <label
+                      htmlFor="acceptedTerms"
+                      className="relative mt-1 flex h-4 w-4 shrink-0 items-center justify-center after:absolute after:-inset-4 after:content-['']"
+                    >
+                      <input
+                        id="acceptedTerms"
+                        type="checkbox"
+                        checked={acceptedTerms}
+                        onChange={(e) => setAcceptedTerms(e.target.checked)}
+                        disabled={!hasReadTerms || isPending}
+                        required
+                        className="h-4 w-4 min-h-4 min-w-4 shrink-0 rounded border-slate-400 text-accentBlue-600 dark:text-accentBlue-400 focus:ring-accentBlue-500 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                      />
+                    </label>
                     <label
                       htmlFor="acceptedTerms"
                       className={`text-xs leading-relaxed select-none ${
                         hasReadTerms
                           ? "text-slate-700 dark:text-slate-300"
-                          : "text-slate-500 dark:text-slate-500"
+                          : "text-slate-500 dark:text-slate-400"
                       }`}
                     >
                       I accept the KlinikAid{" "}
                       <button
                         type="button"
                         onClick={() => setIsTermsModalOpen(true)}
-                        className="font-semibold text-accentBlue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-accentBlue-500/40 rounded-sm"
+                        className={`font-semibold text-accentBlue-600 dark:text-accentBlue-400 hover:underline rounded-sm ${focusRingClass}`}
                       >
                         Terms and Conditions
                       </button>
@@ -345,7 +359,7 @@ function RegisterForm() {
               <CardFooter className="flex flex-col space-y-4">
                 <Button
                   type="submit"
-                  className="w-full bg-primary hover:bg-primary/90 text-white font-medium shadow-md shadow-primary/10 transition-all duration-200"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-md shadow-primary/10 transition-all duration-200"
                   disabled={isPending || !acceptedTerms}
                 >
                   {isPending ? (
@@ -360,7 +374,7 @@ function RegisterForm() {
 
                 <div className="text-sm text-center text-slate-500 dark:text-slate-400">
                   Already have an account?{" "}
-                  <Link href="/login" className="inline-flex items-center min-h-6 -my-1 text-accentBlue-600 hover:underline">
+                  <Link href="/login" className="inline-flex items-center min-h-6 -my-1 text-accentBlue-600 dark:text-accentBlue-400 hover:underline">
                     Sign In
                   </Link>
                 </div>
@@ -378,11 +392,15 @@ function RegisterForm() {
   );
 }
 
+/**
+ * Registration route. RegisterForm reads the search params, so the page
+ * renders it inside Suspense and shows a spinner until hydration.
+ */
 export default function RegisterPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-accentBlue-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-accentBlue-600 dark:text-accentBlue-400" />
       </div>
     }>
       <RegisterForm />

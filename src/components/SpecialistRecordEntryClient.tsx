@@ -188,7 +188,7 @@ export default function SpecialistRecordEntryClient({ patient }: SpecialistRecor
                   setSelectedTestType(e.target.value);
                   setParamValues({});
                 }}
-                className="w-full pl-3 pr-8 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 h-10 appearance-none"
+                className="w-full pl-3 pr-8 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 outline-none focus:ring-3 focus:ring-indigo-500 h-10 appearance-none"
               >
                 {Object.keys(LAB_TEST_GROUPS).map(g => (
                   <option key={g} value={g}>{LAB_PANEL_LABELS[g as LabTestPanel] ?? g}</option>
@@ -281,7 +281,7 @@ export default function SpecialistRecordEntryClient({ patient }: SpecialistRecor
           <Button
             type="submit"
             disabled={isSubmitting}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-2"
+            className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-2"
           >
             <Save className="h-4 w-4" />
             {isSubmitting ? "Saving..." : "Save Record"}
@@ -317,7 +317,7 @@ export default function SpecialistRecordEntryClient({ patient }: SpecialistRecor
                 setOutOfRangeConfirm([]);
                 await submitRecord(true);
               }}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold"
             >
               Save Flagged Results
             </Button>

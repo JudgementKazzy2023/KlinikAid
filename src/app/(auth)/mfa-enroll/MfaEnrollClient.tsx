@@ -13,6 +13,11 @@ import { ShieldAlert, KeyRound, Loader2, ArrowRight } from "lucide-react";
 import Image from "next/image";
 import { getPhoneFactors, getTotpFactors } from "@/lib/auth/mfa";
 
+/**
+ * Forced MFA enrolment card: clears any stale unverified factor, enrols a
+ * TOTP one, shows its QR code and backup secret, and releases the account
+ * only after the first code verifies.
+ */
 export default function MfaEnrollClient() {
   const router = useRouter();
   const supabase = createClient();
@@ -153,8 +158,8 @@ export default function MfaEnrollClient() {
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 overflow-hidden">
       {/* Background clinical-theme decorative circles */}
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[80px]" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[80px]" />
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 dark:bg-primary/25 blur-[80px]" aria-hidden="true" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 dark:bg-emerald-500/20 blur-[80px]" aria-hidden="true" />
 
       <div className="w-full max-w-lg z-10 space-y-6">
         <div className="flex flex-col items-center space-y-2 text-center">
@@ -226,7 +231,7 @@ export default function MfaEnrollClient() {
                 <div className="space-y-2 border-t border-slate-100 dark:border-slate-800/80 pt-4">
                   <Label htmlFor="code" className="font-bold">6-Digit Verification Code</Label>
                   <div className="relative">
-                    <KeyRound className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="code"
                       type="text"
@@ -247,7 +252,7 @@ export default function MfaEnrollClient() {
               <CardFooter className="flex flex-col space-y-3">
                 <Button
                   type="submit"
-                  className="w-full bg-primary hover:bg-primary/90 text-white font-medium shadow-md shadow-primary/10 transition-all duration-200"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-md shadow-primary/10 transition-all duration-200"
                   disabled={isPending || totpCode.length !== 6}
                 >
                   {isPending ? (

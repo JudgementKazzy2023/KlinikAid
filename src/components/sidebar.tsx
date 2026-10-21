@@ -6,6 +6,11 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/app/(auth)/logout/actions";
 import { cn } from "@/lib/utils";
+import {
+  NavigationPendingSignal,
+  useNavigationPending,
+} from "@/components/NavigationPending";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { USER_ROLES, DEPARTMENTS } from "@/lib/constants";
@@ -27,6 +32,7 @@ import {
   User,
   ShieldCheck,
 } from "lucide-react";
+import { focusRingClass } from "@/lib/focus-ring";
 
 export type SidebarIcon =
   | "LayoutDashboard"
@@ -79,14 +85,42 @@ const iconMap: Record<SidebarIcon, React.ComponentType<{ className?: string }>> 
   ShieldCheck,
 };
 
+/**
+ * Dashboard sidebar: branding, permission-filtered navigation links, and the
+ * signed-in user's badge with sign-out. Also rendered inside the mobile drawer.
+ */
 export default function Sidebar({ user, navItems, onLinkClick, className }: SidebarProps) {
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
+  const { pendingHref, startNavigation } = useNavigationPending();
 
   const handleLogout = () => {
     startTransition(async () => {
       await logoutAction();
     });
+  };
+
+  /**
+   * Raise the pending indicator for a clicked link (issue #182).
+   *
+   * The indicator is raised here, in the click handler, because that is the
+   * only moment the navigation is known to be starting: the router's own
+   * pending signal arrives a tick later, and a repeat visit to an
+   * already-visited route has no skeleton to fall back on.
+   */
+  const handleNavClick = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    href: string
+  ) => {
+    startNavigation(href, {
+      button: event.button,
+      metaKey: event.metaKey,
+      ctrlKey: event.ctrlKey,
+      shiftKey: event.shiftKey,
+      altKey: event.altKey,
+      defaultPrevented: event.defaultPrevented,
+    });
+    onLinkClick?.();
   };
 
   const roleInfo = USER_ROLES[user.role];
@@ -105,20 +139,27 @@ export default function Sidebar({ user, navItems, onLinkClick, className }: Side
             Bloodcare Lab Portal
           </span>
         </div>
+        <ThemeToggle className="ml-auto text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" />
       </div>
 
       {/* Navigation Links */}
       <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
+          const isNavigating = pendingHref === item.href;
           const Icon = iconMap[item.icon];
           return (
             <Link
               key={item.href}
               href={item.href}
-              onClick={onLinkClick}
+              onClick={(event) => handleNavClick(event, item.href)}
+              // The link is busy while its navigation runs: the content behind
+              // it is still the old page, and saying so keeps the state out of
+              // the link's own name (issue #182).
+              aria-busy={isNavigating || undefined}
               className={cn(
                 "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group",
+                focusRingClass,
                 isActive
                   ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-emerald-400"
                   : "text-slate-600 hover:text-slate-950 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800/50"
@@ -132,7 +173,15 @@ export default function Sidebar({ user, navItems, onLinkClick, className }: Side
                     : "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300"
                 )}
               />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {isNavigating ? (
+                <Loader2
+                  data-testid="sidebar-link-pending"
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5 animate-spin text-primary dark:text-emerald-400 motion-reduce:animate-none"
+                />
+              ) : null}
+              <NavigationPendingSignal href={item.href} />
             </Link>
           );
         })}

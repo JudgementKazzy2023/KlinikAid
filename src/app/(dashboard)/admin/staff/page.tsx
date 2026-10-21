@@ -1,14 +1,23 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import "@/lib/zod-csp";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { USER_ROLES, DEPARTMENTS } from "@/lib/constants";
 import { UserRole } from "@/types";
@@ -30,20 +39,49 @@ import {
   staffFormSchema,
   generateTempPassword,
   parseEmployeeTitles,
+  roleLabel,
   type DbRole,
   type StaffFormValues,
   type StaffMember,
 } from "./staff-form";
+import {
+  FILTER_ALL,
+  applyStaffFilters,
+  buildStaffFilters,
+  filterStaff,
+  hasActiveFilters,
+  parseStaffFilters,
+  type DepartmentFilterValue,
+  type StatusFilterValue,
+} from "./staff-filters";
 
-const ROLE_COLORS: Record<string, string> = {
-  admin: "bg-red-500 text-white dark:bg-red-600",
-  receptionist: "bg-accentBlue-500 text-white dark:bg-accentBlue-600",
-  department_staff: "bg-purple-500 text-white dark:bg-purple-600",
-  medical_specialist: "bg-indigo-500 text-white dark:bg-indigo-600",
-  patient: "bg-green-500 text-white dark:bg-green-600",
-};
+/**
+ * Role badge fill, shared with the sidebar badge (issue #153): white on the
+ * *-500/*-600 fills measured 2.28:1 to 4.47:1, so the *-700 step is used in
+ * both themes. One map, not a second copy with its own shades.
+ */
+const ROLE_COLORS: Record<string, { label: string; color: string } | undefined> = USER_ROLES;
+
+/** The department filter offers the clinical departments and "no department". */
+const DEPARTMENT_FILTER_OPTIONS: { value: DepartmentFilterValue; label: string }[] = [
+  { value: "laboratory", label: DEPARTMENTS.laboratory.label },
+  { value: "imaging", label: DEPARTMENTS.imaging.label },
+  { value: "ultrasound", label: DEPARTMENTS.ultrasound.label },
+  { value: "ecg", label: DEPARTMENTS.ecg.label },
+  { value: "none", label: "No department" },
+];
+
+const STATUS_FILTER_OPTIONS: { value: StatusFilterValue; label: string }[] = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+];
 
 export default function StaffManagementPage() {
+  // The filter state lives in the URL, so a filtered view survives a reload and
+  // can be shared. The query string is the only source of truth for the three
+  // filter dimensions; the search box keeps its own local state, as it always
+  // has.
+  const searchParams = useSearchParams();
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [dbRoles, setDbRoles] = useState<DbRole[]>([]);
   const [loading, setLoading] = useState(true);
@@ -108,15 +146,18 @@ export default function StaffManagementPage() {
     // telling an operator the registry is empty when it could not be read.
     setFetchError(null);
     try {
-      const res = await fetch("/api/admin/staff");
-      const json = await res.json();
-      if (json.success) {
-        setStaffList(json.data);
-      } else {
-        setFetchError(json.error || "The personnel registry could not be loaded.");
+      const outcome = await fetchJson<StaffMember[]>("/api/admin/staff");
+      if (outcome.kind === "failed") {
+        // The rows are cleared, so the table cannot show the last successful
+        // answer under a filter that is not the one it was loaded for.
+        setStaffList([]);
+        setFetchError(outcome.error.message);
+        return;
       }
+      setStaffList(outcome.data ?? []);
     } catch (err) {
       console.error("Failed to fetch staff:", err);
+      setStaffList([]);
       setFetchError(
         err instanceof Error
           ? err.message
@@ -320,20 +361,152 @@ export default function StaffManagementPage() {
   };
 
 
-  const assignableRoles = dbRoles.filter(
-    (r) => !(r.is_system && r.name === "patient")
+  const assignableRoles = useMemo(
+    () => dbRoles.filter((r) => !(r.is_system && r.name === "patient")),
+    [dbRoles]
   );
 
-  // Filter staff list based on search
-  const filteredStaff = staffList.filter((s) => {
-    const query = searchQuery.toLowerCase();
-    return (
-      s.full_name.toLowerCase().includes(query) ||
-      s.email.toLowerCase().includes(query) ||
-      s.role.toLowerCase().includes(query) ||
-      (s.employee_type || "").toLowerCase().includes(query)
+  // The three filter dimensions are read from the query string. A value the
+  // dimension does not know is dropped, so a hand-edited link shows the whole
+  // registry rather than an unexplained empty list.
+  const parsedFilters = useMemo(() => parseStaffFilters(searchParams), [searchParams]);
+  const filters = useMemo(
+    () => buildStaffFilters(parsedFilters, dbRoles),
+    [parsedFilters, dbRoles]
+  );
+  const filteredStaff = useMemo(
+    () => filterStaff(staffList, filters, searchQuery),
+    [staffList, filters, searchQuery]
+  );
+
+  // A role filter can only be applied once the catalogue has been read: a
+  // profile created before `role_id` existed is recognised by its legacy role
+  // text, and only the catalogue says which text belongs to which role. Until
+  // then the table would show a filtered list that is missing those rows.
+  const rolesSettled = rolesLoaded || rolesError !== null;
+  const roleFilterPending = parsedFilters.roleId !== null && !rolesSettled;
+
+  // A failed catalogue read is not the same as a slow one. Without the
+  // catalogue the role filter cannot be applied completely -- staff created
+  // before roles existed would be dropped -- so the filtered table and its
+  // count are not shown at all rather than shown short.
+  const roleFilterUnavailable = parsedFilters.roleId !== null && rolesError !== null;
+
+  // The label of the role the URL points at. A role the catalogue does not
+  // know keeps its filter -- the rows carrying it are simply not rows this
+  // registry holds -- but the operator is told what they are looking at.
+  const selectedRoleLabel = useMemo(() => {
+    if (!parsedFilters.roleId) return null;
+    const known = dbRoles.find((role) => role.id === parsedFilters.roleId);
+    if (known) return roleLabel(known);
+    if (rolesError) return "Role unavailable";
+    return rolesSettled ? "Unknown role" : "Loading roles...";
+  }, [parsedFilters.roleId, dbRoles, rolesSettled, rolesError]);
+
+  // The role the URL points at is offered as an option even when it is not one
+  // of the roles the staff form may grant, so the selector never shows a bare
+  // id for a filter that is being applied.
+  const roleOffered = useMemo(
+    () => assignableRoles.some((role) => role.id === parsedFilters.roleId),
+    [assignableRoles, parsedFilters.roleId]
+  );
+
+  const roleFilterItems = useMemo(() => {
+    const items: Record<string, string> = { [FILTER_ALL]: "All roles" };
+    for (const role of assignableRoles) items[role.id] = roleLabel(role);
+    if (selectedRoleLabel && parsedFilters.roleId && !roleOffered) {
+      items[parsedFilters.roleId] = selectedRoleLabel;
+    }
+    return items;
+  }, [assignableRoles, selectedRoleLabel, parsedFilters.roleId, roleOffered]);
+
+  const departmentFilterItems = useMemo(() => {
+    const items: Record<string, string> = { [FILTER_ALL]: "All departments" };
+    for (const option of DEPARTMENT_FILTER_OPTIONS) items[option.value] = option.label;
+    return items;
+  }, []);
+
+  const statusFilterItems = useMemo(() => {
+    const items: Record<string, string> = { [FILTER_ALL]: "All statuses" };
+    for (const option of STATUS_FILTER_OPTIONS) items[option.value] = option.label;
+    return items;
+  }, []);
+
+  /**
+   * Write a filter change into the query string.
+   *
+   * The native history API is used rather than the router: the dashboard
+   * layout re-reads the session, the profile and the whole permission set on
+   * every navigation, and changing a filter is not a navigation. The URL is
+   * read from `window.location` rather than from the render's snapshot, so
+   * two filter changes in a row cannot overwrite each other.
+   */
+  const writeFilters = (patch: {
+    roleId?: string | null;
+    department?: DepartmentFilterValue | null;
+    status?: StatusFilterValue | null;
+  }) => {
+    const params = applyStaffFilters(new URLSearchParams(window.location.search), patch);
+    const query = params.toString();
+    const url = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    window.history.pushState(null, "", url);
+  };
+
+  const handleRoleFilterChange = (value: string | null) => {
+    writeFilters({ roleId: value && value !== FILTER_ALL ? value : null });
+  };
+
+  const handleDepartmentFilterChange = (value: string | null) => {
+    writeFilters({
+      department: value && value !== FILTER_ALL ? (value as DepartmentFilterValue) : null,
+    });
+  };
+
+  const handleStatusFilterChange = (value: string | null) => {
+    writeFilters({
+      status: value && value !== FILTER_ALL ? (value as StatusFilterValue) : null,
+    });
+  };
+
+  // The search box is a filter too, so one click clears the whole view: a
+  // "clear filters" that left the search term behind could still show an
+  // empty table and read as a broken button.
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    writeFilters({ roleId: null, department: null, status: null });
+  };
+
+  const filtersActive = hasActiveFilters(filters) || searchQuery.trim().length > 0;
+  const registryReady = !loading && !fetchError && !roleFilterPending && !roleFilterUnavailable;
+
+  // A query parameter the filter dimensions do not know is ignored by the
+  // registry, but it would stay in the link. Drop it, so a shared link does
+  // not carry a filter that is not applied and a later reader is not misled
+  // about what the view shows.
+  useEffect(() => {
+    const current = new URLSearchParams(window.location.search);
+    const next = new URLSearchParams(current);
+    let changed = false;
+    if (current.has("role") && !parsedFilters.roleId) {
+      next.delete("role");
+      changed = true;
+    }
+    if (current.has("department") && !parsedFilters.department) {
+      next.delete("department");
+      changed = true;
+    }
+    if (current.has("status") && !parsedFilters.status) {
+      next.delete("status");
+      changed = true;
+    }
+    if (!changed) return;
+    const query = next.toString();
+    window.history.replaceState(
+      null,
+      "",
+      query ? `${window.location.pathname}?${query}` : window.location.pathname
     );
-  });
+  }, [parsedFilters]);
 
   return (
     <div className="space-y-6">
@@ -349,7 +522,7 @@ export default function StaffManagementPage() {
         <Button
           onClick={handleCreateOpen}
           disabled={!rolesLoaded}
-          className="gap-2 bg-primary hover:bg-primary/90 text-white font-semibold"
+          className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
         >
           <Plus className="h-4 w-4" />
           Add Staff
@@ -369,29 +542,138 @@ export default function StaffManagementPage() {
 
       {/* Main Table Card */}
       <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <div>
-            <CardTitle className="text-lg">Personnel Registry</CardTitle>
-            <CardDescription className="text-xs">
-              System access control for administrative and clinical roles
-            </CardDescription>
+        <CardHeader className="gap-4 pb-3">
+          <div className="flex flex-row items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-lg">Personnel Registry</CardTitle>
+              <CardDescription className="text-xs">
+                System access control for administrative and clinical roles
+              </CardDescription>
+            </div>
+
+            {/* Search bar */}
+            <div className="relative w-72">
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Search by name, email, or role..."
+                aria-label="Search staff by name, email, role or title"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 text-xs"
+              />
+            </div>
           </div>
 
-          {/* Search bar */}
-          <div className="relative w-72">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            <Input
-              placeholder="Search by name, email, or role..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 text-xs"
-            />
+          {/* Filter bar. One selector per dimension, all combinable with each
+              other and with the search above. */}
+          <div className="flex flex-wrap items-end gap-x-4 gap-y-3 border-t border-border/60 pt-3">
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor="staff-filter-role"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Role
+              </label>
+              <Select
+                value={parsedFilters.roleId ?? FILTER_ALL}
+                onValueChange={handleRoleFilterChange}
+                items={roleFilterItems}
+              >
+                <SelectTrigger id="staff-filter-role" className="h-9 w-56 bg-background">
+                  <SelectValue placeholder="All roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={FILTER_ALL}>All roles</SelectItem>
+                  {assignableRoles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      {roleLabel(role)}
+                    </SelectItem>
+                  ))}
+                  {selectedRoleLabel && parsedFilters.roleId && !roleOffered ? (
+                    <SelectItem value={parsedFilters.roleId}>{selectedRoleLabel}</SelectItem>
+                  ) : null}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor="staff-filter-department"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Department
+              </label>
+              <Select
+                value={parsedFilters.department ?? FILTER_ALL}
+                onValueChange={handleDepartmentFilterChange}
+                items={departmentFilterItems}
+              >
+                <SelectTrigger id="staff-filter-department" className="h-9 w-48 bg-background">
+                  <SelectValue placeholder="All departments" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={FILTER_ALL}>All departments</SelectItem>
+                  {DEPARTMENT_FILTER_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <label
+                htmlFor="staff-filter-status"
+                className="text-xs font-medium text-muted-foreground"
+              >
+                Status
+              </label>
+              <Select
+                value={parsedFilters.status ?? FILTER_ALL}
+                onValueChange={handleStatusFilterChange}
+                items={statusFilterItems}
+              >
+                <SelectTrigger id="staff-filter-status" className="h-9 w-36 bg-background">
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={FILTER_ALL}>All statuses</SelectItem>
+                  {STATUS_FILTER_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClearFilters}
+              disabled={!filtersActive}
+              title="Clear the role, department and status filters and the search box"
+              className="h-9"
+            >
+              Clear filters
+            </Button>
+
+            {registryReady ? (
+              <p
+                aria-live="polite"
+                data-testid="staff-count"
+                className="ml-auto text-xs text-muted-foreground"
+              >
+                Showing {filteredStaff.length} of {staffList.length} staff members
+              </p>
+            ) : null}
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500">
-              <Loader2 className="h-8 w-8 animate-spin text-accentBlue-600" />
+          {loading || roleFilterPending ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-500 dark:text-slate-400">
+              <Loader2 className="h-8 w-8 animate-spin text-accentBlue-600 dark:text-accentBlue-400" />
               <span className="text-xs font-medium">Loading personnel registry...</span>
             </div>
           ) : fetchError ? (
@@ -402,10 +684,47 @@ export default function StaffManagementPage() {
                 retryHref="/admin/staff"
               />
             </div>
+          ) : roleFilterUnavailable ? (
+            <div className="space-y-3 px-6 py-16 text-center">
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                The role filter cannot be applied
+              </p>
+              <p className="mx-auto max-w-md text-xs text-slate-500 dark:text-slate-400">
+                The role catalogue could not be loaded, so staff created before roles
+                existed cannot be told apart from staff with another role. Clear the
+                filters to see the whole registry.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClearFilters}
+                className="mt-1"
+              >
+                Clear filters
+              </Button>
+            </div>
           ) : filteredStaff.length === 0 ? (
-            <div className="text-center py-16 text-slate-500 space-y-1">
-              <p className="text-sm font-semibold">No staff members found</p>
-              <p className="text-xs text-slate-400">Try adjusting your search query</p>
+            <div className="text-center py-16 text-slate-500 dark:text-slate-400 space-y-2">
+              <p className="text-sm font-semibold">
+                {staffList.length === 0
+                  ? "No staff members found"
+                  : "No staff match these filters"}
+              </p>
+              <p className="text-xs text-slate-400">
+                {staffList.length === 0
+                  ? "No staff account has been created yet."
+                  : "Try a different role, department or status, or clear the filters."}
+              </p>
+              {staffList.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleClearFilters}
+                  className="mt-2"
+                >
+                  Clear filters
+                </Button>
+              ) : null}
             </div>
           ) : (
             <Table>
@@ -427,7 +746,11 @@ export default function StaffManagementPage() {
                   return (
                     <TableRow
                       key={staff.id}
-                      className={`transition-opacity duration-150 ${!staff.is_active ? "opacity-60 bg-slate-50/30 dark:bg-slate-950/20" : ""}`}
+                      // Inactive rows are marked by the tinted background and
+                      // the "Inactive" badge rather than by dimming the whole
+                      // row: even at 90% opacity the white-on-colour role
+                      // badges inside fall below 4.5:1 (issue #153).
+                      className={`transition-colors duration-150 ${!staff.is_active ? "bg-slate-50/40 dark:bg-slate-950/30" : ""}`}
                     >
                       {/* Name */}
                       <TableCell>
@@ -454,7 +777,7 @@ export default function StaffManagementPage() {
 
                       {/* Role Badge */}
                       <TableCell>
-                        <Badge className={`text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 ${ROLE_COLORS[staff.role] || "bg-slate-200 text-slate-800"}`}>
+                        <Badge className={`text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 ${ROLE_COLORS[staff.role]?.color || "bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-100"}`}>
                           {(() => {
                             const dbRoleObj = dbRoles.find(r => r.id === staff.role_id);
                             return dbRoleObj ? dbRoleObj.name : (USER_ROLES[staff.role as UserRole]?.label || staff.role);
@@ -469,7 +792,7 @@ export default function StaffManagementPage() {
                             {deptConfig.label}
                           </Badge>
                         ) : (
-                          <span className="text-slate-400 font-mono text-xs">—</span>
+                          <span className="text-slate-500 dark:text-slate-400 font-mono text-xs">—</span>
                         )}
                       </TableCell>
 

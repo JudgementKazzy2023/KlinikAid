@@ -129,7 +129,7 @@ export default function NewPatientModal() {
       if (!val) resetForm();
     }} disablePointerDismissal={true}>
       <DialogTrigger render={
-        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium gap-1.5 shadow-sm">
+        <Button className="bg-emerald-700 hover:bg-emerald-800 text-white font-medium gap-1.5 shadow-sm">
           <UserPlus className="h-4 w-4" />
           New Patient
         </Button>
@@ -190,9 +190,10 @@ export default function NewPatientModal() {
                     variant="outline" 
                     size="icon" 
                     onClick={handleCopyPassword}
+                    aria-label={copied ? "Copied temporary password" : "Copy temporary password"}
                     className="h-9 w-9 shrink-0"
                   >
-                    {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
+                    {copied ? <Check className="h-4 w-4 text-emerald-500" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
                   </Button>
                 </div>
               </div>
@@ -200,7 +201,7 @@ export default function NewPatientModal() {
 
             <DialogFooter>
               <DialogClose render={
-                <Button className="w-full bg-primary hover:bg-primary/90 text-white">
+                <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                   Close Window
                 </Button>
               } />
@@ -229,7 +230,7 @@ export default function NewPatientModal() {
               <div className="space-y-1">
                 <Label htmlFor="firstName">First Name</Label>
                 <div className="relative">
-                  <User className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <User className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   <Input
                     id="firstName"
                     type="text"
@@ -245,7 +246,7 @@ export default function NewPatientModal() {
               <div className="space-y-1">
                 <Label htmlFor="lastName">Last Name</Label>
                 <div className="relative">
-                  <User className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <User className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   <Input
                     id="lastName"
                     type="text"
@@ -264,7 +265,7 @@ export default function NewPatientModal() {
               <div className="space-y-1">
                 <Label htmlFor="dob">Date of Birth</Label>
                 <div className="relative">
-                  <Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <Calendar className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   <Input
                     id="dob"
                     type="date"
@@ -280,7 +281,7 @@ export default function NewPatientModal() {
                 <Label htmlFor="gender">Gender</Label>
                 <select
                   id="gender"
-                  className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:ring-offset-slate-950 dark:focus-visible:ring-slate-300"
+                  className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs ring-offset-white outline-none focus-visible:ring-3 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:ring-offset-slate-950 dark:focus-visible:ring-slate-300"
                   value={formData.gender}
                   onChange={handleChange}
                   disabled={isPending}
@@ -296,7 +297,7 @@ export default function NewPatientModal() {
             <div className="space-y-1">
               <Label htmlFor="contactNumber">Contact Number</Label>
               <div className="relative">
-                <Phone className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <Phone className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                 <Input
                   id="contactNumber"
                   type="tel"
@@ -313,7 +314,7 @@ export default function NewPatientModal() {
             <div className="space-y-1">
               <Label htmlFor="address">Address</Label>
               <div className="relative">
-                <MapPin className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <MapPin className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                 <Input
                   id="address"
                   type="text"
@@ -334,7 +335,7 @@ export default function NewPatientModal() {
             <div className="space-y-1">
               <Label htmlFor="email">Email Address</Label>
               <div className="relative">
-                <Mail className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <Mail className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                 <Input
                   id="email"
                   type="email"
@@ -351,7 +352,7 @@ export default function NewPatientModal() {
             <DialogFooter>
               <Button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary/90 text-white font-medium h-9 text-xs"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-9 text-xs"
                 disabled={isPending}
               >
                 {isPending ? (

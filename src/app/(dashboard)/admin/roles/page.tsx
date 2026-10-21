@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/helpers";
 import RolesClient from "./RolesClient";
+import { timed } from "@/lib/perf/timing";
 
 export const dynamic = "force-dynamic";
 
@@ -10,19 +11,21 @@ export default async function RolesPage() {
 
   // Load roles, permissions and mappings
   const [rolesRes, permissionsRes, mappingsRes] = await Promise.all([
-    supabase
-      .from("roles")
-      .select("*")
-      .order("is_system", { ascending: false })
-      .order("name", { ascending: true }),
-    supabase
-      .from("permissions")
-      .select("*")
-      .order("module", { ascending: true })
-      .order("name", { ascending: true }),
-    supabase
-      .from("role_permissions")
-      .select("*")
+    timed("page.roles.roles", () =>
+      supabase
+        .from("roles")
+        .select("*")
+        .order("is_system", { ascending: false })
+        .order("name", { ascending: true })
+    ),
+    timed("page.roles.permissions", () =>
+      supabase
+        .from("permissions")
+        .select("*")
+        .order("module", { ascending: true })
+        .order("name", { ascending: true })
+    ),
+    timed("page.roles.rolePermissions", () => supabase.from("role_permissions").select("*"))
   ]);
 
   if (rolesRes.error) throw rolesRes.error;

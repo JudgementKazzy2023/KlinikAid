@@ -11,6 +11,11 @@ import { Mail, Loader2, ArrowLeft, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
+/**
+ * Password-recovery request page: sends the address once, then swaps the
+ * form for a neutral confirmation that reads the same whether or not an
+ * account exists.
+ */
 export default function ForgotPasswordPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,8 +44,8 @@ export default function ForgotPasswordPage() {
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 overflow-hidden">
       {/* Background clinical-theme decorative circles */}
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[80px]" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[80px]" />
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 dark:bg-primary/25 blur-[80px]" aria-hidden="true" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 dark:bg-emerald-500/20 blur-[80px]" aria-hidden="true" />
 
       <div className="w-full max-w-md z-10 space-y-6">
         <div className="flex flex-col items-center space-y-2 text-center animate-fade-in">
@@ -49,7 +54,7 @@ export default function ForgotPasswordPage() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             KlinikAid
           </h1>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
             Bloodcare Medical Laboratory
           </p>
         </div>
@@ -66,22 +71,26 @@ export default function ForgotPasswordPage() {
 
           {success ? (
             <CardContent className="space-y-4 pt-4">
-              <Alert className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/50">
-                <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              {/* The alert root carries the text colour, so the icon takes it
+                  too: the ui kit's alert icon follows the alert's colour
+                  (issue #178). The other success and warning alerts in the
+                  app already do this. */}
+              <Alert className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-300">
+                <CheckCircle className="h-4 w-4" />
                 <AlertTitle className="text-emerald-800 dark:text-emerald-300 font-semibold">Check your inbox</AlertTitle>
                 <AlertDescription className="text-emerald-700 dark:text-emerald-400 text-xs">
                   If an account exists for this email, we have sent password reset instructions. Please check your inbox and spam folder.
                 </AlertDescription>
               </Alert>
               <div className="text-center pt-2">
-                <Link href="/login" className="inline-flex items-center gap-2 min-h-6 -my-0.5 text-sm text-accentBlue-600 hover:underline">
+                <Link href="/login" className="inline-flex items-center gap-2 min-h-6 -my-0.5 text-sm text-accentBlue-600 dark:text-accentBlue-400 hover:underline">
                   <ArrowLeft className="h-4 w-4" /> Back to Sign In
                 </Link>
               </div>
             </CardContent>
           ) : (
             <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pb-4">
                 {error && (
                   <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/50">
                     <AlertTitle>Error</AlertTitle>
@@ -92,7 +101,7 @@ export default function ForgotPasswordPage() {
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Mail className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="email"
                       name="email"
@@ -110,7 +119,7 @@ export default function ForgotPasswordPage() {
               <CardFooter className="flex flex-col space-y-4">
                 <Button
                   type="submit"
-                  className="w-full bg-primary hover:bg-primary/90 text-white font-medium shadow-md shadow-primary/10 transition-all duration-200"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-md shadow-primary/10 transition-all duration-200"
                   disabled={isPending}
                 >
                   {isPending ? (
@@ -124,7 +133,7 @@ export default function ForgotPasswordPage() {
                 </Button>
 
                 <div className="text-sm text-center">
-                  <Link href="/login" className="inline-flex items-center gap-2 min-h-6 -my-0.5 text-slate-500 hover:text-slate-800 hover:underline">
+                  <Link href="/login" className="inline-flex items-center gap-2 min-h-6 -my-0.5 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:underline">
                     <ArrowLeft className="h-4 w-4" /> Back to Sign In
                   </Link>
                 </div>

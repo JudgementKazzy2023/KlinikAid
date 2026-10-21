@@ -237,7 +237,7 @@ export default function SpecialistAnalyticsClient({
             <select
               value={selectedMetric}
               onChange={(e) => setSelectedMetric(e.target.value)}
-              className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 appearance-none pr-8 relative bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1rem] bg-[right_0.5rem_center] bg-no-repeat"
+              className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-bold outline-none focus:ring-3 focus:ring-indigo-500 focus:border-indigo-500 appearance-none pr-8 relative bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2364748b%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%2F%3E%3C%2Fsvg%3E')] bg-[length:1rem] bg-[right_0.5rem_center] bg-no-repeat"
             >
               {metrics.map((m) => (
                 <option key={m} value={m}>
@@ -258,22 +258,22 @@ export default function SpecialistAnalyticsClient({
                 <User className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-[10px] uppercase font-semibold text-slate-400 dark:text-slate-500">Patient Name</p>
+                <p className="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400">Patient Name</p>
                 <p className="text-sm font-bold text-slate-800 dark:text-slate-100">{patientName}</p>
               </div>
             </div>
             <div>
-              <p className="text-[10px] uppercase font-semibold text-slate-400 dark:text-slate-500">Patient Code</p>
+              <p className="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400">Patient Code</p>
               <p className="text-sm font-mono font-bold text-slate-800 dark:text-slate-100">{patientCode}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase font-semibold text-slate-400 dark:text-slate-500">Demographics</p>
+              <p className="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400">Demographics</p>
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-400">
                 {hydrated ? getAge(dob, Date.now()) : ""} years old • <span className="capitalize">{gender}</span>
               </p>
             </div>
             <div>
-              <p className="text-[10px] uppercase font-semibold text-slate-400 dark:text-slate-500">Birth Date</p>
+              <p className="text-[10px] uppercase font-semibold text-slate-500 dark:text-slate-400">Birth Date</p>
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-400">{formatPhTime(dob)}</p>
             </div>
           </div>
@@ -300,7 +300,7 @@ export default function SpecialistAnalyticsClient({
         </CardHeader>
         <CardContent className="pt-6">
           {loading ? (
-            <div className="h-[400px] flex items-center justify-center text-slate-400 dark:text-slate-500 text-xs">
+            <div className="h-[400px] flex items-center justify-center text-slate-500 dark:text-slate-400 text-xs">
               <RefreshCw className="h-5 w-5 animate-spin text-indigo-500 mr-2" />
               Refreshing database statistics...
             </div>
@@ -310,7 +310,7 @@ export default function SpecialistAnalyticsClient({
               error={fetchError}
             />
           ) : records.length === 0 ? (
-            <div className="h-[400px] flex items-center justify-center text-slate-400 dark:text-slate-500 text-xs border border-dashed border-slate-100 dark:border-slate-800 rounded-xl">
+            <div className="h-[400px] flex items-center justify-center text-slate-500 dark:text-slate-400 text-xs border border-dashed border-slate-100 dark:border-slate-800 rounded-xl">
               No historical data recorded for metric: {selectedMetric}
             </div>
           ) : hasOnlyTextValues ? (
@@ -429,7 +429,7 @@ export default function SpecialistAnalyticsClient({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 font-semibold border-y border-slate-100 dark:border-slate-800">
+                <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold border-y border-slate-100 dark:border-slate-800">
                   <th className="p-3 pl-4">Timestamp (UTC+8)</th>
                   <th className="p-3">Technologist</th>
                   <th className="p-3 text-center">Value</th>
@@ -438,7 +438,7 @@ export default function SpecialistAnalyticsClient({
                   <th className="p-3 pr-4">Clinical Annotations</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {fetchError ? (
                   <tr>
                     <td colSpan={6} className="p-6">
@@ -450,7 +450,7 @@ export default function SpecialistAnalyticsClient({
                   </tr>
                 ) : records.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-6 text-center text-slate-400 dark:text-slate-500">
+                    <td colSpan={6} className="p-6 text-center text-slate-500 dark:text-slate-400">
                       No records found for this metric.
                     </td>
                   </tr>
@@ -460,7 +460,7 @@ export default function SpecialistAnalyticsClient({
 
                     return (
                     <tr key={rec.id} className="hover:bg-slate-50/25 dark:hover:bg-slate-900/5 transition">
-                      <td className="p-3 pl-4 font-mono text-[10px] text-slate-400 dark:text-slate-500">
+                      <td className="p-3 pl-4 font-mono text-[10px] text-slate-500 dark:text-slate-400">
                         {formatPhTimeFull(rec.result_date)}
                       </td>
                       <td className="p-3 text-slate-700 dark:text-slate-400">

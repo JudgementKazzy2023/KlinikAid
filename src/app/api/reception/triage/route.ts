@@ -4,6 +4,7 @@ import { errorResponse, handleRouteError, successResponse } from "@/lib/api-resp
 import { logEvent } from "@/lib/logger";
 import { openQueueEntryDepartment, queueNumberFromTriageNotes } from "@/lib/queue-number";
 import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
+import { validateBloodPressure } from "@/lib/validation";
 import type { Patient, PatientQueue } from "@/types";
 
 // The row triage_patient() returns, with the patient embedded as selected below.
@@ -14,7 +15,6 @@ type TriagedQueueEntry = Omit<PatientQueue, "patient"> & {
 };
 
 const STRICT_NUMBER_REGEX = /^-?\d+(\.\d+)?$/;
-const BLOOD_PRESSURE_REGEX = /^\d{2,3}\/\d{2,3}$/;
 
 function normalizeOptionalString(value: unknown) {
   if (value === undefined || value === null) return "";
@@ -78,8 +78,9 @@ export async function POST(request: Request) {
     }
 
     const bloodPressure = normalizeOptionalString(vitals?.blood_pressure);
-    if (bloodPressure && !BLOOD_PRESSURE_REGEX.test(bloodPressure)) {
-      return errorResponse("Blood pressure format must be e.g. 120/80", 400);
+    const bloodPressureCheck = validateBloodPressure(bloodPressure);
+    if (!bloodPressureCheck.valid) {
+      return errorResponse(bloodPressureCheck.error || "Invalid blood pressure.", 400);
     }
 
     const weight = parseOptionalWeight(vitals?.weight_kg);

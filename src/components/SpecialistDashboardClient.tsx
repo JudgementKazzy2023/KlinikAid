@@ -14,6 +14,7 @@ import {
 import { formatInTimeZone } from "date-fns-tz";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { focusRingClass } from "@/lib/focus-ring";
 
 interface SpecialistDashboardClientProps {
   stats: {
@@ -98,7 +99,7 @@ export default function SpecialistDashboardClient({
             <div className="text-3xl font-extrabold text-slate-900 dark:text-white">
               {stats.totalPatients ?? "\u2014"}
             </div>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               {stats.totalPatients === null
                 ? "Not measured \u2014 the query failed"
                 : "Registered patient directory records"}
@@ -120,7 +121,7 @@ export default function SpecialistDashboardClient({
             <div className="text-3xl font-extrabold text-slate-900 dark:text-white">
               {stats.flaggedThisWeek ?? "\u2014"}
             </div>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               {stats.flaggedThisWeek === null
                 ? "Not measured \u2014 the query failed"
                 : "Out-of-bounds parameters needing review"}
@@ -142,7 +143,7 @@ export default function SpecialistDashboardClient({
             <div className="text-3xl font-extrabold text-slate-900 dark:text-white">
               {stats.departmentsCovered ?? "\u2014"}
             </div>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
               {stats.departmentsCovered === null
                 ? "Not measured \u2014 a group count failed"
                 : "Active diagnostic departments in records"}
@@ -168,7 +169,7 @@ export default function SpecialistDashboardClient({
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 font-semibold border-y border-slate-100 dark:border-slate-800">
+                  <tr className="bg-slate-50 dark:bg-slate-900/50 text-slate-500 dark:text-slate-400 font-semibold border-y border-slate-100 dark:border-slate-800">
                     <th className="p-3 pl-4">Patient</th>
                     <th className="p-3">Test</th>
                     <th className="p-3 text-center">Value</th>
@@ -177,10 +178,10 @@ export default function SpecialistDashboardClient({
                     <th className="p-3 pr-4 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-850">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {recentFlagged.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="p-8 text-center text-slate-400 dark:text-slate-500">
+                      <td colSpan={6} className="p-8 text-center text-slate-500 dark:text-slate-400">
                         No critical flagged results found.
                       </td>
                     </tr>
@@ -189,7 +190,7 @@ export default function SpecialistDashboardClient({
                       <tr key={record.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-900/10 transition">
                         <td className="p-3 pl-4 font-semibold text-slate-800 dark:text-slate-200">
                           {record.patient ? `${record.patient.first_name} ${record.patient.last_name}` : "Unknown"}
-                          <div className="text-[10px] font-normal text-slate-400 dark:text-slate-500 mt-0.5">
+                          <div className="text-[10px] font-normal text-slate-500 dark:text-slate-400 mt-0.5">
                             {record.patient ? getPatientCode(record.patient.id) : ""}
                           </div>
                         </td>
@@ -246,7 +247,7 @@ export default function SpecialistDashboardClient({
           </CardHeader>
           <CardContent className="space-y-4">
             {recentPatients.length === 0 ? (
-              <p className="text-xs text-slate-400 dark:text-slate-500 text-center py-6">
+              <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-6">
                 No patients with records found.
               </p>
             ) : (
@@ -259,7 +260,7 @@ export default function SpecialistDashboardClient({
                     <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
                       {p.first_name} {p.last_name}
                     </p>
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-400 dark:text-slate-500">
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400">
                       <span className="font-mono">{getPatientCode(p.id)}</span>
                       <span>•</span>
                       <span>Active: {formatPhTime(p.last_activity)}</span>
@@ -267,9 +268,10 @@ export default function SpecialistDashboardClient({
                   </div>
                   <Link 
                     href={`/specialist/patients/${p.id}/analytics`}
-                    className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 transition"
+                    aria-label={`View analytics for ${p.first_name} ${p.last_name}`}
+                    className={`p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 transition ${focusRingClass}`}
                   >
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
                 </div>
               ))
@@ -277,7 +279,7 @@ export default function SpecialistDashboardClient({
             <div className="pt-2">
               <Link 
                 href="/specialist/patients"
-                className="w-full py-2 border border-dashed border-indigo-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400 font-semibold rounded-lg text-xs flex items-center justify-center gap-2 hover:bg-indigo-50/50 dark:hover:bg-slate-900/40 transition"
+                className={`w-full py-2 border border-dashed border-indigo-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400 font-semibold rounded-lg text-xs flex items-center justify-center gap-2 hover:bg-indigo-50/50 dark:hover:bg-slate-900/40 transition ${focusRingClass}`}
               >
                 Search All Patients
                 <ArrowRight className="h-3 w-3" />

@@ -42,7 +42,7 @@ A clean `master` is:
 ```
 npx tsc --noEmit   -> exit 0
 npm run lint       -> no warnings or errors
-npm run build      -> Compiled successfully, 14/14 static pages
+npm run build      -> Compiled successfully; every page is dynamic (the per-request CSP nonce, #154)
 npm test           -> 188 passed (13 files) + 1 passing CSP node test
 ```
 
@@ -167,7 +167,7 @@ without that symlink `next build` fails on the missing env vars.
   text column** — except `src/middleware.ts:34-45`, which still reads `profiles.role` for
   its post-login redirect. Worth knowing if you touch role handling.
 - **`src/lib/db/schema.sql` is a generated current-state snapshot** for empty Supabase
-  projects, through migration 36. Regenerate it after every migration using the procedure
+  projects, through migration 38. Regenerate it after every migration using the procedure
   in `documentation/DATABASE.md`; retain `migration_*.sql` as historical records.
   Existing databases apply only migrations newer than their recorded
   `supabase_migrations.schema_migrations` history. Snapshot coverage markers do not prove

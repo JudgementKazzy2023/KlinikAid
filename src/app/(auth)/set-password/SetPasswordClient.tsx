@@ -13,6 +13,11 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Lock, Loader2, ShieldAlert } from "lucide-react";
 import { PASSWORD_REQUIREMENT_TEXT } from "@/lib/validation";
 
+/**
+ * Forced password-change form for a temporary-password session: replaces the
+ * password the receptionist issued, then continues to the redirect the
+ * server picked for the account.
+ */
 export default function SetPasswordClient({ email }: { email: string }) {
   const router = useRouter();
   const [password, setPassword] = useState("");
@@ -47,8 +52,8 @@ export default function SetPasswordClient({ email }: { email: string }) {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 overflow-hidden">
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[80px]" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[80px]" />
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 dark:bg-primary/25 blur-[80px]" aria-hidden="true" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 dark:bg-emerald-500/20 blur-[80px]" aria-hidden="true" />
 
       <div className="w-full max-w-md z-10 space-y-6">
         <div className="flex flex-col items-center space-y-2 text-center">
@@ -81,7 +86,7 @@ export default function SetPasswordClient({ email }: { email: string }) {
               <div className="space-y-2">
                 <Label htmlFor="password">New Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <Lock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     id="password"
                     type="password"
@@ -101,7 +106,7 @@ export default function SetPasswordClient({ email }: { email: string }) {
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <Lock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     id="confirmPassword"
                     type="password"
@@ -120,7 +125,7 @@ export default function SetPasswordClient({ email }: { email: string }) {
             <CardFooter className="flex flex-col space-y-3">
               <Button
                 type="submit"
-                className="w-full bg-primary hover:bg-primary/90 text-white font-medium shadow-md shadow-primary/10 transition-all duration-200"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-md shadow-primary/10 transition-all duration-200"
                 disabled={isPending}
               >
                 {isPending ? (

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import "@/lib/zod-csp";
 import { 
   Upload, 
   FileText, 
@@ -29,6 +30,7 @@ import {
   discardAssessedDocumentAction,
 } from "./actions";
 import type { DetectedClinicTest } from "@/lib/documents/detectRequestedTests";
+import { focusRingClass } from "@/lib/focus-ring";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
@@ -255,7 +257,7 @@ export default function DocumentSubmitClient() {
               href="/patient/submissions"
               className={cn(
                 buttonVariants({ variant: "default" }),
-                "flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm transition-colors flex items-center justify-center gap-2 h-10"
+                "flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-sm transition-colors flex items-center justify-center gap-2 h-10"
               )}
             >
               Track Submission Status <ArrowRight className="h-4 w-4" />
@@ -344,7 +346,7 @@ export default function DocumentSubmitClient() {
                   <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                     Click to upload or drag & drop
                   </p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     PDF, JPEG, or PNG formats only
                   </p>
                 </div>
@@ -369,9 +371,10 @@ export default function DocumentSubmitClient() {
                 type="button"
                 onClick={() => void removeFile()}
                 disabled={isSubmitting}
-                className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors disabled:opacity-50"
+                aria-label="Remove selected file"
+                className={`p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors disabled:opacity-50 ${focusRingClass}`}
               >
-                <X className="h-4.5 w-4.5" />
+                <X className="h-4.5 w-4.5" aria-hidden="true" />
               </button>
             </div>
           )}
@@ -477,7 +480,7 @@ export default function DocumentSubmitClient() {
           <Button
             type="submit"
             disabled={isSubmitting || !selectedFile || noTestsSelected}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm transition-all"
+            className="bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-sm transition-all"
           >
             {isSubmitting ? (
               <>

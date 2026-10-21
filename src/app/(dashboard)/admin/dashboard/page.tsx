@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requirePermission } from "@/lib/auth/helpers";
 import { getPhtStartOfToday } from "@/lib/utils";
 import DataLoadError from "@/components/DataLoadError";
+import { timed } from "@/lib/perf/timing";
 import DepartmentChart from "./DepartmentChart";
 import { 
   Users, 
@@ -67,49 +68,61 @@ export default async function AdminDashboardPage() {
     recentLogsResult,
     departmentBreakdownResult
   ] = await Promise.all([
-    supabase
-      .from("patient_queue")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", startOfToday),
+    timed("page.adminDashboard.patientQueueToday", () =>
+      supabase
+        .from("patient_queue")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", startOfToday)
+    ),
 
-    supabase
-      .from("documents")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
+    timed("page.adminDashboard.pendingDocuments", () =>
+      supabase
+        .from("documents")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending")
+    ),
 
-    supabase
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .neq("role", "patient")
-      .eq("is_active", true),
+    timed("page.adminDashboard.activeStaff", () =>
+      supabase
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .neq("role", "patient")
+        .eq("is_active", true)
+    ),
 
-    supabase
-      .from("chatbot_logs")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", startOfToday),
+    timed("page.adminDashboard.chatbotQueriesToday", () =>
+      supabase
+        .from("chatbot_logs")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", startOfToday)
+    ),
 
-    supabase
-      .from("system_logs")
-      .select(`
-        id,
-        user_id,
-        event_type,
-        description,
-        ip_address,
-        metadata,
-        created_at,
-        profiles:user_id (
-          full_name,
-          role
-        )
-      `)
-      .order("created_at", { ascending: false })
-      .limit(10),
+    timed("page.adminDashboard.recentLogs", () =>
+      supabase
+        .from("system_logs")
+        .select(`
+          id,
+          user_id,
+          event_type,
+          description,
+          ip_address,
+          metadata,
+          created_at,
+          profiles:user_id (
+            full_name,
+            role
+          )
+        `)
+        .order("created_at", { ascending: false })
+        .limit(10)
+    ),
 
-    supabase
-      .from("patient_queue")
-      .select("department")
-      .gte("created_at", startOfToday)
+    timed("page.adminDashboard.departmentBreakdown", () =>
+      supabase
+        .from("patient_queue")
+        .select("department")
+        .gte("created_at", startOfToday)
+    )
   ]);
 
   // Six parallel fetches, none of whose errors was ever read. On failure each
@@ -210,7 +223,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-900 dark:text-white">{todayPatients}</div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
               Patients queued today
             </p>
           </CardContent>
@@ -226,7 +239,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-900 dark:text-white">{pendingDocs}</div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
               Referrals awaiting validation
             </p>
           </CardContent>
@@ -242,7 +255,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-900 dark:text-white">{activeStaff}</div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
               Personnel with active access
             </p>
           </CardContent>
@@ -258,7 +271,7 @@ export default async function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-900 dark:text-white">{todayChatbotQueries}</div>
-            <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
               Conversations processed today
             </p>
           </CardContent>
@@ -270,7 +283,7 @@ export default async function AdminDashboardPage() {
         <Card className="col-span-4 border border-slate-200/80 dark:border-slate-800 shadow-sm">
           <CardHeader>
             <CardTitle className="text-base font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-              <Activity className="h-4 w-4 text-accentBlue-600" />
+              <Activity className="h-4 w-4 text-accentBlue-600 dark:text-accentBlue-400" />
               Department Workload
             </CardTitle>
             <CardDescription className="text-xs">

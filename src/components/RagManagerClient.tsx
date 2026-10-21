@@ -25,6 +25,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import DataLoadError from "@/components/DataLoadError";
+import RagDocumentViewer from "@/components/RagDocumentViewer";
 import { toast } from "sonner";
 import { formatPhTimeFull } from "@/lib/utils";
 import {
@@ -43,6 +44,7 @@ import {
   uploadRagPdfAction,
   deleteRagDocumentAction,
 } from "@/app/(dashboard)/admin/rag/actions";
+import { focusRingClass } from "@/lib/focus-ring";
 
 interface GroupedDocument {
   documentId: string;
@@ -174,7 +176,7 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
       {/* Controls & Search bar */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           <Input
             placeholder="Search knowledge documents..."
             value={searchTerm}
@@ -186,7 +188,7 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
         <div className="flex w-full md:w-auto gap-3">
           <Button
             onClick={() => setIsTextDialogOpen(true)}
-            className="flex-1 md:flex-none gap-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-50 dark:hover:bg-slate-100 dark:text-slate-900"
+            className="flex-1 md:flex-none gap-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-100"
           >
             <Plus className="h-4 w-4" />
             Add Plain Text
@@ -194,7 +196,7 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
           
           <Button
             onClick={() => setIsPdfDialogOpen(true)}
-            className="flex-1 md:flex-none gap-2 bg-teal-700 hover:bg-teal-800 text-white dark:bg-teal-600 dark:hover:bg-teal-700"
+            className="flex-1 md:flex-none gap-2 bg-teal-700 hover:bg-teal-800 text-white dark:bg-teal-700 dark:hover:bg-teal-800"
           >
             <Upload className="h-4 w-4" />
             Upload PDF
@@ -255,14 +257,18 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
                       {formatPhTimeFull(doc.createdAt)}
                     </TableCell>
                     <TableCell className="text-right pr-6">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleteDoc(doc)}
-                        className="text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <RagDocumentViewer documentId={doc.documentId} title={doc.title} />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteDoc(doc)}
+                          aria-label={`Delete ${doc.title}`}
+                          className="text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden="true" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -384,7 +390,7 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
                         const fileInput = document.getElementById("pdf-file-input") as HTMLInputElement;
                         if (fileInput) fileInput.value = "";
                       }}
-                      className="mt-2 text-xs text-red-600 hover:text-red-500 flex items-center gap-1 font-medium py-1 px-2 rounded-md hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                      className={`mt-2 text-xs text-red-600 hover:text-red-500 flex items-center gap-1 font-medium py-1 px-2 rounded-md hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors ${focusRingClass}`}
                     >
                       <X className="h-3 w-3" />
                       Remove file

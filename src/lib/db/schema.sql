@@ -1,4 +1,4 @@
--- KlinikAid GENERATED current-state snapshot through migration_36 (2026-10-19).
+-- KlinikAid GENERATED current-state snapshot through migration_38 (2026-10-21).
 -- Fresh Supabase projects ONLY: run this file once in the SQL editor, or:
 --   psql "$FRESH_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f src/lib/db/schema.sql
 -- Requires a Supabase database with auth/storage schemas and platform roles.
@@ -803,6 +803,21 @@ $$;
 
 
 --
+-- Name: trim_role_name(text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.trim_role_name(p_name text) RETURNS text
+    LANGUAGE sql IMMUTABLE
+    SET search_path TO ''
+    AS $$
+  select btrim(
+    coalesce(p_name, ''),
+    U&'\0009\000A\000B\000C\000D\0020\00A0\1680\2000\2001\2002\2003\2004\2005\2006\2007\2008\2009\200A\2028\2029\202F\205F\3000\FEFF'
+  );
+$$;
+
+
+--
 -- Name: update_custom_role(uuid, text, text, uuid[]); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -911,7 +926,7 @@ CREATE FUNCTION public.validate_custom_role_input(p_role_id uuid, p_name text, p
     SET search_path TO ''
     AS $$
 declare
-  v_name text := btrim(coalesce(p_name, ''));
+  v_name text := public.trim_role_name(p_name);
   v_known integer;
 begin
   if not public.user_has_permission(auth.uid(), 'roles.manage') then
@@ -922,9 +937,13 @@ begin
     raise exception 'Role name must be at least 3 characters.' using errcode = '22023';
   end if;
 
+  if char_length(v_name) > 50 then
+    raise exception 'Role name must be 50 characters or fewer.' using errcode = '22023';
+  end if;
+
   if exists (
     select 1 from public.roles r
-    where r.name = v_name
+    where lower(public.trim_role_name(r.name)) = lower(v_name)
       and r.id is distinct from p_role_id
   ) then
     raise exception 'A role with this name already exists.' using errcode = '23505';
@@ -1192,7 +1211,8 @@ CREATE TABLE public.roles (
     created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
     base_role text,
-    CONSTRAINT roles_base_role_check CHECK ((base_role = ANY (ARRAY['admin'::text, 'receptionist'::text, 'department_staff'::text, 'medical_specialist'::text, 'patient'::text])))
+    CONSTRAINT roles_base_role_check CHECK ((base_role = ANY (ARRAY['admin'::text, 'receptionist'::text, 'department_staff'::text, 'medical_specialist'::text, 'patient'::text]))),
+    CONSTRAINT roles_name_length_check CHECK (((name = public.trim_role_name(name)) AND ((char_length(name) >= 3) AND (char_length(name) <= 50))))
 );
 
 
@@ -1454,6 +1474,13 @@ CREATE INDEX idx_chatbot_logs_session_id ON public.chatbot_logs USING btree (ses
 
 
 --
+-- Name: idx_documents_patient_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_documents_patient_id ON public.documents USING btree (patient_id);
+
+
+--
 -- Name: idx_email_verification_codes_email; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1468,10 +1495,24 @@ CREATE INDEX idx_email_verification_codes_expires_at ON public.email_verificatio
 
 
 --
+-- Name: idx_patient_queue_patient_id_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_patient_queue_patient_id_created_at ON public.patient_queue USING btree (patient_id, created_at DESC);
+
+
+--
 -- Name: idx_pending_document_ocr_user_created; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_pending_document_ocr_user_created ON public.pending_document_ocr USING btree (user_id, created_at);
+
+
+--
+-- Name: idx_system_logs_created_at_desc; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_system_logs_created_at_desc ON public.system_logs USING btree (created_at DESC);
 
 
 --
@@ -1500,6 +1541,13 @@ CREATE UNIQUE INDEX patient_queue_one_open_per_patient ON public.patient_queue U
 --
 
 CREATE INDEX rag_documents_embedding_idx ON public.rag_documents USING hnsw (embedding public.vector_cosine_ops);
+
+
+--
+-- Name: roles_name_folded_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX roles_name_folded_idx ON public.roles USING btree (lower(public.trim_role_name(name)));
 
 
 --
@@ -2795,7 +2843,9 @@ INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES
   ('20261018000033', 'legacy_33'),
   ('20261018000034', 'legacy_34'),
   ('20261018000035', 'legacy_35'),
-  ('20261018000036', 'legacy_36')
+  ('20261018000036', 'legacy_36'),
+  ('20261020000037', 'legacy_37'),
+  ('20261021000038', 'legacy_38')
 ON CONFLICT (version) DO NOTHING;
 
 COMMIT;

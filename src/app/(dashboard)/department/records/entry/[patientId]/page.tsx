@@ -6,6 +6,7 @@ import RecordEntryClient from "@/components/RecordEntryClient";
 import DataLoadError from "@/components/DataLoadError";
 import { classifyRead } from "@/lib/read-outcome";
 import { Department } from "@/types";
+import { focusRingClass } from "@/lib/focus-ring";
 
 export const dynamic = "force-dynamic";
 
@@ -83,7 +84,7 @@ export default async function RecordEntryPage(props: PageProps) {
         <p className="text-slate-500">The patient ID does not exist in our records.</p>
         <a 
           href="/department/records" 
-          className="inline-block px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white font-semibold rounded-lg text-sm transition-all"
+          className={`inline-block px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white font-semibold rounded-lg text-sm transition-all ${focusRingClass}`}
         >
           Return to Dashboard
         </a>

@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useRef, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import "@/lib/zod-csp";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Loader2, Thermometer, Weight, Activity } from "lucide-react";
+import { validateBloodPressure, BLOOD_PRESSURE_FORMAT_MESSAGE } from "@/lib/validation";
+import { focusRingClass } from "@/lib/focus-ring";
 
 const triageSchema = z.object({
   department: z.enum(["laboratory", "imaging", "ultrasound", "ecg"], {
@@ -34,8 +37,14 @@ const triageSchema = z.object({
   blood_pressure: z
     .string()
     .optional()
-    .refine((val) => !val || /^\d{2,3}\/\d{2,3}$/.test(val), {
-      message: "Format must be e.g. 120/80",
+    // Same rule as the server (validateBloodPressure): format, physiological
+    // bounds, systolic > diastolic — surfaced with the specific message that
+    // failed so the receptionist knows what to correct.
+    .superRefine((val, ctx) => {
+      const result = validateBloodPressure(val);
+      if (!result.valid) {
+        ctx.addIssue({ code: "custom", message: result.error || BLOOD_PRESSURE_FORMAT_MESSAGE });
+      }
     }),
   weight_kg: z
     .string()
@@ -62,6 +71,23 @@ interface TriageModalProps {
   documentId: string;
 }
 
+/**
+ * Reception triage dialog: routes a patient to a diagnostic department and
+ * records optional vitals.
+ *
+ * Vitals are optional, but a filled value that fails the schema must be
+ * announced, not silently swallowed: each vitals error renders with
+ * `role="alert"` and a stable `<field>-error` id, and the matching input
+ * carries `aria-invalid` plus `aria-describedby` pointing at that id, so the
+ * reason a submit did nothing reaches assistive technology (#139).
+ *
+ * The department select gets the same treatment (#148): its error renders
+ * with `role="alert"` and a `department-error` id, the trigger carries
+ * `aria-invalid` plus `aria-describedby`, and a submit that fails only on
+ * department moves focus back to the select so keyboard and screen-reader
+ * users land on what they still have to choose. Picking a department
+ * revalidates and clears the invalid state.
+ */
 export default function TriageModal({
   isOpen,
   onClose,
@@ -77,12 +103,18 @@ export default function TriageModal({
   const {
     register,
     handleSubmit,
+    setFocus,
     setValue,
     watch,
     reset,
     formState: { errors },
   } = useForm<TriageFormValues>({
     resolver: zodResolver(triageSchema),
+    // Focus is managed explicitly in onInvalid below: the department select is
+    // a button, not a registered input, so react-hook-form's automatic
+    // _focusError would skip it — and, when a vitals field fails too, its
+    // deferred refocus would steal focus back from the select (#148).
+    shouldFocusError: false,
     defaultValues: {
       blood_pressure: "",
       weight_kg: "",
@@ -92,6 +124,7 @@ export default function TriageModal({
   });
 
   const selectedDept = watch("department");
+  const departmentRef = useRef<HTMLButtonElement>(null);
 
   // Fetch queue preview when department is selected
   React.useEffect(() => {
@@ -108,6 +141,23 @@ export default function TriageModal({
     };
     setPreviewQueueNo(`${deptCodes[selectedDept]}-00+`);
   }, [selectedDept]);
+
+  // Called by handleSubmit when the schema rejects the submission. The
+  // department select is a button, not a registered input, so react-hook-form
+  // cannot focus it by itself (and with shouldFocusError off it will not try);
+  // focus it explicitly when it is the field that failed, otherwise send focus
+  // to the first invalid vitals input so no failed submit leaves focus behind.
+  const onInvalid = (errs: typeof errors) => {
+    if (errs.department) {
+      departmentRef.current?.focus();
+    } else if (errs.blood_pressure) {
+      setFocus("blood_pressure");
+    } else if (errs.weight_kg) {
+      setFocus("weight_kg");
+    } else if (errs.temperature_c) {
+      setFocus("temperature_c");
+    }
+  };
 
   const onSubmit = (values: TriageFormValues) => {
     startTransition(async () => {
@@ -209,7 +259,7 @@ export default function TriageModal({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-2">
+        <form onSubmit={handleSubmit(onSubmit, onInvalid)} className="space-y-4 py-2">
           {/* Patient Info (Read-Only) */}
           <div className="grid gap-2">
             <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Patient Name</Label>
@@ -224,11 +274,19 @@ export default function TriageModal({
               </Label>
               <Select
                 onValueChange={(val) => {
+                  // Revalidating on change clears errors.department, which also
+                  // drops aria-invalid and aria-describedby on the trigger.
                   if (val) setValue("department", val as "laboratory" | "imaging" | "ultrasound" | "ecg", { shouldValidate: true });
                 }}
                 value={selectedDept}
               >
-                <SelectTrigger id="department" className="border-slate-200 dark:border-slate-800">
+                <SelectTrigger
+                  id="department"
+                  ref={departmentRef}
+                  aria-invalid={!!errors.department || undefined}
+                  aria-describedby={errors.department ? "department-error" : undefined}
+                  className="border-slate-200 dark:border-slate-800"
+                >
                   <SelectValue placeholder="Choose department" />
                 </SelectTrigger>
                 <SelectContent className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
@@ -239,7 +297,9 @@ export default function TriageModal({
                 </SelectContent>
               </Select>
               {errors.department && (
-                <p className="text-xs text-red-500">{errors.department.message}</p>
+                <p id="department-error" role="alert" className="text-xs text-red-500">
+                  {errors.department.message}
+                </p>
               )}
             </div>
           </div>
@@ -255,11 +315,17 @@ export default function TriageModal({
           )}
 
           {/* Vitals Section (Collapsible) */}
-          <div className="border border-slate-200/60 dark:border-slate-800 rounded-lg overflow-hidden">
+          {/* The wrapper used to carry `overflow-hidden` to round the toggle's
+              background, but it also clipped the toggle's focus ring: the
+              button is the wrapper's full width, so the ring had no room
+              inside the clip and nothing was painted (issue #188). The
+              children round their own corners instead, and the button is
+              positioned so its ring paints over the panel below it. */}
+          <div className="border border-slate-200/60 dark:border-slate-800 rounded-lg">
             <button
               type="button"
               onClick={() => setShowVitals(!showVitals)}
-              className="w-full flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-900/20 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors"
+              className={`relative w-full flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-900/20 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors ${showVitals ? "rounded-t-lg" : "rounded-lg"} ${focusRingClass}`}
             >
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Activity className="h-4 w-4 text-emerald-500" />
@@ -269,18 +335,22 @@ export default function TriageModal({
             </button>
 
             {showVitals && (
-              <div className="p-4 bg-white dark:bg-slate-950 border-t border-slate-200/50 dark:border-slate-800/50 grid grid-cols-3 gap-3">
+              <div className="p-4 bg-white dark:bg-slate-950 border-t border-slate-200/50 dark:border-slate-800/50 grid grid-cols-3 gap-3 rounded-b-lg">
                 {/* BP */}
                 <div className="space-y-1">
                   <Label htmlFor="blood_pressure" className="text-xs font-medium text-slate-500">Blood Press.</Label>
                   <Input
                     id="blood_pressure"
                     placeholder="e.g. 120/80"
+                    aria-invalid={!!errors.blood_pressure}
+                    aria-describedby={errors.blood_pressure ? "blood_pressure-error" : undefined}
                     {...register("blood_pressure")}
                     className="border-slate-200 dark:border-slate-800 h-9 text-xs"
                   />
                   {errors.blood_pressure && (
-                    <p className="text-[10px] text-red-500">{errors.blood_pressure.message}</p>
+                    <p id="blood_pressure-error" role="alert" className="text-[10px] text-red-500">
+                      {errors.blood_pressure.message}
+                    </p>
                   )}
                 </div>
 
@@ -295,11 +365,15 @@ export default function TriageModal({
                     type="number"
                     step="0.1"
                     placeholder="e.g. 70"
+                    aria-invalid={!!errors.weight_kg}
+                    aria-describedby={errors.weight_kg ? "weight_kg-error" : undefined}
                     {...register("weight_kg")}
                     className="border-slate-200 dark:border-slate-800 h-9 text-xs"
                   />
                   {errors.weight_kg && (
-                    <p className="text-[10px] text-red-500">{errors.weight_kg.message}</p>
+                    <p id="weight_kg-error" role="alert" className="text-[10px] text-red-500">
+                      {errors.weight_kg.message}
+                    </p>
                   )}
                 </div>
 
@@ -314,11 +388,15 @@ export default function TriageModal({
                     type="number"
                     step="0.1"
                     placeholder="e.g. 36.5"
+                    aria-invalid={!!errors.temperature_c}
+                    aria-describedby={errors.temperature_c ? "temperature_c-error" : undefined}
                     {...register("temperature_c")}
                     className="border-slate-200 dark:border-slate-800 h-9 text-xs"
                   />
                   {errors.temperature_c && (
-                    <p className="text-[10px] text-red-500">{errors.temperature_c.message}</p>
+                    <p id="temperature_c-error" role="alert" className="text-[10px] text-red-500">
+                      {errors.temperature_c.message}
+                    </p>
                   )}
                 </div>
               </div>
@@ -352,7 +430,7 @@ export default function TriageModal({
             <Button
               type="submit"
               disabled={isPending}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-md shadow-emerald-500/10 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white font-medium shadow-md shadow-emerald-500/10 dark:bg-emerald-700 dark:hover:bg-emerald-800"
             >
               {isPending ? (
                 <>

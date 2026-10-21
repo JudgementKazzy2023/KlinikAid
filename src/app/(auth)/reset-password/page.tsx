@@ -16,6 +16,13 @@ import { EmailOtpType } from "@supabase/supabase-js";
 import { getTotpFactors } from "@/lib/auth/mfa";
 import { PASSWORD_REQUIREMENT_TEXT, validatePassword } from "@/lib/validation";
 
+/**
+ * Reset-password route. Reads the recovery token from the URL, authorises
+ * the session (adding the MFA step when the account requires it), and only
+ * then renders the new-password form; a missing link shows an error card
+ * immediately, while an expired link shows an error card after the
+ * authorization attempt fails.
+ */
 export default function ResetPasswordPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -192,8 +199,8 @@ export default function ResetPasswordPage() {
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8 overflow-hidden">
       {/* Background clinical-theme decorative circles */}
-      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 blur-[80px]" />
-      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 blur-[80px]" />
+      <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-primary/10 dark:bg-primary/25 blur-[80px]" aria-hidden="true" />
+      <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-emerald-500/5 dark:bg-emerald-500/20 blur-[80px]" aria-hidden="true" />
 
       <div className="w-full max-w-md z-10 space-y-6">
         <div className="flex flex-col items-center space-y-2 text-center animate-fade-in">
@@ -202,7 +209,7 @@ export default function ResetPasswordPage() {
           <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
             KlinikAid
           </h1>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
             Bloodcare Medical Laboratory
           </p>
         </div>
@@ -238,14 +245,14 @@ export default function ResetPasswordPage() {
                 </AlertDescription>
               </Alert>
               <div className="text-center pt-2">
-                <Link href="/forgot-password" className="inline-flex items-center min-h-6 -my-0.5 text-sm text-accentBlue-600 hover:underline">
+                <Link href="/forgot-password" className="inline-flex items-center min-h-6 -my-0.5 text-sm text-accentBlue-600 dark:text-accentBlue-400 hover:underline">
                   Request a new reset link
                 </Link>
               </div>
             </CardContent>
           ) : !isVerified ? (
             <>
-              <CardContent className="space-y-4 pt-4 text-center">
+              <CardContent className="space-y-4 pt-4 pb-4 text-center">
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800/80 text-sm text-slate-600 dark:text-slate-400">
                   Click the button below to authorize the password recovery session on this browser window.
                 </div>
@@ -253,7 +260,7 @@ export default function ResetPasswordPage() {
               <CardFooter className="flex flex-col space-y-4">
                 <Button
                   onClick={handleStartVerify}
-                  className="w-full bg-primary hover:bg-primary/90 text-white font-medium shadow-md shadow-primary/10 transition-all duration-200"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-md shadow-primary/10 transition-all duration-200"
                   disabled={isVerifying}
                 >
                   {isVerifying ? (
@@ -269,7 +276,7 @@ export default function ResetPasswordPage() {
             </>
           ) : mfaRequired ? (
             <form onSubmit={handleVerifyMfa}>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pb-4">
                 {error && (
                   <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/50">
                     <ShieldAlert className="h-4 w-4" />
@@ -281,7 +288,7 @@ export default function ResetPasswordPage() {
                 <div className="space-y-2">
                   <Label htmlFor="totpCode">Authentication Code</Label>
                   <div className="relative">
-                    <Loader2 className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 animate-spin" style={{ display: verifyingMfa ? "block" : "none" }} />
+                    <Loader2 className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400 animate-spin" style={{ display: verifyingMfa ? "block" : "none" }} />
                     <Input
                       id="totpCode"
                       type="text"
@@ -307,7 +314,7 @@ export default function ResetPasswordPage() {
               <CardFooter className="flex flex-col space-y-4">
                 <Button
                   type="submit"
-                  className="w-full bg-primary hover:bg-primary/90 text-white font-medium shadow-md shadow-primary/10 transition-all duration-200"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-md shadow-primary/10 transition-all duration-200"
                   disabled={verifyingMfa}
                 >
                   {verifyingMfa ? (
@@ -323,7 +330,7 @@ export default function ResetPasswordPage() {
             </form>
           ) : (
             <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 pb-4">
                 {error && (
                   <Alert variant="destructive" className="bg-red-50 dark:bg-red-950/20 border-red-200/60 dark:border-red-900/50">
                     <ShieldAlert className="h-4 w-4" />
@@ -335,7 +342,7 @@ export default function ResetPasswordPage() {
                 <div className="space-y-2">
                   <Label htmlFor="password">New Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Lock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="password"
                       type="password"
@@ -357,7 +364,7 @@ export default function ResetPasswordPage() {
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">Confirm Password</Label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Lock className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <Input
                       id="confirmPassword"
                       type="password"
@@ -376,7 +383,7 @@ export default function ResetPasswordPage() {
               <CardFooter className="flex flex-col space-y-4">
                 <Button
                   type="submit"
-                  className="w-full bg-primary hover:bg-primary/90 text-white font-medium shadow-md shadow-primary/10 transition-all duration-200"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium shadow-md shadow-primary/10 transition-all duration-200"
                   disabled={isPending}
                 >
                   {isPending ? (

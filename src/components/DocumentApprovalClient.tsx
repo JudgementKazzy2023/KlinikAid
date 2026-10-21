@@ -122,7 +122,7 @@ export default function DocumentApprovalClient({ document: initialDoc, templateR
   const highlightOcrText = (text: string | null, flags: string[]) => {
     if (!text) {
       return (
-        <div className="text-slate-400 dark:text-slate-500 italic py-8 text-center">
+        <div className="text-slate-500 dark:text-slate-400 italic py-8 text-center">
           No OCR text extraction available for this document.
         </div>
       );
@@ -257,10 +257,10 @@ export default function DocumentApprovalClient({ document: initialDoc, templateR
         <div className="flex items-center gap-3">
           <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">Status:</span>
           {doc.status === "pending" && (
-            <Badge className="bg-amber-500 text-white hover:bg-amber-600">Pending Review</Badge>
+            <Badge className="bg-amber-700 text-white hover:bg-amber-800">Pending Review</Badge>
           )}
           {doc.status === "approved" && (
-            <Badge className="bg-emerald-600 text-white hover:bg-emerald-700">Approved</Badge>
+            <Badge className="bg-emerald-700 text-white hover:bg-emerald-800">Approved</Badge>
           )}
           {doc.status === "rejected" && (
             <Badge className="bg-rose-600 text-white hover:bg-rose-700">Rejected</Badge>
@@ -432,7 +432,7 @@ export default function DocumentApprovalClient({ document: initialDoc, templateR
                       {((doc.extracted_metadata as Record<string, unknown>)?.template_name as string) || "Unknown Form"}
                     </h4>
                   </div>
-                  <div className="divide-y divide-slate-100 dark:divide-slate-850 text-xs">
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                     {Object.entries(doc.extracted_metadata || {})
                       .filter(([key]) => !["template_id", "template_name", "submission_type", "submitted_at"].includes(key))
                       .map(([key, value]) => {
@@ -600,7 +600,7 @@ export default function DocumentApprovalClient({ document: initialDoc, templateR
               <div className="flex items-center gap-2">
                 <span className="font-bold text-slate-700 dark:text-slate-300">Review Resolution:</span>
                 {doc.status === "approved" ? (
-                  <Badge className="bg-emerald-600 text-white font-medium flex items-center gap-0.5">
+                  <Badge className="bg-emerald-700 text-white font-medium flex items-center gap-0.5">
                     <CheckCircle className="h-3 w-3" /> Approved
                   </Badge>
                 ) : (
@@ -659,7 +659,7 @@ export default function DocumentApprovalClient({ document: initialDoc, templateR
             <Button
               onClick={() => setIsTriageOpen(true)}
               disabled={isPending}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs h-9 px-4 flex items-center gap-1.5 shadow-md shadow-emerald-500/10"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs h-9 px-4 flex items-center gap-1.5 shadow-md shadow-emerald-500/10"
             >
               Approve & Route Patient
               <ArrowRight className="h-4 w-4" />
