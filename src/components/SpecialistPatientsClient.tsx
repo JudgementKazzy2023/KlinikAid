@@ -76,6 +76,15 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { focusRingClass } from "@/lib/focus-ring";
 
+/**
+ * The specialist's own patient roster: the filter card, the directory table
+ * and the add/archive dialogs.
+ *
+ * The roster arrives from the server already read, so the first paint shows
+ * the directory the specialist is entitled to. A search that fails is
+ * reported as a failure rather than as an empty list, because an empty list
+ * reads as "no patient matches", and that is a claim about the data.
+ */
 export default function SpecialistPatientsClient({
   initialPatients,
   rosterTotal,
