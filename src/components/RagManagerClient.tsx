@@ -176,7 +176,7 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
       {/* Controls & Search bar */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
         <div className="relative w-full md:max-w-md">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
           <Input
             placeholder="Search knowledge documents..."
             value={searchTerm}

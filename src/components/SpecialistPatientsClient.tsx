@@ -273,7 +273,7 @@ export default function SpecialistPatientsClient({
           <div className="grid gap-4 md:grid-cols-12">
             {/* Search Input */}
             <div className="md:col-span-5 relative">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500 dark:text-slate-400" />
+              <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-500 dark:text-slate-400" />
               <input
                 type="text"
                 placeholder="Search patient name or code (e.g. PT-123456)..."

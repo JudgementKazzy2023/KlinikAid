@@ -284,7 +284,7 @@ export default function DepartmentRecordsClient({
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-stretch sm:items-center">
           {/* Search bar */}
           <div className="relative flex-1 sm:w-64">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
             <input
               type="text"
               placeholder={activeTab === "queue" ? "Search patient or queue..." : "Search patient or test..."}
