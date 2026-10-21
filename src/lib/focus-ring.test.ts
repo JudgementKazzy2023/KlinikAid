@@ -3,6 +3,7 @@ import postcss from "postcss";
 import tailwindcss from "tailwindcss";
 import loadConfig from "tailwindcss/loadConfig.js";
 import ts from "typescript";
+import defaultTheme from "tailwindcss/defaultTheme.js";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -79,15 +80,18 @@ function widthOf(token: string): number | null {
 
 /**
  * The ring width `ring` (no number) paints: the theme's `ringWidth.DEFAULT`.
- * Tailwind v3 ships 1px, and this project adds `ring-3` without touching the
- * default, so `focus:ring` on its own is a 1px ring - not an indicator.
+ * Tailwind v3's default theme ships 3px, so a bare `focus:ring` is a 3px
+ * ring - the same width the rest of the app uses - and the project's config
+ * may override it.
  */
 const DEFAULT_RING_WIDTH = (() => {
   const theme = tailwindConfig.theme as
     | { ringWidth?: Record<string, string>; extend?: { ringWidth?: Record<string, string> } }
     | undefined;
   const width =
-    theme?.extend?.ringWidth?.DEFAULT ?? theme?.ringWidth?.DEFAULT ?? "1px";
+    theme?.extend?.ringWidth?.DEFAULT ??
+    theme?.ringWidth?.DEFAULT ??
+    defaultTheme.ringWidth.DEFAULT;
   const px = widthOf(width);
   return px === null ? 1 : px;
 })();
@@ -118,9 +122,10 @@ export function focusRingWidth(classNames: string[]): number | null {
  *
  * `focus:ring-2` is 2px and does not qualify. `focus:ring-3` does — the
  * Tailwind config adds `ringWidth: { 3: "3px" }` for it (issue #149).
- * `focus:ring` with no number is the theme's default width (1px), so it does
- * not qualify either. `focus:outline` on its own only sets the outline
- * *style*; the width stays the browser's 1px, so it does not qualify either.
+ * `focus:ring` with no number is the theme's default width, which in
+ * Tailwind v3 is 3px, so it qualifies too. `focus:outline` on its own only
+ * sets the outline *style*; the width stays the browser's 1px, so it does
+ * not qualify either.
  */
 export function focusIndicatorWidth(classNames: string[]): number | null {
   let widest = focusRingWidth(classNames);
@@ -340,9 +345,10 @@ describe("focus indicator (issue #180)", () => {
     expect(focusRingWidth(["focus:ring-3", "focus:ring-indigo-500"])).toBe(3);
     expect(focusRingWidth(["focus-visible:ring-3"])).toBe(3);
     expect(focusRingWidth(["focus:ring-2"])).toBe(2);
-    // `focus:ring` with no number is the theme's default width: 1px here.
-    expect(focusRingWidth(["focus:ring"])).toBe(1);
-    expect(focusRingWidth(["focus-visible:ring"])).toBe(1);
+    // `focus:ring` with no number is the theme's default width: 3px in
+    // Tailwind v3, so it is an indicator like `focus:ring-3`.
+    expect(focusRingWidth(["focus:ring"])).toBe(3);
+    expect(focusRingWidth(["focus-visible:ring"])).toBe(3);
     // A ring colour on its own paints nothing in Tailwind v3.
     expect(focusRingWidth(["focus:ring-indigo-500"])).toBeNull();
     // A ring that is not tied to focus is decoration, not an indicator.
