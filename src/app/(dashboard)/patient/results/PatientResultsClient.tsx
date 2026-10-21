@@ -82,7 +82,7 @@ export default function PatientResultsClient({ initialRecords }: PatientResultsC
       {/* Filter and Search Bar */}
       <div className="grid gap-4 sm:grid-cols-3 bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-sm">
         <div className="sm:col-span-2 relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500 dark:text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500 dark:text-slate-400" />
           <Input
             placeholder="Search parameters or comments..."
             value={searchQuery}

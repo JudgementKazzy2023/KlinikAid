@@ -230,7 +230,7 @@ export default function NewPatientModal() {
               <div className="space-y-1">
                 <Label htmlFor="firstName">First Name</Label>
                 <div className="relative">
-                  <User className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <User className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   <Input
                     id="firstName"
                     type="text"
@@ -246,7 +246,7 @@ export default function NewPatientModal() {
               <div className="space-y-1">
                 <Label htmlFor="lastName">Last Name</Label>
                 <div className="relative">
-                  <User className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <User className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   <Input
                     id="lastName"
                     type="text"
@@ -265,7 +265,7 @@ export default function NewPatientModal() {
               <div className="space-y-1">
                 <Label htmlFor="dob">Date of Birth</Label>
                 <div className="relative">
-                  <Calendar className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                  <Calendar className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                   <Input
                     id="dob"
                     type="date"
@@ -297,7 +297,7 @@ export default function NewPatientModal() {
             <div className="space-y-1">
               <Label htmlFor="contactNumber">Contact Number</Label>
               <div className="relative">
-                <Phone className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <Phone className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                 <Input
                   id="contactNumber"
                   type="tel"
@@ -314,7 +314,7 @@ export default function NewPatientModal() {
             <div className="space-y-1">
               <Label htmlFor="address">Address</Label>
               <div className="relative">
-                <MapPin className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <MapPin className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                 <Input
                   id="address"
                   type="text"
@@ -335,7 +335,7 @@ export default function NewPatientModal() {
             <div className="space-y-1">
               <Label htmlFor="email">Email Address</Label>
               <div className="relative">
-                <Mail className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                <Mail className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
                 <Input
                   id="email"
                   type="email"

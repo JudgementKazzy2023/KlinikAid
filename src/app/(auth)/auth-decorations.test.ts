@@ -12,6 +12,13 @@ import { describe, expect, it } from "vitest";
  * who has not accepted yet. Reading the route sources is the coverage those
  * states have in CI; `e2e/auth-leading-icons.spec.ts` measures the reachable
  * pages in a real browser.
+ *
+ * The rule that used to live here — an absolutely positioned icon must carry
+ * `pointer-events-none`, or it swallows the tap meant for the field under it
+ * — moved to `src/lib/icon-overlays.test.ts` with issue #181, which states it
+ * for every file in `src/` instead of for the auth routes only. What is left
+ * here is the contract that is specific to the auth pages: the page has one
+ * scroll container, not two.
  */
 
 const AUTH_DIR = fileURLToPath(new URL(".", import.meta.url));
@@ -35,37 +42,6 @@ function sourceLines(): Array<{ file: string; line: number; text: string }> {
 }
 
 describe("auth page decorations", () => {
-  it("points every absolutely positioned icon at the field under it", () => {
-    // Decorative icons sit on top of their input. Without pointer-events-none
-    // the SVG takes the hit and the tap never reaches the field. lucide-react
-    // already renders aria-hidden="true", which e2e/auth-leading-icons.spec.ts
-    // asserts in the DOM; the class is the half a browser cannot infer.
-    const offenders = sourceLines().filter(({ text }) => {
-      const isIcon = /^\s*<[A-Z][A-Za-z0-9.]*\s+className="/.test(text);
-      const className = text.match(/className="([^"]*)"/)?.[1] ?? "";
-      const positioned = className.split(/\s+/).includes("absolute");
-      return isIcon && positioned && !className.split(/\s+/).includes("pointer-events-none");
-    });
-
-    expect(
-      offenders.map(({ file, line, text }) => `${file}:${line} ${text.trim()}`),
-      "absolutely positioned icons must declare pointer-events-none",
-    ).toEqual([]);
-  });
-
-  it("keeps a second icon gutter from growing on a control with no icon", () => {
-    // `left-3 top-2.5` is the leading-icon gutter this issue measured; a line
-    // carrying it is an icon, and every icon needs the same two properties.
-    const offenders = sourceLines().filter(
-      ({ text }) => text.includes("left-3 top-2.5") && !text.includes("pointer-events-none"),
-    );
-
-    expect(
-      offenders.map(({ file, line, text }) => `${file}:${line} ${text.trim()}`),
-      "icon-gutter lines must declare pointer-events-none",
-    ).toEqual([]);
-  });
-
   it("gives the page one scroll container instead of a wrapper that also scrolls", () => {
     // min-h-screen wrappers used to declare overflow-y-auto, so a decorative
     // circle outside the box opened a second, independent scrollbar (#20 item

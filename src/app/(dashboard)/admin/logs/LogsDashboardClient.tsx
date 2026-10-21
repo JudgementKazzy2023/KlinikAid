@@ -686,7 +686,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
               {/* Free-text Search Bar */}
               <form onSubmit={handleSearchSubmit} className="mt-4 flex gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+                  <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
                   <Input
                     placeholder="Search logs description..."
                     value={filterSearch}
