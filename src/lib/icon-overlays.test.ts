@@ -30,6 +30,11 @@ import { describe, expect, it } from "vitest";
  * `onClick`, a native `button`, an `a`. A positioned close button over a
  * dialog is a control, not a decoration.
  *
+ * A control counts as covered when it is a sibling of the overlay, or sits
+ * under a wrapper chain next to it (`FormField` > `FormItem` >
+ * `FormControl` > the control). A decoration that is a sibling of a whole
+ * section — a page's background circle next to its card — covers nothing.
+ *
  * The check is a source check because the unit tests run in node without a
  * DOM. `e2e/auth-leading-icons.spec.ts` and the browser check in this
  * issue's pull request measure the same property in a real browser.
@@ -263,12 +268,13 @@ function describeControl(element: Element): string {
 /**
  * The first control in this element's subtree, if there is one.
  *
- * The search stops after two levels. A decoration that is a sibling of a
- * control, or of a wrapper that holds one (`FormControl`, a styled `label`),
- * is over that control; a decoration that is a sibling of a whole section —
- * a page's background circle next to its card — is not.
+ * The search stops after three levels. A decoration that is a sibling of a
+ * control, or of a wrapper chain around one (`FormField` > `FormItem` >
+ * `FormControl` > the control), is over that control; a decoration that is a
+ * sibling of a whole section — a page's background circle next to its card —
+ * is not.
  */
-function findControl(element: Element, depth = 2): Element | null {
+function findControl(element: Element, depth = 3): Element | null {
   if (CONTROLS.has(element.name)) return element;
   if (depth === 0) return null;
   for (const child of element.children) {
@@ -423,6 +429,28 @@ describe("icons and decorations over a form control (issue #181)", () => {
     const offenders = overlaysWithoutPointerEventsNone(source);
     expect(offenders).toHaveLength(1);
     expect(offenders[0].control).toBe("<input>");
+  });
+
+  it("catches a decoration whose control is nested in a wrapper chain", () => {
+    // The form kit wraps a control in three elements. The overlay is still
+    // the sibling of that chain, and it still takes the tap.
+    const source = [
+      '<div className="relative">',
+      '  <div className="absolute inset-y-0 left-3 flex items-center">',
+      '    <span className="h-4 w-4" />',
+      "  </div>",
+      "  <FormField>",
+      "    <FormItem>",
+      "      <FormControl>",
+      '        <Input placeholder="Search" />',
+      "      </FormControl>",
+      "    </FormItem>",
+      "  </FormField>",
+      "</div>",
+    ].join("\n");
+    const offenders = overlaysWithoutPointerEventsNone(source);
+    expect(offenders).toHaveLength(1);
+    expect(offenders[0].control).toBe("<Input>");
   });
 
   it("leaves a positioned control of its own alone", () => {
