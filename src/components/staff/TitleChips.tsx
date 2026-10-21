@@ -36,7 +36,7 @@ export default function TitleChips({ id, titles, onChange }: TitleChipsProps) {
       <div
         className={cn(
           "flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border border-input bg-white px-2 py-1.5 dark:bg-slate-900",
-          "focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/40",
+          "focus-within:border-ring",
           error && "border-rose-400"
         )}
       >

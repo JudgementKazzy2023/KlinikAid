@@ -251,7 +251,7 @@ export default function TemplatesClient({ patientIdentity }: TemplatesClientProp
                         value={val}
                         onChange={(e) => handleFieldChange(field.key, e.target.value)}
                         required={field.required}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 outline-none focus:ring-3 focus:ring-indigo-500/20 h-10 appearance-none"
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 outline-none focus:ring-3 focus:ring-indigo-500 h-10 appearance-none"
                       >
                         <option value="">-- Select option --</option>
                         {field.options?.map(opt => (
