@@ -32,9 +32,9 @@ import { describe, expect, it } from "vitest";
  *
  * A control counts as covered when it is a sibling of the overlay, or sits
  * under a wrapper chain next to it (`FormField` > `FormItem` >
- * `FormControl` > the control). A decoration that is a sibling of a whole
- * section — a page's background circle next to its card, or a background next
- * to a `<section>` — covers nothing.
+ * `FormControl` > the control). What the overlay does not cover is what
+ * paints above it: a sibling that is positioned and comes later in the
+ * source, and an overlay with a negative z-index.
  *
  * The check is a source check because the unit tests run in node without a
  * DOM. `e2e/auth-leading-icons.spec.ts` and the browser check in this
@@ -60,13 +60,6 @@ const CONTROLS = new Set([
 
 /** Native elements that are a click target of their own. */
 const INTERACTIVE = new Set(["button", "a", "input", "select", "textarea", "option"]);
-
-/**
- * Elements that hold a page section rather than a field. A decoration that
- * is a sibling of one of these is a page decoration — a background next to a
- * section — and not something that covers the section's control.
- */
-const SECTIONS = new Set(["section", "main", "article", "aside", "header", "footer", "nav"]);
 
 /** Tailwind utilities that take an element out of the flow. */
 const OUT_OF_FLOW = new Set(["absolute", "fixed"]);
@@ -279,8 +272,8 @@ function describeControl(element: Element): string {
  * The search stops after three levels. A decoration that is a sibling of a
  * control, or of a wrapper chain around one (`FormField` > `FormItem` >
  * `FormControl` > the control), is over that control; a decoration that is a
- * sibling of a whole section — a page's background circle next to its card —
- * is not.
+ * sibling of a whole page block — a card that holds a form several levels
+ * down — is not.
  */
 function findControl(element: Element, depth = 3): Element | null {
   if (CONTROLS.has(element.name)) return element;
@@ -293,16 +286,37 @@ function findControl(element: Element, depth = 3): Element | null {
 }
 
 /**
- * The form control this element sits next to, if any. The control is often
- * not a direct sibling: it may sit inside a wrapper (`FormControl`, a styled
- * `label`), so the whole sibling subtree is searched — but never into a
- * section, which is a page block and not a field container.
+ * Is the element positioned — either out of the flow or the positioning
+ * context of its children?
  */
-function controlSibling(element: Element): Element | null {
+function isPositioned(element: Element): boolean {
+  return classNameOf(element.attrs).some((value) =>
+    ["relative", "absolute", "fixed", "sticky"].includes(value),
+  );
+}
+
+/**
+ * The form control this element covers, if any.
+ *
+ * The control is often not a direct sibling: it may sit inside a wrapper
+ * (`FormControl`, a styled `label`), so the sibling's subtree is searched.
+ *
+ * What the search leaves out is what paints *above* the overlay: a sibling
+ * that is positioned and comes later in the source is painted over it, so
+ * the overlay is behind that sibling and covers nothing of it. An overlay
+ * with a negative z-index is behind everything in its context, so it covers
+ * nothing either.
+ */
+function coveredControl(element: Element): Element | null {
   const siblings = element.parent?.children ?? [];
-  for (const sibling of siblings) {
+  if (classNameOf(element.attrs).some((value) => value.startsWith("-z-"))) return null;
+
+  for (let index = 0; index < siblings.length; index += 1) {
+    const sibling = siblings[index];
     if (sibling === element) continue;
-    if (SECTIONS.has(sibling.name)) continue;
+    // A positioned sibling that comes later in the source paints above the
+    // overlay, so the overlay is behind it.
+    if (isPositioned(sibling) && index > siblings.indexOf(element)) continue;
     const found = findControl(sibling);
     if (found) return found;
   }
@@ -330,7 +344,7 @@ export function overlaysWithoutPointerEventsNone(source: string): Overlay[] {
     const outOfFlow = classes.some((value) => OUT_OF_FLOW.has(value));
     const inert = classes.includes("pointer-events-none");
     if (outOfFlow && !inert) {
-      const control = controlSibling(element);
+      const control = coveredControl(element);
       // An icon is a decoration wherever it is put, and it never needs the
       // pointer. A click handler makes it a target of its own instead.
       const isIcon = icons.has(element.name) && !hasClickHandler(element.attrs);
@@ -463,9 +477,9 @@ describe("icons and decorations over a form control (issue #181)", () => {
     expect(offenders[0].control).toBe("<Input>");
   });
 
-  it("leaves a decoration next to a section alone", () => {
-    // A background beside a page section is a page decoration: the section
-    // holds more than the field, so the decoration covers nothing.
+  it("catches a decoration that covers the control of a section", () => {
+    // The section is not positioned, so the absolute background paints above
+    // it and intercepts the tap on the input inside.
     const source = [
       '<div className="relative">',
       '  <div className="absolute inset-0 bg-slate-100" />',
@@ -476,6 +490,36 @@ describe("icons and decorations over a form control (issue #181)", () => {
       "      </div>",
       "    </div>",
       "  </section>",
+      "</div>",
+    ].join("\n");
+    const offenders = overlaysWithoutPointerEventsNone(source);
+    expect(offenders).toHaveLength(1);
+    expect(offenders[0].control).toBe("<input>");
+  });
+
+  it("leaves a decoration behind a positioned section alone", () => {
+    // The section is positioned and comes later in the source, so it paints
+    // above the background and the background covers nothing of it.
+    const source = [
+      '<div className="relative">',
+      '  <div className="absolute inset-0 bg-slate-100" />',
+      '  <section className="relative">',
+      "    <div>",
+      "      <div>",
+      '        <input type="text" />',
+      "      </div>",
+      "    </div>",
+      "  </section>",
+      "</div>",
+    ].join("\n");
+    expect(overlaysWithoutPointerEventsNone(source)).toEqual([]);
+  });
+
+  it("leaves a decoration behind a negative z-index alone", () => {
+    const source = [
+      '<div className="relative">',
+      '  <div className="absolute inset-0 -z-10 bg-slate-100" />',
+      '  <input type="text" />',
       "</div>",
     ].join("\n");
     expect(overlaysWithoutPointerEventsNone(source)).toEqual([]);
