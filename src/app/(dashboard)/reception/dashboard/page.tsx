@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import NewPatientModal from "./NewPatientModal";
+import { focusRingClass } from "@/lib/focus-ring";
 
 export const dynamic = "force-dynamic";
 
@@ -180,7 +181,7 @@ export default async function ReceptionDashboardPage() {
         <div className="flex items-center gap-3">
           <NewPatientModal />
           
-          <Link href="/reception/queue" className="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors gap-1.5">
+          <Link href="/reception/queue" className={`inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 transition-colors gap-1.5 ${focusRingClass}`}>
             Open Review Queue
             <ArrowRight className="h-4 w-4" />
           </Link>

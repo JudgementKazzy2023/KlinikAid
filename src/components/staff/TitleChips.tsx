@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MAX_TITLES, MAX_TITLE_LENGTH } from "@/app/(dashboard)/admin/staff/staff-form";
+import { focusRingClass } from "@/lib/focus-ring";
 
 interface TitleChipsProps {
   id: string;
@@ -35,7 +36,7 @@ export default function TitleChips({ id, titles, onChange }: TitleChipsProps) {
       <div
         className={cn(
           "flex min-h-10 flex-wrap items-center gap-1.5 rounded-md border border-input bg-white px-2 py-1.5 dark:bg-slate-900",
-          "focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/40",
+          "focus-within:border-ring",
           error && "border-rose-400"
         )}
       >
@@ -48,7 +49,7 @@ export default function TitleChips({ id, titles, onChange }: TitleChipsProps) {
             <button
               type="button"
               onClick={() => onChange(titles.filter((t) => t !== title))}
-              className="rounded-full p-0.5 text-slate-500 hover:bg-slate-200 hover:text-rose-600 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-rose-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+              className={`rounded-full p-0.5 text-slate-500 hover:bg-slate-200 hover:text-rose-600 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-rose-400 ${focusRingClass}`}
               aria-label={`Remove ${title}`}
             >
               <X className="h-3 w-3" />
@@ -74,7 +75,7 @@ export default function TitleChips({ id, titles, onChange }: TitleChipsProps) {
           }}
           onBlur={commit}
           placeholder={titles.length ? (full ? "" : "Add another") : "e.g. Billing Clerk, then press Enter"}
-          className="min-w-[8rem] flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-slate-400 disabled:cursor-not-allowed"
+          className={`min-w-[8rem] flex-1 bg-transparent px-1 text-sm outline-none placeholder:text-slate-400 disabled:cursor-not-allowed ${focusRingClass}`}
           aria-describedby={`${id}-hint`}
         />
       </div>

@@ -30,6 +30,7 @@ import {
   discardAssessedDocumentAction,
 } from "./actions";
 import type { DetectedClinicTest } from "@/lib/documents/detectRequestedTests";
+import { focusRingClass } from "@/lib/focus-ring";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_FILE_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/jpg"];
@@ -371,7 +372,7 @@ export default function DocumentSubmitClient() {
                 onClick={() => void removeFile()}
                 disabled={isSubmitting}
                 aria-label="Remove selected file"
-                className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors disabled:opacity-50"
+                className={`p-1.5 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors disabled:opacity-50 ${focusRingClass}`}
               >
                 <X className="h-4.5 w-4.5" aria-hidden="true" />
               </button>

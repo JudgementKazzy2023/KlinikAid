@@ -44,6 +44,7 @@ import {
   uploadRagPdfAction,
   deleteRagDocumentAction,
 } from "@/app/(dashboard)/admin/rag/actions";
+import { focusRingClass } from "@/lib/focus-ring";
 
 interface GroupedDocument {
   documentId: string;
@@ -389,7 +390,7 @@ export default function RagManagerClient({ initialDocuments, error = null }: Rag
                         const fileInput = document.getElementById("pdf-file-input") as HTMLInputElement;
                         if (fileInput) fileInput.value = "";
                       }}
-                      className="mt-2 text-xs text-red-600 hover:text-red-500 flex items-center gap-1 font-medium py-1 px-2 rounded-md hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                      className={`mt-2 text-xs text-red-600 hover:text-red-500 flex items-center gap-1 font-medium py-1 px-2 rounded-md hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors ${focusRingClass}`}
                     >
                       <X className="h-3 w-3" />
                       Remove file

@@ -16,6 +16,7 @@ import {
 import { format } from "date-fns";
 import { DEPARTMENTS, testTypeLabel } from "@/lib/constants";
 import { formatPhTimeFull, getAge } from "@/lib/utils";
+import { focusRingClass } from "@/lib/focus-ring";
 
 interface QueuePatient {
   id: string;
@@ -261,7 +262,7 @@ export default function DepartmentRecordsClient({
               activeTab === "queue"
                 ? "bg-white dark:bg-slate-800 text-slate-950 dark:text-white shadow-sm"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-            }`}
+            } ${focusRingClass}`}
           >
             <Users className="h-4 w-4" />
             Open Queue ({initialQueue.length})
@@ -272,7 +273,7 @@ export default function DepartmentRecordsClient({
               activeTab === "history"
                 ? "bg-white dark:bg-slate-800 text-slate-950 dark:text-white shadow-sm"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-            }`}
+            } ${focusRingClass}`}
           >
             <History className="h-4 w-4" />
             Records History

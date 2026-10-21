@@ -44,6 +44,7 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import { startOfISOWeek, parseISO } from "date-fns";
 import { toZonedTime, format as formatTz, formatInTimeZone } from "date-fns-tz";
+import { focusRingClass } from "@/lib/focus-ring";
 
 interface ProfileItem {
   id: string;
@@ -560,7 +561,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
             activeTab === "system"
               ? "border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400"
               : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400"
-          }`}
+          } ${focusRingClass}`}
         >
           System Events
         </button>
@@ -570,7 +571,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
             activeTab === "chatbot"
               ? "border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400"
               : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400"
-          }`}
+          } ${focusRingClass}`}
         >
           Chatbot Audit
         </button>
@@ -580,7 +581,7 @@ export default function LogsDashboardClient({ profiles, profilesError = null, fr
             activeTab === "costs"
               ? "border-teal-600 text-teal-600 dark:border-teal-400 dark:text-teal-400"
               : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400"
-          }`}
+          } ${focusRingClass}`}
         >
           API Cost Tracker
         </button>

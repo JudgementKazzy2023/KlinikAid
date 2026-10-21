@@ -14,6 +14,7 @@ import {
 import { formatInTimeZone } from "date-fns-tz";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { focusRingClass } from "@/lib/focus-ring";
 
 interface SpecialistDashboardClientProps {
   stats: {
@@ -268,7 +269,7 @@ export default function SpecialistDashboardClient({
                   <Link 
                     href={`/specialist/patients/${p.id}/analytics`}
                     aria-label={`View analytics for ${p.first_name} ${p.last_name}`}
-                    className="p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 transition"
+                    className={`p-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-indigo-600 dark:text-indigo-400 transition ${focusRingClass}`}
                   >
                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                   </Link>
@@ -278,7 +279,7 @@ export default function SpecialistDashboardClient({
             <div className="pt-2">
               <Link 
                 href="/specialist/patients"
-                className="w-full py-2 border border-dashed border-indigo-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400 font-semibold rounded-lg text-xs flex items-center justify-center gap-2 hover:bg-indigo-50/50 dark:hover:bg-slate-900/40 transition"
+                className={`w-full py-2 border border-dashed border-indigo-200 dark:border-slate-700 text-indigo-600 dark:text-indigo-400 font-semibold rounded-lg text-xs flex items-center justify-center gap-2 hover:bg-indigo-50/50 dark:hover:bg-slate-900/40 transition ${focusRingClass}`}
               >
                 Search All Patients
                 <ArrowRight className="h-3 w-3" />

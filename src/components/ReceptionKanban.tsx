@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { fetchJson, type ApiError } from "@/lib/fetch-json";
 import DataLoadError from "@/components/DataLoadError";
+import { focusRingClass } from "@/lib/focus-ring";
 
 interface ReceptionKanbanProps {
   initialDocuments: Document[];
@@ -393,7 +394,7 @@ export default function ReceptionKanban({
           className={cn(
             "group block rounded-md border border-slate-200 bg-white px-3 py-2 transition-colors hover:border-slate-400",
             "dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700",
-            "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary",
+            focusRingClass,
             colId === "staff_review" && "border-l-[3px] border-l-amber-500"
           )}
         >
@@ -455,7 +456,7 @@ export default function ReceptionKanban({
           <button
             type="button"
             onClick={() => loadMore(col.id)}
-            className="mt-2 w-full rounded-md border border-slate-300 bg-white py-2 text-xs font-medium text-slate-700 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+            className={`mt-2 w-full rounded-md border border-slate-300 bg-white py-2 text-xs font-medium text-slate-700 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 ${focusRingClass}`}
           >
             Show {Math.min(PAGE_SIZE, remaining)} more
             <span className="ml-1 text-slate-500 dark:text-slate-400">({remaining} not yet shown)</span>
@@ -511,7 +512,7 @@ export default function ReceptionKanban({
             type="button"
             onClick={() => setShowCompleted((v) => !v)}
             aria-expanded={showCompleted}
-            className="hidden items-center gap-1.5 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary md:inline-flex"
+            className={`hidden items-center gap-1.5 whitespace-nowrap rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-slate-600 md:inline-flex ${focusRingClass}`}
           >
             {showCompleted ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
             Recently completed
@@ -527,7 +528,7 @@ export default function ReceptionKanban({
           the full statement is one click away. */}
       {!searching && (anythingOmitted ? (
         <details role="status" className="group shrink-0 rounded-md border border-amber-200 bg-amber-50 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100">
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-medium">
+          <summary className={`flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-medium ${focusRingClass}`}>
             <AlertCircle className="h-4 w-4 shrink-0" />
             <span className="min-w-0 flex-1">
               Capped view:{" "}
@@ -623,7 +624,7 @@ export default function ReceptionKanban({
                 onClick={() => setActiveTab(col.id)}
                 className={cn(
                   "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[13px] font-medium",
-                  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary",
+                  focusRingClass,
                   selected ? "border-primary bg-primary text-primary-foreground" : "border-slate-300 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
                 )}
               >
@@ -646,7 +647,7 @@ export default function ReceptionKanban({
           onScroll={measure}
           tabIndex={0}
           aria-label="Queue board, scroll horizontally for more columns"
-          className="flex h-full snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden scroll-smooth pb-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+          className={`flex h-full snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden scroll-smooth pb-2 ${focusRingClass}`}
         >
           {desktopColumns.map((col) => {
             const list = columnsData[col.id];
@@ -686,7 +687,7 @@ export default function ReceptionKanban({
         {edges.left && (
           <>
             <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-background to-transparent" />
-            <button type="button" onClick={() => nudge(-1)} aria-label="Scroll board left" className="absolute left-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm hover:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-600">
+            <button type="button" onClick={() => nudge(-1)} aria-label="Scroll board left" className={`absolute left-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm hover:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-600 ${focusRingClass}`}>
               <ChevronRight className="h-4 w-4 rotate-180" />
             </button>
           </>
@@ -694,7 +695,7 @@ export default function ReceptionKanban({
         {edges.right && (
           <>
             <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-background to-transparent" />
-            <button type="button" onClick={() => nudge(1)} aria-label="Scroll board right" className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm hover:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-600">
+            <button type="button" onClick={() => nudge(1)} aria-label="Scroll board right" className={`absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-700 shadow-sm hover:border-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-600 ${focusRingClass}`}>
               <ChevronRight className="h-4 w-4" />
             </button>
           </>

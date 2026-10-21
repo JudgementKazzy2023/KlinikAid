@@ -74,6 +74,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { focusRingClass } from "@/lib/focus-ring";
 
 export default function SpecialistPatientsClient({
   initialPatients,
@@ -328,7 +329,7 @@ export default function SpecialistPatientsClient({
             <div className="flex justify-end pt-1">
               <button
                 onClick={handleReset}
-                className="text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
+                className={`text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition ${focusRingClass}`}
               >
                 Clear all filters
               </button>
@@ -473,7 +474,7 @@ export default function SpecialistPatientsClient({
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(prev => prev - 1)}
                   aria-label="Previous page"
-                  className="p-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-50 disabled:pointer-events-none transition"
+                  className={`p-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-50 disabled:pointer-events-none transition ${focusRingClass}`}
                 >
                   <ChevronLeft className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -484,7 +485,7 @@ export default function SpecialistPatientsClient({
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage(prev => prev + 1)}
                   aria-label="Next page"
-                  className="p-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-50 disabled:pointer-events-none transition"
+                  className={`p-1.5 border border-slate-200 dark:border-slate-800 rounded-lg text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-900 disabled:opacity-50 disabled:pointer-events-none transition ${focusRingClass}`}
                 >
                   <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>
