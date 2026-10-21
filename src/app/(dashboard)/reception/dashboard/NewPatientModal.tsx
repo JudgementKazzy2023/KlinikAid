@@ -281,7 +281,7 @@ export default function NewPatientModal() {
                 <Label htmlFor="gender">Gender</Label>
                 <select
                   id="gender"
-                  className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:ring-offset-slate-950 dark:focus-visible:ring-slate-300"
+                  className="flex h-9 w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs ring-offset-white outline-none focus-visible:ring-3 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-800 dark:bg-slate-950 dark:ring-offset-slate-950 dark:focus-visible:ring-slate-300"
                   value={formData.gender}
                   onChange={handleChange}
                   disabled={isPending}

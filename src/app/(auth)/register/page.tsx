@@ -12,6 +12,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { PASSWORD_REQUIREMENT_TEXT, validateAge, validatePassword, ADDRESS_MAX } from "@/lib/validation";
 import TermsAndConditionsModal from "@/components/TermsAndConditionsModal";
+import { focusRingClass } from "@/lib/focus-ring";
 
 /**
  * The registration form itself: field state, the age/password checks that
@@ -339,7 +340,7 @@ function RegisterForm() {
                       <button
                         type="button"
                         onClick={() => setIsTermsModalOpen(true)}
-                        className="font-semibold text-accentBlue-600 dark:text-accentBlue-400 hover:underline focus:outline-none focus:ring-2 focus:ring-accentBlue-500/40 rounded-sm"
+                        className={`font-semibold text-accentBlue-600 dark:text-accentBlue-400 hover:underline rounded-sm ${focusRingClass}`}
                       >
                         Terms and Conditions
                       </button>

@@ -18,6 +18,7 @@ import {
   type StaffFormValues,
   type StaffMember,
 } from "@/app/(dashboard)/admin/staff/staff-form";
+import { focusRingClass } from "@/lib/focus-ring";
 
 export interface CreatedAccount {
   name: string;
@@ -50,7 +51,7 @@ const DEPARTMENT_OPTIONS = [
   { value: "ecg", label: "ECG" },
 ] as const;
 
-const FIELD = "h-10 text-sm focus-visible:ring-2 focus-visible:ring-ring/40";
+const FIELD = "h-10 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/40";
 
 function Field({ label, htmlFor, error, children }: { label: string; htmlFor: string; error?: string; children: React.ReactNode }) {
   return (
@@ -213,7 +214,8 @@ export default function StaffSheet(props: StaffSheetProps) {
                             aria-checked={selected}
                             onClick={() => setValue("department", opt.value, { shouldValidate: true, shouldDirty: true })}
                             className={cn(
-                              "h-10 rounded-md border px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                              "h-10 rounded-md border px-3 text-sm font-medium transition-colors",
+                              focusRingClass,
                               selected ? "border-primary bg-primary/5 text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary))]" : "border-input bg-white text-slate-700 hover:border-slate-400 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600"
                             )}
                           >

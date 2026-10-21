@@ -188,7 +188,7 @@ export default function SpecialistRecordEntryClient({ patient }: SpecialistRecor
                   setSelectedTestType(e.target.value);
                   setParamValues({});
                 }}
-                className="w-full pl-3 pr-8 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 h-10 appearance-none"
+                className="w-full pl-3 pr-8 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 outline-none focus:ring-3 focus:ring-indigo-500/20 h-10 appearance-none"
               >
                 {Object.keys(LAB_TEST_GROUPS).map(g => (
                   <option key={g} value={g}>{LAB_PANEL_LABELS[g as LabTestPanel] ?? g}</option>

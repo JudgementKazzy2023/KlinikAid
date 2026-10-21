@@ -93,4 +93,27 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /*
+   * Issue #180: the keyboard focus indicator.
+   *
+   * The floor for every focusable control in the app: a 3px outline in the
+   * `--ring` theme colour, so it follows the light/dark switch. The browser's
+   * own focus ring is 1px, which is easy to miss on the beige and dark
+   * backgrounds.
+   *
+   * `:not(.outline-none)` keeps this from doubling up with the ui kit: the
+   * kit's controls (button, input, select, textarea, switch) and the shared
+   * `focusRingClass` all carry `outline-none` and paint the kit's own 3px
+   * ring instead, so a control shows exactly one indicator.
+   *
+   * The trailing `:focus` is deliberate. It raises this rule above a
+   * hand-written control's own `focus:outline-none` (both are 0-2-0, and a
+   * utility would otherwise win on source order), so a control that resets
+   * the outline still ends up with a 3px indicator rather than none at all.
+   */
+  :focus-visible:not(.outline-none):focus {
+    outline: 3px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
 }

@@ -4,6 +4,7 @@ import React from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { roleBlurb, roleLabel, type DbRole } from "@/app/(dashboard)/admin/staff/staff-form";
+import { focusRingClass } from "@/lib/focus-ring";
 
 interface RoleCardsProps {
   roles: DbRole[];
@@ -28,7 +29,7 @@ export default function RoleCards({ roles, value, onChange, invalid, describedBy
             onClick={() => onChange(role.id)}
             className={cn(
               "flex w-full items-start gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+              focusRingClass,
               selected
                 ? "border-primary bg-primary/5 shadow-[inset_0_0_0_1px_hsl(var(--primary))]"
                 : "border-input bg-white hover:border-slate-400 dark:bg-slate-900 dark:hover:border-slate-600",

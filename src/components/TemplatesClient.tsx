@@ -20,6 +20,7 @@ import { CLINIC_TEMPLATES, DocumentTemplate, TEMPLATE_DATE_MIN, templateFieldMax
 import { latestTemplateDate, todayInPh } from "@/lib/documents/templateChecks";
 import { submitTemplateDocumentAction } from "@/app/(dashboard)/patient/templates/actions";
 import type { PatientIdentityProps } from "@/app/(dashboard)/patient/templates/page";
+import { focusRingClass } from "@/lib/focus-ring";
 
 interface TemplatesClientProps {
   patientIdentity: PatientIdentityProps;
@@ -101,7 +102,7 @@ export default function TemplatesClient({ patientIdentity }: TemplatesClientProp
           <button 
             type="button"
             onClick={handleBackToSelect}
-            className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition"
+            className={`inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition ${focusRingClass}`}
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Template Picker
@@ -250,7 +251,7 @@ export default function TemplatesClient({ patientIdentity }: TemplatesClientProp
                         value={val}
                         onChange={(e) => handleFieldChange(field.key, e.target.value)}
                         required={field.required}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 h-10 appearance-none"
+                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 outline-none focus:ring-3 focus:ring-indigo-500/20 h-10 appearance-none"
                       >
                         <option value="">-- Select option --</option>
                         {field.options?.map(opt => (

@@ -28,6 +28,7 @@ import {
   User,
   ShieldCheck,
 } from "lucide-react";
+import { focusRingClass } from "@/lib/focus-ring";
 
 export type SidebarIcon =
   | "LayoutDashboard"
@@ -125,6 +126,7 @@ export default function Sidebar({ user, navItems, onLinkClick, className }: Side
               onClick={onLinkClick}
               className={cn(
                 "flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group",
+                focusRingClass,
                 isActive
                   ? "bg-primary/10 text-primary dark:bg-primary/20 dark:text-emerald-400"
                   : "text-slate-600 hover:text-slate-950 hover:bg-slate-50 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-800/50"

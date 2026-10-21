@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronUp, Loader2, Thermometer, Weight, Activity } from "lucide-react";
 import { validateBloodPressure, BLOOD_PRESSURE_FORMAT_MESSAGE } from "@/lib/validation";
+import { focusRingClass } from "@/lib/focus-ring";
 
 const triageSchema = z.object({
   department: z.enum(["laboratory", "imaging", "ultrasound", "ecg"], {
@@ -318,7 +319,7 @@ export default function TriageModal({
             <button
               type="button"
               onClick={() => setShowVitals(!showVitals)}
-              className="w-full flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-900/20 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors"
+              className={`w-full flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-900/20 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors ${focusRingClass}`}
             >
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Activity className="h-4 w-4 text-emerald-500" />

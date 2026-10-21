@@ -13,6 +13,7 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Lock, Mail, Loader2, KeyRound, ShieldAlert, CheckCircle, Info } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { focusRingClass } from "@/lib/focus-ring";
 
 // Every `/login?error=<code>` producer in the app, mapped to an app-owned message.
 // The query string is attacker-controllable, so an unknown code renders nothing
@@ -206,7 +207,7 @@ function LoginForm() {
                             type="button"
                             onClick={handleResendConfirmation}
                             disabled={isPending}
-                            className="font-medium underline"
+                            className={`font-medium underline ${focusRingClass}`}
                           >
                             Send a new confirmation link
                           </button>
