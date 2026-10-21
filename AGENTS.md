@@ -129,13 +129,14 @@ listening before you navigate; Next.js binds all interfaces by default.
 
 ## Ports and worktrees
 
-Parallel sessions each need their own worktree and their own port.
+Parallel sessions each need their own worktree and their own port. The main checkout,
+`/home/jonkler/code/Klinikaid` on `master`, uses port 3000. T3 creates task worktrees under
+`/home/jonkler/.t3/worktrees/Klinikaid/`. Run `git worktree list` to see the live set; it
+changes with every task, so it is not recorded here. Before starting a dev server, pick a
+port nothing is listening on (`ss -ltn`).
 
-| Path | Branch | Port |
-|---|---|---|
-| `/home/jonkler/code/Klinikaid` | `master` | 3000 |
-| `/home/jonkler/code/Klinikaid-triage` | `fix/triage-transaction` | 3001 |
-| `/home/jonkler/code/Klinikaid-migrations` | `chore/migration-history` | 3002 |
+Remove a worktree once its PR is merged or closed: `git worktree remove <path>`, then
+`git branch -D <branch>`. `-D` is needed because squash merges leave the branch looking unmerged.
 
 Port 5173 is taken by an unrelated project (`faculty-mis-prototype`) — avoid that range.
 
