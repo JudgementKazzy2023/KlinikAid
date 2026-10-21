@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { fetchJson, type ApiError } from "@/lib/fetch-json";
 import DataLoadError from "@/components/DataLoadError";
-import { focusRingClass } from "@/lib/focus-ring";
+import { focusRingClass, focusRingInsetClass } from "@/lib/focus-ring";
 
 interface ReceptionKanbanProps {
   initialDocuments: Document[];
@@ -389,12 +389,17 @@ export default function ReceptionKanban({
     const name = doc.patient ? `${doc.patient.first_name} ${doc.patient.last_name}`.trim() : "";
     return (
       <li key={doc.id}>
+        {/* The card draws its focus indicator *inside* its own box
+            (`focusRingInsetClass`): a card is flush with the top of the
+            column's scrollport, and the browser scrolls a focused card into
+            view flush with an edge, so an indicator drawn outside the card
+            is cut off by the column's clip (issue #192). */}
         <Link
           href={`/reception/queue/${doc.id}`}
           className={cn(
             "group block rounded-md border border-slate-200 bg-white px-3 py-2 transition-colors hover:border-slate-400",
             "dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700",
-            focusRingClass,
+            focusRingInsetClass,
             colId === "staff_review" && "border-l-[3px] border-l-amber-500"
           )}
         >
@@ -642,12 +647,17 @@ export default function ReceptionKanban({
 
       {/* Desktop board: fixed-width columns in a snapping horizontal scroller */}
       <div className="relative hidden min-h-0 flex-1 md:block">
+        {/* The board is a scroll region and a focus stop of its own
+            (`tabIndex={0}`), and it carries `outline-none`, so the app-wide
+            scroll-region rule in `src/app/globals.css` does not apply to it.
+            It draws its indicator inside its own box for the same reason the
+            cards do (issue #192). */}
         <div
           ref={scroller}
           onScroll={measure}
           tabIndex={0}
           aria-label="Queue board, scroll horizontally for more columns"
-          className={`flex h-full snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden scroll-smooth pb-2 ${focusRingClass}`}
+          className={`flex h-full snap-x snap-mandatory gap-3 overflow-x-auto overflow-y-hidden scroll-smooth pb-2 ${focusRingInsetClass}`}
         >
           {desktopColumns.map((col) => {
             const list = columnsData[col.id];
