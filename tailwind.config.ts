@@ -188,6 +188,15 @@ const config: Config = {
       aria: {
         invalid: 'invalid="true"',
       },
+      // v3's underline-offset scale is 0/1/2/4/8/auto; v4 derives any
+      // integer from the `--spacing` multiplier, so the ui kit's
+      // `underline-offset-3` (the offset under a link in an alert title, an
+      // alert description and a dialog description) is a v4-only utility
+      // that compiled to nothing here — the links were underlined with no
+      // offset at all (issue #178).
+      textUnderlineOffset: {
+        3: "3px",
+      },
       // v3's spacing scale stops at 14/16/20; v4 derives any integer from the
       // `--spacing` multiplier, so `pr-18` (the ui kit's alert-action padding,
       // used together with the `has-data-[slot=alert-action]:` variant) is a

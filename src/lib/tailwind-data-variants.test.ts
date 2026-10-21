@@ -6,12 +6,13 @@ import { fileURLToPath } from "node:url";
 import postcss from "postcss";
 import tailwindcss from "tailwindcss";
 import loadConfig from "tailwindcss/loadConfig.js";
+import resolveConfig from "tailwindcss/resolveConfig.js";
 
 /**
- * Regression tests for #168 and #175: the shadcn "base-nova" ui kit is
- * written for **Tailwind v4**, but this repo runs **Tailwind v3.4**. v4
- * understands a good deal of syntax v3 does not have at all, so every class
- * that uses one of them compiled to *nothing*:
+ * Regression tests for #168, #175, #178 and #179: the shadcn "base-nova" ui
+ * kit is written for **Tailwind v4**, but this repo runs **Tailwind v3.4**.
+ * v4 understands a good deal of syntax v3 does not have at all, so every
+ * class that uses one of them compiled to *nothing*:
  *
  * - the dialog / alert-dialog / sheet open-close transitions never ran
  *   (`data-open:`, `data-closed:`, `data-starting-style:`, `data-ending-style:`),
@@ -23,16 +24,21 @@ import loadConfig from "tailwindcss/loadConfig.js";
  *   `outline-hidden` / `field-sizing-content` / `rounded-4xl` /
  *   `backdrop-blur-xs` utilities and the `--radius-*` theme variables all
  *   vanished (`not-data-[…]:`, `has-aria-expanded:`, `*:` / `**:`, …).
+ * - v4's *bare selector* variant (`[a]:`, `[svg]:`, `[.border-b]:`) is not a
+ *   v3.4 spelling at all: v3.4 rejects an arbitrary variant that has no
+ *   `&`, so the alert icon kept lucide's default 24px instead of the kit's
+ *   16px and the card / dialog classes that use it were dead too (#178).
  *
- * The fix registers the v3 equivalents centrally in tailwind.config.ts and
- * defines the missing `--radius-*` variables in src/app/globals.css, so this
- * test compiles the classes the source actually uses with the repo's real
- * config and asserts each one emits a rule.
+ * The fix registers the v3 equivalents centrally in tailwind.config.ts,
+ * defines the missing `--radius-*` variables in src/app/globals.css and
+ * rewrites the bare-selector class strings the v3 way, so this test compiles
+ * the classes the source actually uses with the repo's real config and
+ * asserts each one emits a rule.
  *
- * Known gap: v4's *bare selector* variant (`[a]:`, `[svg]:`,
- * `[img:first-child]:`) is not covered — v3.4 rejects an arbitrary variant
- * without an `&`, so the ui kit's alert / card / dialog classes that use it
- * are still dead and are skipped by the scan below.
+ * #179 is a colour problem rather than a syntax problem, so it is guarded
+ * here too: the destructive alert variant must not colour *text* with the
+ * `--destructive` fill token, and the text it does use has to clear 4.5:1
+ * against the alert's background in both themes.
  */
 
 const require = createRequire(import.meta.url);
@@ -57,6 +63,9 @@ const configPath = fileURLToPath(
 );
 const globalsPath = fileURLToPath(
   new URL("../../src/app/globals.css", import.meta.url),
+);
+const alertPath = fileURLToPath(
+  new URL("../../src/components/ui/alert.tsx", import.meta.url),
 );
 
 /**
@@ -108,6 +117,8 @@ const V4_UTILITY_NAMES = [
   "rounded-4xl",
   // v4: `backdrop-filter: blur(var(--blur-xs))` (4px).
   "backdrop-blur-xs",
+  // v4: `text-underline-offset: 3px` (v3's scale stops at 0/1/2/4/8).
+  "underline-offset-3",
 ];
 
 /** v4's `utility-(--css-var)` shorthand, e.g. `max-h-(--available-height)`. */
@@ -138,6 +149,7 @@ const V4_THEME_KEYS = [
   "width",
   "transformOrigin",
   "backdropBlur",
+  "textUnderlineOffset",
 ] as const;
 
 function isDataVariantPlugin(plugin: unknown): boolean {
@@ -195,6 +207,28 @@ function isV4Utility(utility: string): boolean {
 }
 
 /**
+ * Drop the fragments the extractor produces.
+ *
+ * Tailwind's extractor yields a shortened match of every long class next to
+ * the class itself (`**:focus:not-data-` next to the real
+ * `**:focus:not-data-[variant=destructive]:text-accent-foreground`), and
+ * those fragments are not class names. A candidate is a class name when its
+ * utility part is a real Tailwind utility.
+ */
+async function realClasses(
+  config: ReturnType<typeof loadConfig>,
+  classes: string[],
+): Promise<string[]> {
+  const utilities = [
+    ...new Set(classes.map((className) => splitCandidate(className).utility)),
+  ];
+  const css = await compile(config, utilities);
+  return classes.filter((className) =>
+    hasRule(css, splitCandidate(className).utility),
+  );
+}
+
+/**
  * Every class in `src/` that uses one of the v4-only variants. The list is
  * derived from the source, so a new use in the ui kit is covered
  * automatically.
@@ -218,37 +252,52 @@ function collectV4UtilityClasses(): string[] {
 /**
  * Every class in `src/` that uses the `*:` / `**:` combinator variants.
  *
- * v4's *bare selector* variant (`[a]:`, `[svg]:`, `[img:first-child]:`) is
- * skipped: v3.4 only understands an arbitrary variant that contains an `&`,
- * so those classes are still dead under v3.4 and fixing them means rewriting
- * six class strings in alert.tsx / card.tsx / dialog.tsx and changing the
- * size of the alert icon — a separate change with its own visual review.
+ * The bare-selector variant is not skipped any more: it is gone from the
+ * source (#178), and `collectBareSelectorClasses` below fails the build if it
+ * ever comes back.
  */
 function collectCombinatorClasses(): string[] {
   return collectClasses((variants) =>
-    variants.some((part) => COMBINATOR_VARIANT_NAMES.includes(part)) &&
-      !variants.some(isBareSelectorVariant)
+    variants.some((part) => COMBINATOR_VARIANT_NAMES.includes(part))
       ? ""
       : undefined,
   );
 }
 
 /**
- * True for v4's "bare selector" variant (`[a]:`, `[svg]:`,
- * `[svg:not([class*='size-'])]:`) — an arbitrary variant without an `&`,
- * which v3.4 rejects.
+ * True for v4's "bare selector" variant (`[a]:`, `[svg]:`, `[.border-b]:`) —
+ * an arbitrary variant without an `&`, which v3.4 rejects outright: it emits
+ * no rule at all for `[.foo]:underline`, `[disabled]:opacity-50` and
+ * `[svg]:size-4` alike.
  */
 function isBareSelectorVariant(part: string): boolean {
   return part.startsWith("[") && part.endsWith("]") && !part.includes("&");
 }
 
 /**
- * Walk `src/`, run Tailwind's own extractor over every source file and keep
- * the candidates the `pick` callback accepts.
+ * Every class in `src/` that still uses v4's bare selector variant.
+ *
+ * The leading-`[` candidates are kept here (the ui kit's `[.border-b]:pb-4`
+ * starts with a bracket), so the fragments the extractor yields from CSS
+ * *selectors* rather than class names have to be told apart: the tabbable
+ * selector in `use-dialog-tab-wrap.ts` yields `[contenteditable]:not`, which
+ * is not a class name. A candidate only counts when its utility part is a
+ * real Tailwind utility.
  */
-function collectClasses(
-  pick: (variants: string[], utility: string) => string | undefined,
-): string[] {
+async function collectBareSelectorClasses(
+  config: ReturnType<typeof loadConfig>,
+): Promise<string[]> {
+  const bare = extractCandidates().filter((candidate) => {
+    const { variants, utility } = splitCandidate(candidate);
+    return Boolean(utility) && variants.some(isBareSelectorVariant);
+  });
+  if (!bare.length) return [];
+  const classes = await realClasses(config, bare);
+  return classes.sort();
+}
+
+/** Every source file the scan looks at. */
+function sourceFiles(): string[] {
   const files: string[] = [];
   const walk = (directory: string) => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -262,21 +311,93 @@ function collectClasses(
     }
   };
   walk(path.join(repoRoot, "src"));
+  return files;
+}
 
+/**
+ * Strip the comments from a source file.
+ *
+ * The class surface of the app lives in code, not in prose, but the
+ * extractor reads raw file content: a comment that *mentions* a class
+ * (for example one that ends in a middle dot) yields fragments such as
+ * `*:data-` that are not class names at all. Stripping the comments first
+ * keeps the scan about the classes the app actually ships.
+ */
+function stripComments(source: string): string {
+  let result = "";
+  let index = 0;
+  let quote: string | null = null;
+  while (index < source.length) {
+    const character = source[index];
+    if (quote) {
+      result += character;
+      if (character === "\\") {
+        result += source[index + 1] ?? "";
+        index += 2;
+        continue;
+      }
+      if (character === quote) quote = null;
+      index += 1;
+      continue;
+    }
+    if (character === '"' || character === "'" || character === "`") {
+      quote = character;
+      result += character;
+      index += 1;
+      continue;
+    }
+    if (character === "/" && source[index + 1] === "/") {
+      while (index < source.length && source[index] !== "\n") index += 1;
+      continue;
+    }
+    if (character === "/" && source[index + 1] === "*") {
+      index += 2;
+      while (
+        index < source.length &&
+        !(source[index] === "*" && source[index + 1] === "/")
+      ) {
+        index += 1;
+      }
+      index += 2;
+      continue;
+    }
+    result += character;
+    index += 1;
+  }
+  return result;
+}
+
+/** Every candidate Tailwind's own extractor yields from `src/`. */
+function extractCandidates(): string[] {
   const extract = defaultExtractor({
     tailwindConfig: { separator: ":", prefix: "" },
   });
+  const candidates: string[] = [];
+  for (const file of sourceFiles()) {
+    candidates.push(
+      ...extract(stripComments(fs.readFileSync(file, "utf8"))),
+    );
+  }
+  return candidates;
+}
+
+/**
+ * Walk `src/`, run Tailwind's own extractor over every source file and keep
+ * the candidates the `pick` callback accepts.
+ */
+function collectClasses(
+  pick: (variants: string[], utility: string) => string | undefined,
+): string[] {
   const classes = new Set<string>();
-  for (const file of files) {
-    for (const candidate of extract(fs.readFileSync(file, "utf8"))) {
-      // A real class starts with a letter (or with the `*` combinator); the
-      // extractor also yields fragments such as "/switch:data-checked:translate-x-".
-      if (!/^[a-zA-Z*]/.test(candidate)) continue;
-      const { variants, utility } = splitCandidate(candidate);
-      if (!utility) continue;
-      const picked = pick(variants, utility);
-      if (picked !== undefined) classes.add(candidate);
-    }
+  for (const candidate of extractCandidates()) {
+    // A real class starts with a letter, with the `*` combinator or with an
+    // arbitrary variant (`[&>svg]:size-4`); the extractor also yields
+    // fragments such as "/switch:data-checked:translate-x-".
+    if (!/^[[a-zA-Z*]/.test(candidate)) continue;
+    const { variants, utility } = splitCandidate(candidate);
+    if (!utility) continue;
+    const picked = pick(variants, utility);
+    if (picked !== undefined) classes.add(candidate);
   }
   return [...classes].sort();
 }
@@ -304,7 +425,10 @@ function hasRule(css: string, className: string): boolean {
     /[.*+?^${}()|[\]\\]/g,
     "\\$&",
   );
-  return new RegExp(`\\.${escaped}(?![a-zA-Z0-9_-])`).test(css);
+  // The class name in the CSS is escaped, so a *longer* class that starts
+  // with the same text is followed by a backslash — it must not count as a
+  // rule for the shorter one.
+  return new RegExp(`\\.${escaped}(?![a-zA-Z0-9_\\\\-])`).test(css);
 }
 
 /**
@@ -347,7 +471,7 @@ describe("tailwind v4 data-* variants under tailwind v3 (issue #168)", () => {
 
   it("compiles every v4-style variant class used in src/ into a CSS rule", async () => {
     const config = loadConfig(configPath);
-    const classes = collectV4VariantClasses();
+    const classes = await realClasses(config, collectV4VariantClasses());
     const css = await compile(config, classes);
 
     const missing = classes.filter((className) => !hasRule(css, className));
@@ -423,7 +547,7 @@ describe("tailwind v4 data-* variants under tailwind v3 (issue #168)", () => {
         (plugin) => !isDataVariantPlugin(plugin),
       ),
     };
-    const classes = collectV4VariantClasses();
+    const classes = await realClasses(config, collectV4VariantClasses());
     const css = await compile(withoutPlugin, classes);
 
     const emitted = classes.filter((className) => hasRule(css, className));
@@ -458,6 +582,7 @@ describe("tailwind v4-only syntax under tailwind v3 (issue #175)", () => {
     expect(utilityClasses).toContain("max-h-(--available-height)");
     expect(utilityClasses).toContain("w-(--anchor-width)");
     expect(utilityClasses).toContain("origin-(--transform-origin)");
+    expect(utilityClasses).toContain("[&>a]:underline-offset-3");
     expect(utilityClasses).toContain(
       "data-[size=sm]:rounded-[min(var(--radius-md),10px)]",
     );
@@ -465,11 +590,11 @@ describe("tailwind v4-only syntax under tailwind v3 (issue #175)", () => {
 
   it("compiles every v4-only class used in src/ into a CSS rule", async () => {
     const config = loadConfig(configPath);
-    const classes = [
+    const classes = await realClasses(config, [
       ...collectV4VariantClasses(),
       ...collectV4UtilityClasses(),
       ...collectCombinatorClasses(),
-    ];
+    ]);
     const css = await compile(config, classes);
 
     const missing = classes.filter((className) => !hasRule(css, className));
@@ -503,6 +628,7 @@ describe("tailwind v4-only syntax under tailwind v3 (issue #175)", () => {
       "max-h-(--available-height)",
       "w-(--anchor-width)",
       "origin-(--transform-origin)",
+      "underline-offset-3",
     ]);
 
     // v4: `&:not([data-variant="destructive"])`
@@ -538,6 +664,8 @@ describe("tailwind v4-only syntax under tailwind v3 (issue #175)", () => {
     expect(css).toContain("max-height: var(--available-height)");
     expect(css).toContain("width: var(--anchor-width)");
     expect(css).toContain("transform-origin: var(--transform-origin)");
+    // v4: `text-underline-offset: 3px`
+    expect(css).toContain("text-underline-offset: 3px");
   });
 
   it("defines the --radius-* variables the v4 theme derives from --radius", () => {
@@ -554,19 +682,21 @@ describe("tailwind v4-only syntax under tailwind v3 (issue #175)", () => {
   it("compiles nothing for those classes without the v4 shims (the pre-fix config)", async () => {
     const config = loadConfig(configPath);
     const before = withoutV4Shims(config);
-    const classes = [
+    const classes = await realClasses(config, [
       ...collectV4VariantClasses(),
       ...collectV4UtilityClasses(),
-    ].filter(
-      // The `rounded-[min(var(--radius-md),10px)]` classes compile under v3
-      // as well — they were broken by the missing CSS variable, not by a
-      // missing rule (see the globals.css test above). The `*:` chains
-      // compile as well: v3.4 ships the child variant, they were simply
-      // written in the wrong order (see the selector assertions above).
-      (className) => {
-        const { utility } = splitCandidate(className);
-        return !V4_RADIUS_VARIABLE_UTILITY.test(utility);
-      },
+    ]).then((all) =>
+      all.filter(
+        // The `rounded-[min(var(--radius-md),10px)]` classes compile under v3
+        // as well — they were broken by the missing CSS variable, not by a
+        // missing rule (see the globals.css test above). The `*:` chains
+        // compile as well: v3.4 ships the child variant, they were simply
+        // written in the wrong order (see the selector assertions above).
+        (className) => {
+          const { utility } = splitCandidate(className);
+          return !V4_RADIUS_VARIABLE_UTILITY.test(utility);
+        },
+      ),
     );
     const css = await compile(before, classes);
 
@@ -576,5 +706,364 @@ describe("tailwind v4-only syntax under tailwind v3 (issue #175)", () => {
       "without the v4 shims these classes must compile to nothing, which is " +
         "exactly the bug this test guards",
     ).toEqual([]);
+  });
+});
+
+/**
+ * The v4 class strings the ui kit used before #178.
+ *
+ * v4's *bare selector* variant is an arbitrary variant without an `&`
+ * (`[svg]:`, `[a]:`, `[.border-b]:`), which v3.4 does not understand at
+ * all: it emits no rule for `[.foo]:underline` or `[disabled]:opacity-50`,
+ * and where it does emit something it emits the *inner* utility unscoped
+ * (`.size-4`, `.border-b`), which styles no element that carries the class.
+ * The visible damage was the alert icon: it kept lucide's default 24px
+ * instead of the kit's 16px and sat misaligned with the title.
+ */
+const V4_BARE_SELECTOR_CLASSES = [
+  "*:[svg]:row-span-2",
+  "*:[svg]:translate-y-0.5",
+  "*:[svg]:text-current",
+  "*:[svg:not([class*='size-'])]:size-4",
+  "*:[img:first-child]:rounded-t-xl",
+  "*:[img:last-child]:rounded-b-xl",
+  "*:[a]:underline",
+  "*:[a]:underline-offset-3",
+  "*:[a]:hover:text-foreground",
+  "[a]:hover:bg-primary/80",
+  "[.border-b]:pb-4",
+  "group-data-[size=sm]/card:[.border-b]:pb-3",
+];
+
+/**
+ * The v3 rewrites of those class strings, one per file they came from.
+ *
+ * v4 applies a variant chain left to right to a moving target, so `*:[svg]:`
+ * is `:is(.alert > *):is(svg)` — a direct child of the alert that is an
+ * `<svg>` — and a bare `[a]:` is `&:is(a)`, the element itself. The v3
+ * spelling has to name the child and the element in one selector, because
+ * v3.4 hangs a chain's pseudo-classes off the *last* node of the selector.
+ */
+const V3_REWRITTEN_CLASSES = [
+  // alert.tsx
+  "[&>svg]:row-span-2",
+  "[&>svg]:translate-y-0.5",
+  "[&>svg]:text-current",
+  "[&>svg:not([class*='size-'])]:size-4",
+  // card.tsx
+  "[&>img:first-child]:rounded-t-xl",
+  "[&>img:last-child]:rounded-b-xl",
+  "[&.border-b]:pb-4",
+  "group-data-[size=sm]/card:[&.border-b]:pb-3",
+  // dialog.tsx / alert-dialog.tsx
+  "[&>a]:underline",
+  "[&>a]:underline-offset-3",
+  "[&>a]:hover:text-foreground",
+  "[&>svg:not([class*='size-'])]:size-6",
+  // badge.tsx / button.tsx
+  "[&:is(a)]:hover:bg-primary/80",
+];
+
+describe("tailwind v4 bare-selector variants under tailwind v3 (issue #178)", () => {
+  it("rewrote the ui kit's bare-selector classes the v3 way", () => {
+    const candidates = new Set(extractCandidates());
+    const missing = V3_REWRITTEN_CLASSES.filter(
+      (className) => !candidates.has(className),
+    );
+    expect(
+      missing,
+      "these class strings are not in the source — write v4's bare-selector " +
+        "variants the v3 way (`[&>svg]:…`), or the class compiles to nothing",
+    ).toEqual([]);
+  });
+
+  it("uses no bare-selector variant anywhere in src/", async () => {
+    const config = loadConfig(configPath);
+    const bare = await collectBareSelectorClasses(config);
+    expect(
+      bare,
+      "v3.4 rejects an arbitrary variant without an `&` — rewrite it as " +
+        "`[&>…]` / `[&.foo]` / `[&:is(…)]`",
+    ).toEqual([]);
+  });
+
+  it("compiles every rewritten class into a CSS rule", async () => {
+    const config = loadConfig(configPath);
+    const css = await compile(config, V3_REWRITTEN_CLASSES);
+    const missing = V3_REWRITTEN_CLASSES.filter(
+      (className) => !hasRule(css, className),
+    );
+    expect(missing).toEqual([]);
+  });
+
+  it("emits the selectors v4's spelling produces", async () => {
+    const config = loadConfig(configPath);
+    const css = await compile(config, V3_REWRITTEN_CLASSES);
+    // v4: `:is(.alert > *):is(svg)` — a direct child that is an <svg>
+    expect(css).toContain(">svg");
+    // v4: `:is(.card > *):is(img:first-child)`
+    expect(css).toContain(">img:first-child");
+    // v4: `:is(.dialog > *):is(a)` — a direct child that is a link
+    expect(css).toContain(">a");
+    // v4: `&:is(a)` — the element itself is the link
+    expect(css).toContain(":is(a)");
+    // v4: `&:is(.border-b)` — the element itself carries the class
+    expect(css).toContain(".border-b");
+  });
+
+  it("compiles the v4 spellings to nothing (the pre-fix behaviour)", async () => {
+    const config = loadConfig(configPath);
+    const css = await compile(config, V4_BARE_SELECTOR_CLASSES);
+    expect(css).not.toContain(">svg");
+    expect(css).not.toContain(">img:first-child");
+    expect(css).not.toContain(">a");
+    expect(css).not.toContain(":is(a)");
+    expect(css).not.toContain("grid-row: span 2");
+    expect(css).not.toContain("text-decoration-line: underline");
+    expect(css).not.toContain("padding-bottom: 1rem");
+    expect(css).not.toContain("padding-bottom: 0.75rem");
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * #179 — the destructive alert's text contrast.
+ *
+ * `--destructive` is a *fill* colour (red-500 in light, red-900 in dark).
+ * As text it measured 3.44:1 on the light alert background and 1.97:1 on
+ * the dark one, so the error title was unreadable. The destructive variant
+ * therefore carries its own text colours, and this test proves they clear
+ * 4.5:1 against the background the destructive alerts actually use.
+ * ------------------------------------------------------------------ */
+
+type Rgb = [number, number, number];
+
+/** Resolve `rose-700` to the hex value the repo's tailwind config uses. */
+function resolveColor(name: string): string {
+  const config = resolveConfig(loadConfig(configPath));
+  const colors = config.theme.colors as unknown as Record<string, unknown>;
+  const [family, shade] = name.split("-");
+  const palette = colors[family];
+  const value =
+    typeof palette === "string"
+      ? palette
+      : ((palette as Record<string, string> | undefined)?.[shade] ?? undefined);
+  if (typeof value !== "string" || !/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(value)) {
+    throw new Error(
+      `"${name}" does not resolve to a hex colour (got ${JSON.stringify(value)}). ` +
+        "The destructive alert must not colour text with a theme token: the " +
+        "--destructive token is a fill colour and is unreadable as text.",
+    );
+  }
+  return value;
+}
+
+function hexToRgb(hex: string): Rgb {
+  const digits =
+    hex.length === 4
+      ? hex
+          .slice(1)
+          .split("")
+          .map((digit) => digit + digit)
+          .join("")
+      : hex.slice(1);
+  return [
+    parseInt(digits.slice(0, 2), 16),
+    parseInt(digits.slice(2, 4), 16),
+    parseInt(digits.slice(4, 6), 16),
+  ];
+}
+
+function hslToRgb(hue: number, saturation: number, lightness: number): Rgb {
+  const s = saturation / 100;
+  const l = lightness / 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r, g, b] =
+    hue < 60
+      ? [c, x, 0]
+      : hue < 120
+        ? [x, c, 0]
+        : hue < 180
+          ? [0, c, x]
+          : hue < 240
+            ? [0, x, c]
+            : hue < 300
+              ? [x, 0, c]
+              : [c, 0, x];
+  return [r, g, b].map((value) => Math.round((value + m) * 255)) as Rgb;
+}
+
+/** The page background in dark mode, read from globals.css. */
+function darkPageBackground(): Rgb {
+  const globals = fs.readFileSync(globalsPath, "utf8");
+  const dark = globals.slice(globals.indexOf(".dark {"));
+  const match = dark.match(
+    /--background:\s*([\d.]+)\s+([\d.]+)%\s+([\d.]+)%/,
+  );
+  if (!match) throw new Error("--background is not defined in the dark theme");
+  return hslToRgb(Number(match[1]), Number(match[2]), Number(match[3]));
+}
+
+/** Paint a translucent colour over an opaque one, the way the browser does. */
+function composite(colour: Rgb, alpha: number, background: Rgb): Rgb {
+  return colour.map(
+    (channel, index) =>
+      Math.round(alpha * channel + (1 - alpha) * background[index]),
+  ) as Rgb;
+}
+
+function relativeLuminance([r, g, b]: Rgb): number {
+  const channel = (value: number) => {
+    const s = value / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+/** The WCAG 2.1 contrast ratio between two opaque colours. */
+function contrastRatio(foreground: Rgb, background: Rgb): number {
+  const a = relativeLuminance(foreground);
+  const b = relativeLuminance(background);
+  const [lighter, darker] = a > b ? [a, b] : [b, a];
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** The class names of the destructive alert variant, read from the source. */
+function destructiveAlertClasses(): string[] {
+  const source = fs.readFileSync(alertPath, "utf8");
+  const match = source.match(/destructive:\s*"([^"]+)"/);
+  if (!match) {
+    throw new Error("the destructive alert variant was not found in alert.tsx");
+  }
+  return match[1].split(/\s+/).filter(Boolean);
+}
+
+/** The colour a `text-*` class sets, with the alpha of its `/90` suffix. */
+function textColour(className: string): { name: string; alpha: number } {
+  const { utility } = splitCandidate(className);
+  const match = /^text-(.+?)(?:\/(\d+))?$/.exec(utility);
+  if (!match) {
+    throw new Error(`"${className}" is not a text colour class`);
+  }
+  return {
+    name: match[1],
+    alpha: match[2] ? Number(match[2]) / 100 : 1,
+  };
+}
+
+describe("the destructive alert's text contrast (issue #179)", () => {
+  const classes = destructiveAlertClasses();
+
+  /** The text colour the variant sets for the given variant chain. */
+  function colourWhere(
+    matches: (variants: string[]) => boolean,
+  ): { name: string; alpha: number } {
+    const className = classes.find((candidate) => {
+      const { variants, utility } = splitCandidate(candidate);
+      return utility.startsWith("text-") && matches(variants);
+    });
+    if (!className) {
+      throw new Error("the destructive alert variant sets no such text colour");
+    }
+    return textColour(className);
+  }
+
+  it("does not colour the alert text with the destructive fill token", () => {
+    const fills = classes.filter((className) =>
+      /(^|:)text-destructive(\/|$)/.test(className),
+    );
+    expect(
+      fills,
+      "the --destructive token is a fill colour — red-500 in light and " +
+        "red-900 in dark measure 3.44:1 and 1.97:1 as text",
+    ).toEqual([]);
+  });
+
+  it("gives the title and the description 4.5:1 or better in both themes", () => {
+    // The destructive alerts in the app paint themselves
+    // `bg-red-50 dark:bg-red-950/20`; the light background is the page
+    // override, the card background (`bg-card`, white) is the other one in
+    // play, and the dark background is red-950 at 20% over the page.
+    const login = fs.readFileSync(
+      path.join(repoRoot, "src/app/(auth)/login/page.tsx"),
+      "utf8",
+    );
+    expect(login).toContain("bg-red-50 dark:bg-red-950/20");
+
+    const lightBackgrounds = [hexToRgb(resolveColor("red-50")), hexToRgb(resolveColor("white"))];
+    const darkBackground = composite(
+      hexToRgb(resolveColor("red-950")),
+      0.2,
+      darkPageBackground(),
+    );
+
+    const titleLight = colourWhere((variants) => variants.length === 0);
+    const titleDark = colourWhere(
+      (variants) => variants.length === 1 && variants[0] === "dark",
+    );
+    const descriptionLight = colourWhere(
+      (variants) =>
+        variants.includes("data-[slot=alert-description]") &&
+        !variants.includes("dark"),
+    );
+    const descriptionDark = colourWhere(
+      (variants) =>
+        variants.includes("data-[slot=alert-description]") &&
+        variants.includes("dark"),
+    );
+
+    for (const background of lightBackgrounds) {
+      const title = composite(
+        hexToRgb(resolveColor(titleLight.name)),
+        titleLight.alpha,
+        background,
+      );
+      const description = composite(
+        hexToRgb(resolveColor(descriptionLight.name)),
+        descriptionLight.alpha,
+        background,
+      );
+      expect(
+        contrastRatio(title, background),
+        `the destructive title (${titleLight.name}) is unreadable on ${background}`,
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(
+        contrastRatio(description, background),
+        `the destructive description (${descriptionLight.name}) is unreadable on ${background}`,
+      ).toBeGreaterThanOrEqual(4.5);
+    }
+
+    const darkTitle = composite(
+      hexToRgb(resolveColor(titleDark.name)),
+      titleDark.alpha,
+      darkBackground,
+    );
+    const darkDescription = composite(
+      hexToRgb(resolveColor(descriptionDark.name)),
+      descriptionDark.alpha,
+      darkBackground,
+    );
+    expect(
+      contrastRatio(darkTitle, darkBackground),
+      `the destructive title (${titleDark.name}) is unreadable in dark mode`,
+    ).toBeGreaterThanOrEqual(4.5);
+    expect(
+      contrastRatio(darkDescription, darkBackground),
+      `the destructive description (${descriptionDark.name}) is unreadable in dark mode`,
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it("styles the description element itself, not its children", async () => {
+    const config = loadConfig(configPath);
+    const css = await compile(config, [
+      "data-[slot=alert-description]:*:text-rose-700/90",
+      "dark:data-[slot=alert-description]:*:text-rose-300/90",
+    ]);
+    // v3.4 hangs a chain's pseudo-classes off the *last* node of the
+    // selector, so the chain has to be written the other way round: the
+    // description element is the child that carries the data attribute.
+    expect(css).toContain('> *[data-slot="alert-description"]');
+    expect(css).not.toContain('[data-slot="alert-description"] > *');
   });
 });
