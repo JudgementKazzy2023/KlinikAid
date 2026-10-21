@@ -26,8 +26,7 @@ put its values in a file that gets tracked.
 | Unit tests | `npm test` (`npx vitest run`, then the CSP check in `next.config.test.mjs` via `node --test`; `--watch` via `npm run test:watch`) |
 | Live RLS posture | `npm run test:rls` — anon key vs the real project; needs `.env.local`, not part of `npm test`. The script adds the Node 20 WebSocket flag itself, so no extra env is needed. |
 
-**`npm run review` is broken** — it invokes `node scripts/review.js` and no `scripts/`
-directory exists. Don't rely on it.
+`npm run review` runs automated verification via `npm run verify`.
 
 ## Verification
 
