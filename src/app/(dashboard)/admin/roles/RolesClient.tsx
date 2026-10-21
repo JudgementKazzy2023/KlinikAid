@@ -1,18 +1,7 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
-import { 
-  Shield, 
-  ShieldAlert,
-  Plus, 
-  Check, 
-  Server,
-  Lock,
-  Settings,
-  FolderLock,
-  Edit2,
-  Trash2
-} from "lucide-react";
+import React, { useId, useState, useTransition } from "react";
+import { Lock, Pencil, Plus, Trash2 } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,8 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import PageHeader from "@/components/PageHeader";
 import { createCustomRoleAction, deleteCustomRoleAction, updateCustomRoleAction } from "./actions";
 import { ROLE_NAME_MAX, validateRoleName } from "@/lib/auth/custom-role-input";
+import { roleLabel } from "@/app/(dashboard)/admin/staff/staff-form";
 import { toast } from "sonner";
 
 interface Role {
@@ -50,6 +41,11 @@ interface RolesClientProps {
   mappings: Mapping[];
 }
 
+/** `knowledge` → `Knowledge`: module keys are lower-case identifiers. */
+function moduleLabel(module: string): string {
+  return module.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+}
+
 interface PermissionCatalogPickerProps {
   modules: string[];
   permissions: Permission[];
@@ -67,43 +63,54 @@ function PermissionCatalogPicker({
   onSelectAll,
   onDeselectAll,
 }: PermissionCatalogPickerProps) {
+  const headingId = useId();
   return (
-    <div className="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-950/20">
-      <div className="flex flex-col gap-3 border-b border-slate-100 bg-white/70 px-4 py-3 dark:border-slate-900 dark:bg-slate-950/40 lg:flex-row lg:items-center lg:justify-between">
-        <Label className="text-xs font-bold text-slate-700 dark:text-slate-300">Toggle Permissions Catalog</Label>
+    <div role="group" aria-labelledby={headingId} className="min-w-0 rounded-lg border border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-3 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+          <span id={headingId}>Permissions</span>
+          <span className="ml-2 font-normal text-slate-600 dark:text-slate-400">
+            {selectedPermissionIds.length} of {permissions.length} selected
+          </span>
+        </p>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" onClick={onSelectAll} className="h-8 text-[10px] font-semibold">
-            Select All
+          <Button type="button" variant="outline" size="sm" onClick={onSelectAll}>
+            Select all
           </Button>
-          <Button type="button" variant="outline" onClick={onDeselectAll} className="h-8 text-[10px] font-semibold">
-            Deselect All
+          <Button type="button" variant="outline" size="sm" onClick={onDeselectAll}>
+            Clear
           </Button>
         </div>
       </div>
-      <div className="max-h-[360px] space-y-5 overflow-y-auto p-4">
+      <div className="grid gap-x-8 gap-y-6 p-4 sm:grid-cols-2">
         {modules.map((mod) => {
           const modPerms = permissions.filter((p) => p.module === mod);
           return (
-            <div key={mod} className="space-y-2">
-              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-900 pb-1">{mod}</h4>
-              <div className="space-y-2 pl-1">
+            <div key={mod} className="min-w-0 space-y-2.5">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
+                {moduleLabel(mod)}
+              </h4>
+              <div className="space-y-2.5">
                 {modPerms.map((perm) => {
                   const checked = selectedPermissionIds.includes(perm.id);
                   return (
-                    <label
-                      key={perm.id}
-                      className="flex items-start gap-2.5 cursor-pointer text-xs group"
-                    >
+                    <label key={perm.id} className="flex cursor-pointer items-start gap-2.5">
                       <input
                         type="checkbox"
                         checked={checked}
                         onChange={() => onTogglePermission(perm.id)}
-                        className="mt-0.5 rounded border-slate-300 dark:border-slate-800 text-indigo-600 focus:ring-indigo-500/20 h-3.5 w-3.5"
+                        className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-slate-400 accent-primary"
                       />
-                      <div className="min-w-0 space-y-0.5">
-                        <span className="break-words font-semibold text-slate-800 dark:text-slate-200 group-hover:text-indigo-500 transition-colors">{perm.name}</span>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug">{perm.description}</p>
-                      </div>
+                      <span className="min-w-0">
+                        <span className="block break-words text-sm text-slate-900 dark:text-slate-100">
+                          {perm.description || perm.name}
+                        </span>
+                        {perm.description ? (
+                          <span className="block break-all font-mono text-xs text-slate-600 dark:text-slate-400">
+                            {perm.name}
+                          </span>
+                        ) : null}
+                      </span>
                     </label>
                   );
                 })}
@@ -113,6 +120,126 @@ function PermissionCatalogPicker({
         })}
       </div>
     </div>
+  );
+}
+
+interface RoleCardProps {
+  role: Role;
+  permissions: Permission[];
+  onEdit?: () => void;
+  onDelete?: () => void;
+}
+
+function RoleCard({ role, permissions, onEdit, onDelete }: RoleCardProps) {
+  const label = roleLabel(role);
+  // System roles are stored as identifiers (`department_staff`); keep the
+  // identifier visible next to its readable label, since policies and code use it.
+  const showIdentifier = label !== role.name;
+  const byModule = new Map<string, Permission[]>();
+  for (const perm of permissions) {
+    byModule.set(perm.module, [...(byModule.get(perm.module) ?? []), perm]);
+  }
+
+  return (
+    <Card className="border border-slate-200/80 shadow-sm dark:border-slate-800">
+      <CardHeader className="grid-cols-[1fr_auto] gap-x-4">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">{label}</CardTitle>
+            {showIdentifier ? (
+              <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                {role.name}
+              </code>
+            ) : null}
+            {role.is_system ? (
+              <Badge
+                variant="outline"
+                className="border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-300"
+              >
+                <Lock aria-hidden className="h-3 w-3" />
+                Built-in
+              </Badge>
+            ) : null}
+          </div>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            {role.description || "No description provided."}
+          </p>
+        </div>
+        {onEdit || onDelete ? (
+          <div className="flex items-center gap-1 self-start">
+            {onEdit ? (
+              <Button type="button" variant="outline" onClick={onEdit} aria-label={`Edit ${label}`}>
+                <Pencil aria-hidden />
+                Edit
+              </Button>
+            ) : null}
+            {onDelete ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={onDelete}
+                aria-label={`Delete ${label}`}
+                title={`Delete ${label}`}
+                className="text-slate-600 hover:bg-destructive/10 hover:text-red-700 dark:text-slate-400 dark:hover:text-red-400"
+              >
+                <Trash2 aria-hidden />
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+      </CardHeader>
+
+      <CardContent className="border-t border-slate-100 pt-4 dark:border-slate-800/60">
+        <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">
+          Permissions <span className="font-normal normal-case tracking-normal">· {permissions.length}</span>
+        </h4>
+        {permissions.length > 0 ? (
+          <dl className="space-y-2.5">
+            {Array.from(byModule, ([mod, perms]) => (
+              <div key={mod} className="grid gap-1.5 sm:grid-cols-[8rem_1fr] sm:gap-4">
+                <dt className="pt-0.5 text-sm text-slate-600 dark:text-slate-400">{moduleLabel(mod)}</dt>
+                <dd className="flex flex-wrap gap-1.5">
+                  {perms.map((perm) => (
+                    <span
+                      key={perm.id}
+                      title={perm.description || undefined}
+                      className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                    >
+                      {perm.name}
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        ) : (
+          <p className="text-sm text-slate-600 dark:text-slate-400">No permissions granted.</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface RoleSectionProps {
+  title: string;
+  description: string;
+  count: number;
+  children: React.ReactNode;
+}
+
+function RoleSection({ title, description, count, children }: RoleSectionProps) {
+  const headingId = `roles-section-${title.toLowerCase().replace(/\s+/g, "-")}`;
+  return (
+    <section aria-labelledby={headingId} className="space-y-3">
+      <div>
+        <h2 id={headingId} className="text-lg font-semibold text-slate-900 dark:text-white">
+          {title} <span className="font-normal text-slate-600 dark:text-slate-400">({count})</span>
+        </h2>
+        <p className="text-sm text-slate-600 dark:text-slate-400">{description}</p>
+      </div>
+      <div className="space-y-4">{children}</div>
+    </section>
   );
 }
 
@@ -240,81 +367,77 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
     });
   };
 
+  const permissionsFor = (role: Role) => {
+    const ids = rolePermissionsMap.get(role.id) || new Set<string>();
+    return permissions.filter((p) => ids.has(p.id));
+  };
+  const customRoles = roles.filter((role) => !role.is_system);
+  const systemRoles = roles.filter((role) => role.is_system);
+
+  const labelClass = "text-sm font-medium text-slate-900 dark:text-slate-100";
+  const hintClass = "text-xs text-slate-600 dark:text-slate-400";
+
   return (
-    <div className="space-y-8 p-1 sm:p-2">
-      {/* Top Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
-            <FolderLock className="h-6 w-6 text-indigo-500" />
-            Role & Access Management
-          </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Configure shadow roles and permissions catalog. Note: permissions are additive and do not affect active routing gates.
-          </p>
-        </div>
-        <div>
-          {!showCreateForm && (
-            <Button 
+    <div className="space-y-6">
+      {/* Header */}
+      <PageHeader
+        title="Role & Access Management"
+        description="Review the built-in roles, and create custom roles with the permissions they grant"
+        actions={
+          !showCreateForm && (
+            <Button
               onClick={() => {
                 setShowCreateForm(true);
                 setSelectedPermissions([]);
               }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs h-9 flex items-center gap-1.5 shadow-sm transition-all"
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
             >
               <Plus className="h-4 w-4" />
               Create Custom Role
             </Button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
-      {/* Create Custom Role Dialog / Panel */}
+      {/* Create custom role */}
       {showCreateForm && (
-        <Card className="border border-indigo-150 dark:border-slate-800 bg-white/50 dark:bg-slate-950/40 backdrop-blur-md shadow-md animate-in fade-in slide-in-from-top-3 duration-250">
-          <CardHeader className="border-b border-slate-100 dark:border-slate-800/50 pb-4">
-            <CardTitle className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Settings className="h-4 w-4 text-indigo-500" />
-              Build Custom Role
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Create a custom role from scratch by selecting its access category and permissions.
+        <Card className="border border-slate-200/80 shadow-sm dark:border-slate-800">
+          <CardHeader className="border-b border-slate-100 dark:border-slate-800/60">
+            <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">New custom role</CardTitle>
+            <CardDescription className="text-sm text-slate-600 dark:text-slate-400">
+              Name the role and choose the permissions it grants.
             </CardDescription>
           </CardHeader>
-          <CardContent className="pt-6">
+          <CardContent>
             <form onSubmit={handleCreateRole} className="space-y-6">
               <div className="flex flex-col gap-6 lg:flex-row">
-                {/* Left fields */}
                 <div className="w-full shrink-0 space-y-4 lg:w-72 xl:w-80">
                   <div className="space-y-2">
-                    <Label htmlFor="role-name" className="text-xs font-bold text-slate-700 dark:text-slate-300">Role Name</Label>
+                    <Label htmlFor="role-name" className={labelClass}>Role name</Label>
                     <Input
                       id="role-name"
                       placeholder="e.g. Junior Lab Technician"
                       value={newRoleName}
                       onChange={(e) => setNewRoleName(e.target.value)}
-                      className="text-xs h-10 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/20"
+                      className="h-10"
                     />
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    <p className={hintClass}>
                       Up to {ROLE_NAME_MAX} characters; surrounding spaces are ignored.
                     </p>
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="role-desc" className="text-xs font-bold text-slate-700 dark:text-slate-300">Description</Label>
+                    <Label htmlFor="role-desc" className={labelClass}>Description</Label>
                     <Textarea
                       id="role-desc"
-                      placeholder="Briefly explain scope of this custom role..."
+                      placeholder="What is this role for?"
                       value={newRoleDesc}
                       onChange={(e) => setNewRoleDesc(e.target.value)}
                       rows={3}
-                      className="text-xs border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/20"
                     />
                   </div>
-
                 </div>
 
-                {/* Right fields: Permissions selection grouped by module */}
                 <div className="w-full min-w-0 lg:flex-1">
                   <PermissionCatalogPicker
                     modules={modules}
@@ -327,19 +450,14 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
                 </div>
               </div>
 
-              <div className="flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800/50 pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowCreateForm(false)}
-                  className="text-xs h-9"
-                >
+              <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800/60">
+                <Button type="button" variant="outline" onClick={() => setShowCreateForm(false)} className="h-9">
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={isPending}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs h-9 shadow-sm"
+                  className="h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
                 >
                   {isPending ? "Creating..." : "Save Custom Role"}
                 </Button>
@@ -350,13 +468,12 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
       )}
 
       <Dialog open={!!editingRole} onOpenChange={(open) => !open && setEditingRole(null)}>
-        <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] !max-w-5xl overflow-y-auto bg-white dark:bg-slate-950 sm:!max-w-5xl">
+        <DialogContent className="max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] !max-w-5xl overflow-y-auto bg-white dark:bg-slate-900 sm:!max-w-5xl">
           <DialogHeader>
-            <DialogTitle className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Edit2 className="h-4 w-4 text-indigo-500" />
-              Edit Custom Role
+            <DialogTitle className="text-lg font-semibold text-slate-900 dark:text-white">
+              Edit {editingRole ? roleLabel(editingRole) : "custom role"}
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
+            <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
               Update this custom role&apos;s name, description, and granted permissions.
             </DialogDescription>
           </DialogHeader>
@@ -365,32 +482,31 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
             <div className="flex flex-col gap-6 lg:flex-row">
               <div className="w-full shrink-0 space-y-4 lg:w-72 xl:w-80">
                 <div className="space-y-2">
-                  <Label htmlFor="edit-role-name" className="text-xs font-bold text-slate-700 dark:text-slate-300">Role Name</Label>
+                  <Label htmlFor="edit-role-name" className={labelClass}>Role name</Label>
                   <Input
                     id="edit-role-name"
                     value={editRoleName}
                     onChange={(e) => setEditRoleName(e.target.value)}
-                    className="text-xs h-10 border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/20"
+                    className="h-10"
                   />
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  <p className={hintClass}>
                     Up to {ROLE_NAME_MAX} characters; surrounding spaces are ignored.
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="edit-role-desc" className="text-xs font-bold text-slate-700 dark:text-slate-300">Description</Label>
+                  <Label htmlFor="edit-role-desc" className={labelClass}>Description</Label>
                   <Textarea
                     id="edit-role-desc"
                     value={editRoleDesc}
                     onChange={(e) => setEditRoleDesc(e.target.value)}
                     rows={4}
-                    className="text-xs border-slate-200 dark:border-slate-800 focus-visible:ring-indigo-500/20"
                   />
                 </div>
 
-                <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 p-3 text-[10px] text-slate-600 dark:border-indigo-950 dark:bg-indigo-950/20 dark:text-slate-300">
+                <p className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-300">
                   Permission changes take effect on each affected user&apos;s next request or login.
-                </div>
+                </p>
               </div>
 
               <div className="w-full min-w-0 lg:flex-1">
@@ -406,18 +522,13 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
             </div>
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setEditingRole(null)}
-                className="text-xs h-9"
-              >
+              <Button type="button" variant="outline" onClick={() => setEditingRole(null)} className="h-9">
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={isPending}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-xs h-9"
+                className="h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
               >
                 {isPending ? "Saving..." : "Save Changes"}
               </Button>
@@ -427,33 +538,25 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
       </Dialog>
 
       <Dialog open={!!deletingRole} onOpenChange={(open) => !open && setDeletingRole(null)}>
-        <DialogContent className="bg-white dark:bg-slate-950">
+        <DialogContent className="bg-white dark:bg-slate-900 sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Trash2 className="h-4 w-4 text-rose-500" />
-              Delete Custom Role
+            <DialogTitle className="text-lg font-semibold text-slate-900 dark:text-white">
+              Delete {deletingRole ? roleLabel(deletingRole) : "custom role"}?
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
-              This action removes the custom role only if no staff accounts are currently assigned to it.
+            <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
+              The role is removed only if no staff accounts are assigned to it. If any are,
+              deletion is blocked until they are moved to another role.
             </DialogDescription>
           </DialogHeader>
-          <div className="rounded-lg border border-rose-100 bg-rose-50/70 p-3 text-xs text-rose-800 dark:border-rose-950 dark:bg-rose-950/20 dark:text-rose-200">
-            Delete <span className="font-bold">{deletingRole?.name}</span>? If any users are assigned, deletion will be blocked and those users must be reassigned first.
-          </div>
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDeletingRole(null)}
-              className="text-xs h-9"
-            >
+            <Button type="button" variant="outline" onClick={() => setDeletingRole(null)} className="h-9">
               Cancel
             </Button>
             <Button
               type="button"
               disabled={isPending}
               onClick={handleDeleteRole}
-              className="bg-rose-600 hover:bg-rose-700 text-white font-medium text-xs h-9"
+              className="h-9 bg-red-700 font-semibold text-white hover:bg-red-800"
             >
               {isPending ? "Deleting..." : "Delete Role"}
             </Button>
@@ -461,88 +564,37 @@ export default function RolesClient({ roles, permissions, mappings }: RolesClien
         </DialogContent>
       </Dialog>
 
-      {/* Dynamic Roles List Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {roles.map((role) => {
-          const rolePermIds = rolePermissionsMap.get(role.id) || new Set();
-          const rolePerms = permissions.filter((p) => rolePermIds.has(p.id));
-          
-          return (
-            <Card key={role.id} className="border border-slate-200/80 dark:border-slate-800 bg-white/70 dark:bg-slate-950/20 hover:shadow-md transition-all flex flex-col h-full relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-full h-[2px] bg-slate-100 dark:bg-slate-900 group-hover:bg-indigo-500 transition-colors" />
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1">
-                    <CardTitle className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                      <Shield className="h-4 w-4 text-indigo-500 shrink-0" />
-                      {role.name}
-                    </CardTitle>
-                    <p className="text-[10px] text-slate-400 font-mono mt-0.5 leading-snug">{role.description || "No description provided."}</p>
-                  </div>
-                  {role.is_system ? (
-                    <Badge variant="outline" className="text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border-indigo-100 dark:border-indigo-950 text-indigo-600 dark:text-indigo-400 bg-indigo-50/30 dark:bg-indigo-950/10 flex items-center gap-1 shrink-0">
-                      <Lock className="h-2.5 w-2.5" />
-                      System
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-[9px] font-semibold tracking-wide uppercase px-2 py-0.5 border-emerald-100 dark:border-emerald-950 text-emerald-700 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-950/10 flex items-center gap-1 shrink-0">
-                      <Server className="h-2.5 w-2.5" />
-                      Custom
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              
-              <CardContent className="pt-3 border-t border-slate-100 dark:border-slate-800/50 flex-grow flex flex-col justify-between">
-                <div>
-                  <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Granted Permissions ({rolePerms.length})</h4>
-                  {rolePerms.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto pb-2">
-                      {rolePerms.map((perm) => (
-                        <span 
-                          key={perm.id} 
-                          className="inline-flex items-center gap-1 text-[9px] font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/60 px-2 py-0.5 rounded shadow-sm"
-                          title={perm.description || undefined}
-                        >
-                          <Check className="h-2.5 w-2.5 text-indigo-500" />
-                          {perm.name}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 italic flex items-center gap-1">
-                      <ShieldAlert className="h-3.5 w-3.5 text-rose-400" />
-                      No permissions granted.
-                    </p>
-                  )}
-                </div>
-                {!role.is_system && (
-                  <div className="flex items-center gap-2 pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/50">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => handleEditOpen(role)}
-                      className="h-8 flex-1 text-xs gap-1.5"
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                      Edit
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setDeletingRole(role)}
-                      className="h-8 flex-1 text-xs gap-1.5 border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900 dark:text-rose-300 dark:hover:bg-rose-950/30"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                      Delete
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      <RoleSection
+        title="Custom roles"
+        description="Roles created for this clinic. Edit them at any time; a role can be deleted once no staff are assigned to it."
+        count={customRoles.length}
+      >
+        {customRoles.length > 0 ? (
+          customRoles.map((role) => (
+            <RoleCard
+              key={role.id}
+              role={role}
+              permissions={permissionsFor(role)}
+              onEdit={() => handleEditOpen(role)}
+              onDelete={() => setDeletingRole(role)}
+            />
+          ))
+        ) : (
+          <p className="rounded-xl border border-dashed border-slate-300 px-6 py-8 text-center text-sm text-slate-600 dark:border-slate-700 dark:text-slate-400">
+            No custom roles yet. Use Create Custom Role to add one.
+          </p>
+        )}
+      </RoleSection>
+
+      <RoleSection
+        title="System roles"
+        description="Built into KlinikAid. They cannot be edited or deleted here."
+        count={systemRoles.length}
+      >
+        {systemRoles.map((role) => (
+          <RoleCard key={role.id} role={role} permissions={permissionsFor(role)} />
+        ))}
+      </RoleSection>
     </div>
   );
 }
