@@ -865,6 +865,7 @@ function resolveColor(name: string): string {
   return value;
 }
 
+/** Parse a `#rgb` / `#rrggbb` colour into its channels. */
 function hexToRgb(hex: string): Rgb {
   const digits =
     hex.length === 4
@@ -881,6 +882,7 @@ function hexToRgb(hex: string): Rgb {
   ];
 }
 
+/** Parse an `h h% l%` colour (the theme's own notation) into its channels. */
 function hslToRgb(hue: number, saturation: number, lightness: number): Rgb {
   const s = saturation / 100;
   const l = lightness / 100;
@@ -921,6 +923,7 @@ function composite(colour: Rgb, alpha: number, background: Rgb): Rgb {
   ) as Rgb;
 }
 
+/** The WCAG 2.1 relative luminance of a colour. */
 function relativeLuminance([r, g, b]: Rgb): number {
   const channel = (value: number) => {
     const s = value / 255;
