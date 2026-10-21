@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, hasPermission } from "@/lib/auth/helpers";
 import { createClient } from "@/lib/supabase/server";
 import RagManagerClient from "@/components/RagManagerClient";
+import PageHeader from "@/components/PageHeader";
 import { timed } from "@/lib/perf/timing";
 
 export const dynamic = "force-dynamic";
@@ -84,14 +85,10 @@ export default async function RagPage() {
   return (
     <div className="flex-1 p-8 overflow-y-auto">
       <div className="max-w-6xl mx-auto space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-            RAG Knowledge Base
-          </h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-2">
-            Manage clinical guidelines, documents, and reference sheets used to ground the AI Chatbot responses.
-          </p>
-        </div>
+        <PageHeader
+          title="RAG Knowledge Base"
+          description="Manage clinical guidelines, documents, and reference sheets used to ground the AI Chatbot responses."
+        />
         
         <RagManagerClient initialDocuments={documents} error={error ? { message: error.message } : null} />
       </div>

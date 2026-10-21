@@ -8,6 +8,7 @@ import "@/lib/zod-csp";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import PageHeader from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -511,23 +512,20 @@ export default function StaffManagementPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Staff Management</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Create, update, and manage clinic personnel credentials and roles
-          </p>
-        </div>
-
-        <Button
-          onClick={handleCreateOpen}
-          disabled={!rolesLoaded}
-          className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
-        >
-          <Plus className="h-4 w-4" />
-          Add Staff
-        </Button>
-      </div>
+      <PageHeader
+        title="Staff Management"
+        description="Create, update, and manage clinic personnel credentials and roles"
+        actions={
+          <Button
+            onClick={handleCreateOpen}
+            disabled={!rolesLoaded}
+            className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+          >
+            <Plus className="h-4 w-4" />
+            Add Staff
+          </Button>
+        }
+      />
 
       {/* Blocking banner. The registry list below is still usable; only the
           privilege-granting form is withheld, because it cannot be rendered
