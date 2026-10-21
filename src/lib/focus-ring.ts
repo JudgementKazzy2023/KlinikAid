@@ -32,3 +32,46 @@
  */
 export const focusRingClass =
   "outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
+
+/**
+ * The keyboard focus indicator for a control that a clipping edge can cut
+ * off (issue #192).
+ *
+ * ## Why this exists
+ *
+ * `focusRingClass` paints a **ring**, and a ring is a box shadow: it is drawn
+ * *outside* the control's border box. That is the wrong place for a control
+ * that sits against an edge the browser clips at:
+ *
+ *   - the first card of a kanban column is flush with the top of the column's
+ *     scrollport, so the top of its ring was cut off;
+ *   - the System Event Log scroller on /admin/dashboard fills its Card's
+ *     padding box, and the Card is `overflow-hidden`, so the left and right of
+ *     its outline were cut off;
+ *   - the table scroller on /admin/logs sits inside a parent with the
+ *     identical box, so its outline was cut off on all four sides.
+ *
+ * ## Why an outline and not an inset ring
+ *
+ * `focus-visible:ring-inset` would also draw the indicator inside the
+ * control, but a ring is a box shadow, and a box shadow paints *under* the
+ * element's content. The table's header row has its own background, so an
+ * inset ring would have been half-hidden under it. An **outline** paints over
+ * the content (CSS 2.1 Appendix E paints outlines last), so nothing the
+ * control contains can hide it.
+ *
+ * `outline-offset: -3px` moves the 3px outline *into* the control's own box.
+ * Nothing outside the box can clip what is inside it, so the indicator
+ * survives every ancestor: a scroll region, an `overflow-hidden` wrapper, the
+ * edge of the viewport.
+ *
+ * ## Why the same 3px and the same colour
+ *
+ * The width and the colour are the ones the app-wide floor in
+ * `src/app/globals.css` uses (`3px solid hsl(var(--ring))`), so this indicator
+ * is the floor's indicator, only drawn inside the control instead of outside
+ * it. `outline-none` keeps the floor's own (outset) outline away, so the
+ * control shows exactly one indicator.
+ */
+export const focusRingInsetClass =
+  "outline-none focus-visible:outline focus-visible:outline-[3px] focus-visible:outline-offset-[-3px] focus-visible:outline-ring";

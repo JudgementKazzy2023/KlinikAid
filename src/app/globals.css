@@ -116,4 +116,44 @@
     outline: 3px solid hsl(var(--ring));
     outline-offset: 2px;
   }
+
+  /*
+   * Issue #192: the focus indicator of a scroll region.
+   *
+   * A scroll region is a keyboard focus stop: Chrome 127+ makes a scroll
+   * container that holds no focusable content focusable, so keyboard users
+   * land on it whether the app asked for it or not.
+   *
+   * The floor above draws its indicator *outside* the control's border box
+   * (`outline-offset: 2px`), which is exactly where a clipping edge cuts:
+   *
+   *   - the System Event Log scroller on /admin/dashboard fills its Card's
+   *     padding box and the Card is `overflow-hidden`, so the left and the
+   *     right of the outline were cut off;
+   *   - the table scroller on /admin/logs sits inside a parent with the
+   *     identical box, so its outline was cut off on all four sides.
+   *
+   * A scroll region therefore draws its indicator *inside*: `outline-offset:
+   * -3px` moves the 3px outline into the region's own box, where no
+   * ancestor can clip it. An outline paints over the content, so a row's own
+   * background cannot hide it either.
+   *
+   * The selector mirrors the floor's `:not(.outline-none)`, so a region that
+   * opts out of the floor keeps the indicator it declares itself (the queue
+   * board's horizontal scroller, which carries `focusRingInsetClass`), and it
+   * is one class more specific than the floor, so it wins over the floor's
+   * outset outline.
+   *
+   * The utility names are the guard's list: every scroll utility used in
+   * `src/` has to be named here, or a region that uses it keeps the clipped
+   * indicator (see `src/lib/focus-ring.test.ts`).
+   */
+  .overflow-y-auto:focus-visible:not(.outline-none):focus,
+  .overflow-x-auto:focus-visible:not(.outline-none):focus,
+  .overflow-auto:focus-visible:not(.outline-none):focus,
+  .overflow-y-scroll:focus-visible:not(.outline-none):focus,
+  .overflow-x-scroll:focus-visible:not(.outline-none):focus {
+    outline: 3px solid hsl(var(--ring));
+    outline-offset: -3px;
+  }
 }
