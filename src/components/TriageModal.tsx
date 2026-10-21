@@ -315,11 +315,17 @@ export default function TriageModal({
           )}
 
           {/* Vitals Section (Collapsible) */}
-          <div className="border border-slate-200/60 dark:border-slate-800 rounded-lg overflow-hidden">
+          {/* The wrapper used to carry `overflow-hidden` to round the toggle's
+              background, but it also clipped the toggle's focus ring: the
+              button is the wrapper's full width, so the ring had no room
+              inside the clip and nothing was painted (issue #188). The
+              children round their own corners instead, and the button is
+              positioned so its ring paints over the panel below it. */}
+          <div className="border border-slate-200/60 dark:border-slate-800 rounded-lg">
             <button
               type="button"
               onClick={() => setShowVitals(!showVitals)}
-              className={`w-full flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-900/20 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors ${focusRingClass}`}
+              className={`relative w-full flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-900/20 hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors ${showVitals ? "rounded-t-lg" : "rounded-lg"} ${focusRingClass}`}
             >
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
                 <Activity className="h-4 w-4 text-emerald-500" />
@@ -329,7 +335,7 @@ export default function TriageModal({
             </button>
 
             {showVitals && (
-              <div className="p-4 bg-white dark:bg-slate-950 border-t border-slate-200/50 dark:border-slate-800/50 grid grid-cols-3 gap-3">
+              <div className="p-4 bg-white dark:bg-slate-950 border-t border-slate-200/50 dark:border-slate-800/50 grid grid-cols-3 gap-3 rounded-b-lg">
                 {/* BP */}
                 <div className="space-y-1">
                   <Label htmlFor="blood_pressure" className="text-xs font-medium text-slate-500">Blood Press.</Label>

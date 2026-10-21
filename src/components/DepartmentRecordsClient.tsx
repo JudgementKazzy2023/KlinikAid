@@ -290,7 +290,7 @@ export default function DepartmentRecordsClient({
               placeholder={activeTab === "queue" ? "Search patient or queue..." : "Search patient or test..."}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-4 py-2 w-full text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+              className="pl-9 pr-4 py-2 w-full text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white placeholder-slate-400 outline-none focus:ring-3 focus:ring-teal-500 focus:border-transparent transition-all"
             />
           </div>
         </div>
