@@ -246,9 +246,12 @@ export function lucideIconNames(source: string): Set<string> {
   return names;
 }
 
-/** Does the element carry a click handler of its own? */
+/**
+ * Does the element carry a click handler of its own? JSX spells handlers in
+ * camelCase (`onClick`), so the match is case-insensitive.
+ */
 function hasClickHandler(attrs: string): boolean {
-  return /\son(click|pointerdown|mousedown|keydown|keyup)\s*=/.test(attrs);
+  return /\son(click|dblclick|pointerdown|mousedown|keydown|keyup)\s*=/i.test(attrs);
 }
 
 /** A printable name for a control: its tag and the id or name it carries. */
@@ -257,10 +260,37 @@ function describeControl(element: Element): string {
   return id ? `<${element.name} ${id[1]}="${id[2]}">` : `<${element.name}>`;
 }
 
-/** The form control this element sits next to, if any. */
+/**
+ * The first control in this element's subtree, if there is one.
+ *
+ * The search stops after two levels. A decoration that is a sibling of a
+ * control, or of a wrapper that holds one (`FormControl`, a styled `label`),
+ * is over that control; a decoration that is a sibling of a whole section —
+ * a page's background circle next to its card — is not.
+ */
+function findControl(element: Element, depth = 2): Element | null {
+  if (CONTROLS.has(element.name)) return element;
+  if (depth === 0) return null;
+  for (const child of element.children) {
+    const found = findControl(child, depth - 1);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * The form control this element sits next to, if any. The control is often
+ * not a direct sibling: it may sit inside a wrapper (`FormControl`, a styled
+ * `label`), so the whole sibling subtree is searched.
+ */
 function controlSibling(element: Element): Element | null {
   const siblings = element.parent?.children ?? [];
-  return siblings.find((sibling) => sibling !== element && CONTROLS.has(sibling.name)) ?? null;
+  for (const sibling of siblings) {
+    if (sibling === element) continue;
+    const found = findControl(sibling);
+    if (found) return found;
+  }
+  return null;
 }
 
 export type Overlay = {
@@ -405,6 +435,47 @@ describe("icons and decorations over a form control (issue #181)", () => {
       "</div>",
     ].join("\n");
     expect(overlaysWithoutPointerEventsNone(source)).toEqual([]);
+  });
+
+  it("leaves an icon with its own click handler alone", () => {
+    // A password-visibility toggle is the target of the tap, so it must keep
+    // the pointer even though it is an icon.
+    const source = [
+      'import { Eye } from "lucide-react";',
+      '<div className="relative">',
+      '  <input type="password" />',
+      '  <Eye className="absolute right-3 top-2.5 h-4 w-4" onClick={toggle} />',
+      "</div>",
+    ].join("\n");
+    expect(overlaysWithoutPointerEventsNone(source)).toEqual([]);
+  });
+
+  it("leaves a decoration with its own click handler alone", () => {
+    const source = [
+      '<div className="relative">',
+      '  <input type="text" />',
+      '  <div className="absolute right-2 top-2" onClick={clear}>x</div>',
+      "</div>",
+    ].join("\n");
+    expect(overlaysWithoutPointerEventsNone(source)).toEqual([]);
+  });
+
+  it("catches a decoration whose control is nested deeper", () => {
+    // The control is not a direct sibling: it sits inside a wrapper, and only
+    // the icon wrapper is positioned. The overlay still takes the tap.
+    const source = [
+      '<div className="relative">',
+      '  <div className="absolute inset-y-0 left-3 flex items-center">',
+      '    <span className="h-4 w-4" />',
+      "  </div>",
+      "  <FormControl>",
+      '    <Input placeholder="Search" />',
+      "  </FormControl>",
+      "</div>",
+    ].join("\n");
+    const offenders = overlaysWithoutPointerEventsNone(source);
+    expect(offenders).toHaveLength(1);
+    expect(offenders[0].control).toBe("<Input>");
   });
 
   it("leaves an icon that is in the flow alone", () => {
