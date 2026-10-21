@@ -590,11 +590,18 @@ describe("tailwind v4-only syntax under tailwind v3 (issue #175)", () => {
 
   it("compiles every v4-only class used in src/ into a CSS rule", async () => {
     const config = loadConfig(configPath);
-    const classes = await realClasses(config, [
-      ...collectV4VariantClasses(),
+    // The variant and combinator candidates are filtered: the extractor
+    // yields fragments of them, and a fragment is not a class name. The
+    // *utility* candidates are not filtered — a v4-only utility with no v3
+    // shim does not compile, and that is exactly what this assertion has
+    // to catch.
+    const classes = [
+      ...(await realClasses(config, [
+        ...collectV4VariantClasses(),
+        ...collectCombinatorClasses(),
+      ])),
       ...collectV4UtilityClasses(),
-      ...collectCombinatorClasses(),
-    ]);
+    ];
     const css = await compile(config, classes);
 
     const missing = classes.filter((className) => !hasRule(css, className));
@@ -682,21 +689,22 @@ describe("tailwind v4-only syntax under tailwind v3 (issue #175)", () => {
   it("compiles nothing for those classes without the v4 shims (the pre-fix config)", async () => {
     const config = loadConfig(configPath);
     const before = withoutV4Shims(config);
-    const classes = await realClasses(config, [
-      ...collectV4VariantClasses(),
+    // The utility candidates are not filtered here either: without the
+    // theme keys they must compile to nothing, and a filter that dropped
+    // the ones that do not compile would make this assertion vacuous.
+    const classes = [
+      ...(await realClasses(config, collectV4VariantClasses())),
       ...collectV4UtilityClasses(),
-    ]).then((all) =>
-      all.filter(
-        // The `rounded-[min(var(--radius-md),10px)]` classes compile under v3
-        // as well — they were broken by the missing CSS variable, not by a
-        // missing rule (see the globals.css test above). The `*:` chains
-        // compile as well: v3.4 ships the child variant, they were simply
-        // written in the wrong order (see the selector assertions above).
-        (className) => {
-          const { utility } = splitCandidate(className);
-          return !V4_RADIUS_VARIABLE_UTILITY.test(utility);
-        },
-      ),
+    ].filter(
+      // The `rounded-[min(var(--radius-md),10px)]` classes compile under v3
+      // as well — they were broken by the missing CSS variable, not by a
+      // missing rule (see the globals.css test above). The `*:` chains
+      // compile as well: v3.4 ships the child variant, they were simply
+      // written in the wrong order (see the selector assertions above).
+      (className) => {
+        const { utility } = splitCandidate(className);
+        return !V4_RADIUS_VARIABLE_UTILITY.test(utility);
+      },
     );
     const css = await compile(before, classes);
 
