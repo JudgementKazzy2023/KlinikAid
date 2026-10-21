@@ -71,8 +71,12 @@ export default function ForgotPasswordPage() {
 
           {success ? (
             <CardContent className="space-y-4 pt-4">
-              <Alert className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/50">
-                <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              {/* The alert root carries the text colour, so the icon takes it
+                  too: the ui kit's alert icon follows the alert's colour
+                  (issue #178). The other success and warning alerts in the
+                  app already do this. */}
+              <Alert className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/50 text-emerald-800 dark:text-emerald-300">
+                <CheckCircle className="h-4 w-4" />
                 <AlertTitle className="text-emerald-800 dark:text-emerald-300 font-semibold">Check your inbox</AlertTitle>
                 <AlertDescription className="text-emerald-700 dark:text-emerald-400 text-xs">
                   If an account exists for this email, we have sent password reset instructions. Please check your inbox and spam folder.
