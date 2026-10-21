@@ -299,9 +299,24 @@ export default function SpecialistPatientsClient({
               </select>
             </div>
 
-            {/* Date Filters */}
-            <div className="md:col-span-4 flex gap-2">
-              <div className="relative flex-1">
+            {/*
+              Date Filters.
+
+              A native date control refuses to be narrower than 165px (its
+              min-content width), so two of them side by side need 338px. The
+              four column slot below `lg` cannot give them that, and the
+              overflow was cut off by the card's `overflow-hidden` - the end
+              date field and the right side of its focus ring with it (issue
+              #190).
+
+              The range therefore wraps: `flex-wrap` puts the two fields on
+              their own rows when the slot is too narrow, and each field keeps
+              `min-w-[11rem]` (176px) so the date text and the picker button
+              never collide. Below `lg` the block takes a full row, because
+              the twelve column grid is then too narrow even for one field.
+            */}
+            <div className="md:col-span-12 lg:col-span-4 flex flex-wrap gap-2">
+              <div className="relative flex-1 min-w-[11rem]">
                 <Calendar className="absolute left-3 top-3 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
                 <input
                   type="date"
@@ -311,7 +326,7 @@ export default function SpecialistPatientsClient({
                   className="w-full pl-9 pr-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 outline-none focus:ring-3 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
-              <div className="relative flex-1">
+              <div className="relative flex-1 min-w-[11rem]">
                 <Calendar className="absolute left-3 top-3 h-4 w-4 text-slate-500 dark:text-slate-400 pointer-events-none" />
                 <input
                   type="date"
