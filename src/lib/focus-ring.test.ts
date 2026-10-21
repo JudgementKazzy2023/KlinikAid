@@ -52,6 +52,11 @@ const KIT_VARIANT_HELPERS = new Set(["buttonVariants"]);
 
 const SRC_ROOT = join(__dirname, "..");
 
+/** The project's Tailwind config, for the theme values the rules depend on. */
+const tailwindConfig = loadConfig(
+  fileURLToPath(new URL("../../tailwind.config.ts", import.meta.url))
+);
+
 /** Every .tsx file under src/. */
 function tsxFiles(dir: string): string[] {
   const found: string[] = [];
@@ -73,19 +78,35 @@ function widthOf(token: string): number | null {
 }
 
 /**
+ * The ring width `ring` (no number) paints: the theme's `ringWidth.DEFAULT`.
+ * Tailwind v3 ships 1px, and this project adds `ring-3` without touching the
+ * default, so `focus:ring` on its own is a 1px ring - not an indicator.
+ */
+const DEFAULT_RING_WIDTH = (() => {
+  const theme = tailwindConfig.theme as
+    | { ringWidth?: Record<string, string>; extend?: { ringWidth?: Record<string, string> } }
+    | undefined;
+  const width =
+    theme?.extend?.ringWidth?.DEFAULT ?? theme?.ringWidth?.DEFAULT ?? "1px";
+  const px = widthOf(width);
+  return px === null ? 1 : px;
+})();
+
+/**
  * The widest focus ring (a `focus:ring-<width>` utility) a class list
  * declares, in px, or null when it declares no focus ring.
  *
  * A ring *colour* on its own (`focus:ring-indigo-500`) paints nothing in
  * Tailwind v3: the width utility is what sets the ring's box shadow, so the
- * colour alone leaves the element with no ring of its own.
+ * colour alone leaves the element with no ring of its own. `focus:ring` with
+ * no number paints the theme's default width.
  */
 export function focusRingWidth(classNames: string[]): number | null {
   let widest: number | null = null;
   for (const token of classNames) {
-    const ring = /^focus(?:-visible)?:ring-(.+)$/.exec(token);
+    const ring = /^focus(?:-visible)?:ring(?:-(.+))?$/.exec(token);
     if (!ring) continue;
-    const width = widthOf(ring[1]);
+    const width = ring[1] === undefined ? DEFAULT_RING_WIDTH : widthOf(ring[1]);
     if (width !== null) widest = Math.max(widest ?? 0, width);
   }
   return widest;
@@ -97,18 +118,13 @@ export function focusRingWidth(classNames: string[]): number | null {
  *
  * `focus:ring-2` is 2px and does not qualify. `focus:ring-3` does — the
  * Tailwind config adds `ringWidth: { 3: "3px" }` for it (issue #149).
- * `focus:outline` on its own only sets the outline *style*; the width stays
- * the browser's 1px, so it does not qualify either.
+ * `focus:ring` with no number is the theme's default width (1px), so it does
+ * not qualify either. `focus:outline` on its own only sets the outline
+ * *style*; the width stays the browser's 1px, so it does not qualify either.
  */
 export function focusIndicatorWidth(classNames: string[]): number | null {
-  let widest: number | null = null;
+  let widest = focusRingWidth(classNames);
   for (const token of classNames) {
-    const ring = /^focus(?:-visible)?:ring-(.+)$/.exec(token);
-    if (ring) {
-      const width = widthOf(ring[1]);
-      if (width !== null) widest = Math.max(widest ?? 0, width);
-      continue;
-    }
     const outline = /^focus(?:-visible)?:outline-(.+)$/.exec(token);
     if (outline) {
       const width = widthOf(outline[1]);
@@ -281,9 +297,7 @@ function findRingOffenders(): (Offender & { reason: string })[] {
 
 describe("focus indicator (issue #180)", () => {
   it("declares the shared focus ring as a 3px ring", async () => {
-    const config = loadConfig(
-      fileURLToPath(new URL("../../tailwind.config.ts", import.meta.url))
-    );
+    const config = tailwindConfig;
     const css = (
       await postcss([
         tailwindcss({
@@ -326,10 +340,16 @@ describe("focus indicator (issue #180)", () => {
     expect(focusRingWidth(["focus:ring-3", "focus:ring-indigo-500"])).toBe(3);
     expect(focusRingWidth(["focus-visible:ring-3"])).toBe(3);
     expect(focusRingWidth(["focus:ring-2"])).toBe(2);
+    // `focus:ring` with no number is the theme's default width: 1px here.
+    expect(focusRingWidth(["focus:ring"])).toBe(1);
+    expect(focusRingWidth(["focus-visible:ring"])).toBe(1);
     // A ring colour on its own paints nothing in Tailwind v3.
     expect(focusRingWidth(["focus:ring-indigo-500"])).toBeNull();
     // A ring that is not tied to focus is decoration, not an indicator.
     expect(focusRingWidth(["ring-3"])).toBeNull();
+    // Neither is the ring's inset flag or its offset.
+    expect(focusRingWidth(["focus:ring-inset"])).toBeNull();
+    expect(focusRingWidth(["focus:ring-offset-2"])).toBeNull();
   });
 
   it("keeps a control that paints its own ring to a single indicator", () => {
