@@ -166,7 +166,11 @@ export default function StaffSheet(props: StaffSheetProps) {
           </>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex min-h-0 flex-1 flex-col">
-            <div className="min-h-0 flex-1 space-y-8 overflow-y-auto px-6 py-6">
+            {/* `scroll-pb-1` reserves 4px of scroll padding at the bottom of the
+                scroll area: when the browser scrolls a focused card into view it
+                leaves that room, so the card's 3px focus ring is not clipped by
+                the scroll area's bottom edge (issue #188). */}
+            <div className="min-h-0 flex-1 space-y-8 overflow-y-auto scroll-pb-1 px-6 py-6">
               {errorMsg && (
                 <div role="alert" className="flex items-start gap-2 rounded-md border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">
                   <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />

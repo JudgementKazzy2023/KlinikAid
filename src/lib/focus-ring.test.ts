@@ -3,6 +3,7 @@ import postcss from "postcss";
 import tailwindcss from "tailwindcss";
 import loadConfig from "tailwindcss/loadConfig.js";
 import ts from "typescript";
+import defaultTheme from "tailwindcss/defaultTheme.js";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,6 +53,11 @@ const KIT_VARIANT_HELPERS = new Set(["buttonVariants"]);
 
 const SRC_ROOT = join(__dirname, "..");
 
+/** The project's Tailwind config, for the theme values the rules depend on. */
+const tailwindConfig = loadConfig(
+  fileURLToPath(new URL("../../tailwind.config.ts", import.meta.url))
+);
+
 /** Every .tsx file under src/. */
 function tsxFiles(dir: string): string[] {
   const found: string[] = [];
@@ -73,23 +79,57 @@ function widthOf(token: string): number | null {
 }
 
 /**
+ * The ring width `ring` (no number) paints: the theme's `ringWidth.DEFAULT`.
+ * Tailwind v3's default theme ships 3px, so a bare `focus:ring` is a 3px
+ * ring - the same width the rest of the app uses - and the project's config
+ * may override it.
+ */
+const DEFAULT_RING_WIDTH = (() => {
+  const theme = tailwindConfig.theme as
+    | { ringWidth?: Record<string, string>; extend?: { ringWidth?: Record<string, string> } }
+    | undefined;
+  const width =
+    theme?.extend?.ringWidth?.DEFAULT ??
+    theme?.ringWidth?.DEFAULT ??
+    defaultTheme.ringWidth.DEFAULT;
+  const px = widthOf(width);
+  return px === null ? 1 : px;
+})();
+
+/**
+ * The widest focus ring (a `focus:ring-<width>` utility) a class list
+ * declares, in px, or null when it declares no focus ring.
+ *
+ * A ring *colour* on its own (`focus:ring-indigo-500`) paints nothing in
+ * Tailwind v3: the width utility is what sets the ring's box shadow, so the
+ * colour alone leaves the element with no ring of its own. `focus:ring` with
+ * no number paints the theme's default width.
+ */
+export function focusRingWidth(classNames: string[]): number | null {
+  let widest: number | null = null;
+  for (const token of classNames) {
+    const ring = /^focus(?:-visible)?:ring(?:-(.+))?$/.exec(token);
+    if (!ring) continue;
+    const width = ring[1] === undefined ? DEFAULT_RING_WIDTH : widthOf(ring[1]);
+    if (width !== null) widest = Math.max(widest ?? 0, width);
+  }
+  return widest;
+}
+
+/**
  * The widest focus ring or focus outline a class list declares, in px, or null
  * when it declares no focus indicator at all.
  *
  * `focus:ring-2` is 2px and does not qualify. `focus:ring-3` does — the
  * Tailwind config adds `ringWidth: { 3: "3px" }` for it (issue #149).
- * `focus:outline` on its own only sets the outline *style*; the width stays
- * the browser's 1px, so it does not qualify either.
+ * `focus:ring` with no number is the theme's default width, which in
+ * Tailwind v3 is 3px, so it qualifies too. `focus:outline` on its own only
+ * sets the outline *style*; the width stays the browser's 1px, so it does
+ * not qualify either.
  */
 export function focusIndicatorWidth(classNames: string[]): number | null {
-  let widest: number | null = null;
+  let widest = focusRingWidth(classNames);
   for (const token of classNames) {
-    const ring = /^focus(?:-visible)?:ring-(.+)$/.exec(token);
-    if (ring) {
-      const width = widthOf(ring[1]);
-      if (width !== null) widest = Math.max(widest ?? 0, width);
-      continue;
-    }
     const outline = /^focus(?:-visible)?:outline-(.+)$/.exec(token);
     if (outline) {
       const width = widthOf(outline[1]);
@@ -195,11 +235,74 @@ function findOffenders(): Offender[] {
   return offenders;
 }
 
+/**
+ * Every element that paints its own focus ring but does not keep the app-wide
+ * outline floor away, or that paints a ring under 3px.
+ *
+ * The floor in `src/app/globals.css` is
+ *
+ *   :focus-visible:not(.outline-none):focus { outline: 3px solid hsl(var(--ring)); outline-offset: 2px; }
+ *
+ * so a control that carries a focus ring and does not carry the unprefixed
+ * `outline-none` class gets that 3px outline *and* its own ring: two
+ * indicators where every other control shows one (issue #187).
+ *
+ * `focus:outline-none` is not the opt-out. The floor's `:not(.outline-none)`
+ * does not match it, and the floor's own rule outranks it, so a control with
+ * `focus:outline-none` and a ring still gets the floor's outline on top of
+ * its ring.
+ */
+function findRingOffenders(): (Offender & { reason: string })[] {
+  const offenders: (Offender & { reason: string })[] = [];
+  for (const file of tsxFiles(SRC_ROOT)) {
+    const text = readFileSync(file, "utf8");
+    const source = ts.createSourceFile(
+      file,
+      text,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX
+    );
+    const visit = (node: ts.Node): void => {
+      if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
+        const attribute = node.attributes.properties.find(
+          (property): property is ts.JsxAttribute =>
+            ts.isJsxAttribute(property) &&
+            property.name.getText(source) === "className"
+        );
+        const { names } = attribute
+          ? classNamesOf(attribute, source)
+          : { names: [] as string[] };
+        const ring = focusRingWidth(names);
+        // A ring of 0px paints nothing, so it is not an indicator of its own.
+        if (ring !== null && ring > 0) {
+          const reason = names.includes("outline-none")
+            ? ring < 3
+              ? `paints a ${ring}px focus ring, which is under the 3px floor`
+              : null
+            : "paints a focus ring without `outline-none`, so the app-wide 3px outline floor paints a second indicator";
+          if (reason) {
+            const { line } = source.getLineAndCharacterOfPosition(node.getStart(source));
+            offenders.push({
+              file: file.slice(SRC_ROOT.length + 1),
+              line: line + 1,
+              tag: node.tagName.getText(source),
+              classes: names.join(" ") || "(no className)",
+              reason,
+            });
+          }
+        }
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(source);
+  }
+  return offenders;
+}
+
 describe("focus indicator (issue #180)", () => {
   it("declares the shared focus ring as a 3px ring", async () => {
-    const config = loadConfig(
-      fileURLToPath(new URL("../../tailwind.config.ts", import.meta.url))
-    );
+    const config = tailwindConfig;
     const css = (
       await postcss([
         tailwindcss({
@@ -234,6 +337,36 @@ describe("focus indicator (issue #180)", () => {
       offenders,
       `These interactive elements have no focus indicator of 3px or more:\n${offenders
         .map((offender) => `  ${offender.file}:${offender.line} <${offender.tag}> ${offender.classes}`)
+        .join("\n")}`
+    ).toEqual([]);
+  });
+
+  it("reads a focus ring width, and does not mistake a ring colour for one", () => {
+    expect(focusRingWidth(["focus:ring-3", "focus:ring-indigo-500"])).toBe(3);
+    expect(focusRingWidth(["focus-visible:ring-3"])).toBe(3);
+    expect(focusRingWidth(["focus:ring-2"])).toBe(2);
+    // `focus:ring` with no number is the theme's default width: 3px in
+    // Tailwind v3, so it is an indicator like `focus:ring-3`.
+    expect(focusRingWidth(["focus:ring"])).toBe(3);
+    expect(focusRingWidth(["focus-visible:ring"])).toBe(3);
+    // A ring colour on its own paints nothing in Tailwind v3.
+    expect(focusRingWidth(["focus:ring-indigo-500"])).toBeNull();
+    // A ring that is not tied to focus is decoration, not an indicator.
+    expect(focusRingWidth(["ring-3"])).toBeNull();
+    // Neither is the ring's inset flag or its offset.
+    expect(focusRingWidth(["focus:ring-inset"])).toBeNull();
+    expect(focusRingWidth(["focus:ring-offset-2"])).toBeNull();
+  });
+
+  it("keeps a control that paints its own ring to a single indicator", () => {
+    const offenders = findRingOffenders();
+    expect(
+      offenders,
+      `These elements paint a focus ring that collides with the app-wide outline floor:\n${offenders
+        .map(
+          (offender) =>
+            `  ${offender.file}:${offender.line} <${offender.tag}> ${offender.classes}\n      ${offender.reason}`
+        )
         .join("\n")}`
     ).toEqual([]);
   });

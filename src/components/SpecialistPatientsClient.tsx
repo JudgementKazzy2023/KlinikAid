@@ -279,7 +279,7 @@ export default function SpecialistPatientsClient({
                 placeholder="Search patient name or code (e.g. PT-123456)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 placeholder-slate-400 outline-none focus:ring-3 focus:ring-indigo-500 focus:border-indigo-500"
               />
             </div>
 
@@ -289,7 +289,7 @@ export default function SpecialistPatientsClient({
               <select
                 value={deptFilter}
                 onChange={(e) => setDeptFilter(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 appearance-none"
+                className="w-full pl-9 pr-4 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-sm bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 outline-none focus:ring-3 focus:ring-indigo-500 focus:border-indigo-500 appearance-none"
               >
                 <option value="">All Departments</option>
                 <option value="laboratory">Laboratory</option>
@@ -308,7 +308,7 @@ export default function SpecialistPatientsClient({
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   placeholder="Start Date"
-                  className="w-full pl-9 pr-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full pl-9 pr-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 outline-none focus:ring-3 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
               <div className="relative flex-1">
@@ -318,7 +318,7 @@ export default function SpecialistPatientsClient({
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   placeholder="End Date"
-                  className="w-full pl-9 pr-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="w-full pl-9 pr-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 outline-none focus:ring-3 focus:ring-indigo-500 focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -565,7 +565,7 @@ export default function SpecialistPatientsClient({
                     id="gender"
                     name="gender"
                     required
-                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 h-9"
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-lg text-xs bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 outline-none focus:ring-3 focus:ring-indigo-500 h-9"
                   >
                     <option value="male">Male</option>
                     <option value="female">Female</option>
