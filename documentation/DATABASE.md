@@ -102,6 +102,7 @@ KlinikAid uses 8 primary tables to manage application state:
   - `gender` (text, CHECK: `'male' | 'female' | 'other'`)
   - `contact_number`, `address` (text, NOT NULL)
   - `email` (text, nullable)
+- **Indexes**: `patients_profile_id_key` on `(profile_id)` (migration 39) — one patient row per profile. Without it, two rows could be inserted for the same profile (the mobile app's `create-patient-record` Edge function can be raced into one), and the single-row read the app uses to load a patient's own record then fails. NULLs are distinct in a unique index, so rows without a profile are unaffected and `ON DELETE SET NULL` keeps working.
 - **RLS Summary**:
   - Admins: Full access.
   - Receptionists: Full access.
@@ -213,9 +214,11 @@ migration 38 adds no index for it.
 
 ## Migration History
 
-Historical migrations are retained under `src/lib/db/` through migration 38.
-Migration 38 (the dashboard's query indexes) was applied to production on
-2026-10-21 and is included in the `schema.sql` snapshot.
+Historical migrations are retained under `src/lib/db/` through migration 39.
+Migration 39 (one patient row per profile) is **written but not applied**: it
+needs a database deploy, and `src/lib/db/schema.sql` is a generated picture of
+the live database, so it stays as it is until the migration has been applied
+and the snapshot regenerated from the database that has it.
 
 The following are early milestones, not a fresh-project execution sequence:
 
