@@ -297,6 +297,12 @@ begin
 end;
 $$;
 
+-- A trigger function is never called directly. EXECUTE is checked when a
+-- trigger is created, not when it fires, so revoking it from client roles
+-- keeps this SECURITY DEFINER function off the API surface without
+-- weakening the guard.
+revoke execute on function public.enforce_lab_plausibility() from public, anon, authenticated;
+
 drop trigger if exists department_records_lab_plausibility on public.department_records;
 
 create trigger department_records_lab_plausibility
