@@ -1,4 +1,4 @@
--- KlinikAid GENERATED current-state snapshot through migration_38 (2026-10-21).
+-- KlinikAid GENERATED current-state snapshot through migration_39 (2026-10-22).
 -- Fresh Supabase projects ONLY: run this file once in the SQL editor, or:
 --   psql "$FRESH_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f src/lib/db/schema.sql
 -- Requires a Supabase database with auth/storage schemas and platform roles.
@@ -1523,6 +1523,13 @@ CREATE INDEX login_attempts_window_start_idx ON public.login_attempts USING btre
 
 
 --
+-- Name: patients_profile_id_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX patients_profile_id_key ON public.patients USING btree (profile_id);
+
+
+--
 -- Name: patient_queue_department_day_number_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2373,6 +2380,15 @@ GRANT ALL ON FUNCTION public.triage_patient(p_patient_id uuid, p_department text
 
 
 --
+-- Name: FUNCTION trim_role_name(p_name text); Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON FUNCTION public.trim_role_name(p_name text) TO anon;
+GRANT ALL ON FUNCTION public.trim_role_name(p_name text) TO authenticated;
+GRANT ALL ON FUNCTION public.trim_role_name(p_name text) TO service_role;
+
+
+--
 -- Name: FUNCTION update_custom_role(p_role_id uuid, p_name text, p_description text, p_permission_ids uuid[]); Type: ACL; Schema: public; Owner: -
 --
 
@@ -2845,7 +2861,8 @@ INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES
   ('20261018000035', 'legacy_35'),
   ('20261018000036', 'legacy_36'),
   ('20261020000037', 'legacy_37'),
-  ('20261021000038', 'legacy_38')
+  ('20261021000038', 'legacy_38'),
+  ('20261022000039', 'legacy_39')
 ON CONFLICT (version) DO NOTHING;
 
 COMMIT;
