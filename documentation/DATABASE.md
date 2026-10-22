@@ -17,7 +17,7 @@ psql "$FRESH_DATABASE_URL" -X -v ON_ERROR_STOP=1 -f src/lib/db/schema.sql
 Use a database administrator connection with permission to create the app's auth
 triggers and storage policies. Supabase must already supply its `auth`, `storage`,
 `extensions` schemas and platform roles; this is not a standalone Postgres installer.
-The snapshot includes the current state **through migration_38**, system role and
+The snapshot includes the current state **through migration_39**, system role and
 permission reference data, a private `patient-documents` bucket, auth triggers,
 Realtime membership, and migration coverage records. It contains no application data.
 It runs in a transaction and refuses an existing public table before changing anything.
@@ -32,7 +32,7 @@ history need their actual schema checked before choosing a migration starting po
 The snapshot assigns coverage markers `20261017000007`–`20261017000026` to previously
 untracked migrations 07–26, retains the two July versions from `applied/`, and uses
 `20261017000027`–`20261017000029` and `20261018000030`–`20261018000036` for 27–36,
-`20261020000037` for 37, and `20261021000038` for 38.
+`20261020000037` for 37, `20261021000038` for 38, and `20261022000039` for 39.
 Those markers describe snapshot coverage, not individual historical executions.
 
 ### Regenerating the snapshot
@@ -102,6 +102,7 @@ KlinikAid uses 8 primary tables to manage application state:
   - `gender` (text, CHECK: `'male' | 'female' | 'other'`)
   - `contact_number`, `address` (text, NOT NULL)
   - `email` (text, nullable)
+- **Indexes**: `patients_profile_id_key` on `(profile_id)` (migration 39) — one patient row per profile. Without it, two rows could be inserted for the same profile (the mobile app's `create-patient-record` Edge function can be raced into one), and the single-row read the app uses to load a patient's own record then fails. NULLs are distinct in a unique index, so rows without a profile are unaffected and `ON DELETE SET NULL` keeps working.
 - **RLS Summary**:
   - Admins: Full access.
   - Receptionists: Full access.
@@ -213,9 +214,9 @@ migration 38 adds no index for it.
 
 ## Migration History
 
-Historical migrations are retained under `src/lib/db/` through migration 38.
-Migration 38 (the dashboard's query indexes) was applied to production on
-2026-10-21 and is included in the `schema.sql` snapshot.
+Historical migrations are retained under `src/lib/db/` through migration 39.
+Migration 39 (one patient row per profile) was applied to production on
+2026-10-22 and is included in the `schema.sql` snapshot.
 
 The following are early milestones, not a fresh-project execution sequence:
 
