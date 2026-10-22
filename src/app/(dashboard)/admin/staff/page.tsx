@@ -541,7 +541,12 @@ export default function StaffManagementPage() {
       {/* Main Table Card */}
       <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm">
         <CardHeader className="gap-4 pb-3">
-          <div className="flex flex-row items-center justify-between gap-4">
+          {/* Below `sm` the title and the search stack instead of sharing one
+              row: a fixed w-72 beside the title pushes this row's min-content
+              width past a 390px card, the card's overflow:hidden clipped the
+              search, and because both header rows sit in the same auto grid
+              track the filters and the count were stretched out of view too. */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="text-lg">Personnel Registry</CardTitle>
               <CardDescription className="text-xs">
@@ -549,8 +554,9 @@ export default function StaffManagementPage() {
               </CardDescription>
             </div>
 
-            {/* Search bar */}
-            <div className="relative w-72">
+            {/* Search bar: full width when stacked, fixed width beside the
+                title once there is room for both. */}
+            <div className="relative w-full min-w-0 sm:w-72">
               <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <Input
                 placeholder="Search by name, email, or role..."
