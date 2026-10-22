@@ -448,7 +448,9 @@ export default function DocumentApprovalClient({ document: initialDoc, templateR
                 Validation Report
               </CardTitle>
               <CardDescription className="text-xs">
-                Automated checks run against the submission
+                {doc.file_type === "template"
+                  ? "Automated checks run against the stored answers"
+                  : "What reception should verify before approving"}
               </CardDescription>
             </CardHeader>
             <CardContent className="pt-4 space-y-5">
