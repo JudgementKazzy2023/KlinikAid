@@ -1,4 +1,4 @@
-import { uploadStore } from '@/lib/documents/uploadStore';
+import { uploadStore } from "@/lib/documents/uploadStore";
 /**
  * Supabase Edge Function: patient-document-submission
  * Runtime: Deno. Caller: the mobile app (JWT Bearer auth).

@@ -8,9 +8,8 @@
     "@/lib/documents/uploadSubmission": "../../../src/lib/documents/uploadSubmission.ts",
     "@/lib/documents/uploadStore": "../../../src/lib/documents/uploadStore.ts",
     "@/lib/documents/detectRequestedTests": "../../../src/lib/documents/detectRequestedTests.ts",
+    "@/lib/documents/clinicTestCatalog": "../../../src/lib/documents/clinicTestCatalog.ts",
     "@/lib/constants": "../../../src/lib/constants.ts",
-    "@/types": "../../../src/types/index.ts",
-    "./uploadSubmission": "../../../src/lib/documents/uploadSubmission.ts",
-    "@/lib/documents/clinicTestCatalog": "../../../src/lib/documents/clinicTestCatalog.ts"
+    "@/types": "../../../src/types/index.ts"
   }
 }

@@ -1,4 +1,4 @@
-import type { ClinicTestRecording } from '@/lib/constants';
+import type { ClinicTestRecording } from "@/lib/constants";
 
 export interface ClinicTestCatalogItem {
   id: string;
@@ -11,45 +11,95 @@ export const CLINIC_TEST_CATALOG: ClinicTestCatalogItem[] = [
   {
     id: "cbc",
     label: "Complete Blood Count (CBC)",
-    aliases: ["cbc", "complete blood count", "hematology", "hemoglobin", "white blood cells", "wbc", "platelets"],
-    recording: { department: "laboratory", panel: "Complete Blood Count (CBC)" },
+    aliases: [
+      "cbc",
+      "complete blood count",
+      "hematology",
+      "hemoglobin",
+      "white blood cells",
+      "wbc",
+      "platelets",
+    ],
+    recording: {
+      department: "laboratory",
+      panel: "Complete Blood Count (CBC)",
+    },
   },
   {
     id: "urinalysis",
     label: "Urinalysis",
-    aliases: ["urinalysis", "urine", "urine analysis", "routine urinalysis", "clinical microscopy", "urine test", "ua"],
+    aliases: [
+      "urinalysis",
+      "urine",
+      "urine analysis",
+      "routine urinalysis",
+      "clinical microscopy",
+      "urine test",
+      "ua",
+    ],
     recording: { department: "laboratory", narrative: "Urinalysis" },
   },
   {
     id: "fecalysis",
     label: "Fecalysis",
-    aliases: ["fecalysis", "routine fecalysis", "stool", "stool exam", "stool examination", "fecal exam"],
+    aliases: [
+      "fecalysis",
+      "routine fecalysis",
+      "stool",
+      "stool exam",
+      "stool examination",
+      "fecal exam",
+    ],
     recording: { department: "laboratory", narrative: "Fecalysis" },
   },
   {
     id: "fbs",
     label: "Fasting Blood Sugar (FBS)",
-    aliases: ["fbs", "fasting blood sugar", "blood sugar", "fasting glucose", "glucose"],
+    aliases: [
+      "fbs",
+      "fasting blood sugar",
+      "blood sugar",
+      "fasting glucose",
+      "glucose",
+    ],
     recording: { department: "laboratory", panel: "Fasting Blood Sugar (FBS)" },
   },
   {
     id: "lipid_profile",
     label: "Lipid Profile",
-    aliases: ["lipid", "lipid profile", "cholesterol", "triglycerides", "hdl", "ldl"],
+    aliases: [
+      "lipid",
+      "lipid profile",
+      "cholesterol",
+      "triglycerides",
+      "hdl",
+      "ldl",
+    ],
     // Only total cholesterol has a structured panel; a full lipid profile is narrative.
-    recording: { department: "laboratory", narrative: "Lipid Profile (narrative)" },
+    recording: {
+      department: "laboratory",
+      narrative: "Lipid Profile (narrative)",
+    },
   },
   {
     id: "creatinine",
     label: "Creatinine",
-    aliases: ["creatinine", "serum creatinine", "renal function", "kidney function"],
+    aliases: [
+      "creatinine",
+      "serum creatinine",
+      "renal function",
+      "kidney function",
+    ],
     recording: { department: "laboratory", panel: "Renal Function" },
   },
   {
     id: "bun",
     label: "Blood Urea Nitrogen (BUN)",
     aliases: ["bun", "blood urea nitrogen", "urea nitrogen"],
-    recording: { department: "laboratory", narrative: "Blood Urea Nitrogen (BUN)" },
+    recording: {
+      department: "laboratory",
+      narrative: "Blood Urea Nitrogen (BUN)",
+    },
   },
   {
     id: "sgpt_alt",
@@ -66,7 +116,14 @@ export const CLINIC_TEST_CATALOG: ClinicTestCatalogItem[] = [
   {
     id: "chest_xray",
     label: "Chest X-ray",
-    aliases: ["chest x-ray", "chest xray", "cxr", "x-ray chest", "xray chest", "chest radiograph"],
+    aliases: [
+      "chest x-ray",
+      "chest xray",
+      "cxr",
+      "x-ray chest",
+      "xray chest",
+      "chest radiograph",
+    ],
     recording: { department: "imaging" },
   },
   {

@@ -7,13 +7,18 @@
 -- assessment_not_found (missing, wrong owner, or already consumed), file_invalid.
 -- Storage decision: promote the existing pending object IN PLACE, without a
 -- second physical object/copy. A row lock plus transactional metadata seal and
--- immutable-object trigger prevents a committed file being removed/replaced.
+-- an immutable-object trigger prevent a submitted file being removed/replaced
+-- while a document references it. Once the patient cancels the document (its
+-- row is deleted), the file can be removed again, exactly as today.
+-- VERIFY in an isolated Supabase project before applying: this adds a trigger
+-- on storage.objects and writes its metadata, both owned by Supabase Storage.
 -- Failed transactions leave only the original pending draft, never a final copy.
 -- ORDERING: apply after 34/36/41 and before deploying the upload routes/web action.
 -- SNAPSHOT: written but not applied; do not regenerate schema.sql until applied.
 -- ROLLBACK: revert upload callers first; preserve all receipts and object seals.
 -- Drop the two upload RPCs if required, but retain the trigger while documents
--- reference promoted objects. Do not narrow the operation constraint or delete
+-- reference promoted objects (drop trigger protect_submitted_upload_object on
+-- storage.objects only after none do). Do not narrow the operation constraint or delete
 -- upload receipts after any accepted submission: these are reconciliation evidence.
 
 begin;
@@ -26,10 +31,12 @@ alter table public.submission_receipts
 create or replace function public.protect_submitted_upload_object()
 returns trigger language plpgsql security invoker set search_path = '' as $$
 begin
-  if old.bucket_id = 'patient-documents' and
-     (old.metadata ->> 'klinikaid_document_id' is not null or exists (
+  -- Protected only while a document references the file. A patient cancelling
+  -- a pending document deletes the row first (web patient/submissions), and the
+  -- file must then be removable as before; the seal alone does not keep it.
+  if old.bucket_id = 'patient-documents' and exists (
        select 1 from public.documents d where d.file_path = old.name
-     )) then
+     ) then
     -- Storage may update access timestamps during reads. Those bookkeeping
     -- fields cannot change the object identity, metadata or physical version.
     if tg_op = 'UPDATE' and

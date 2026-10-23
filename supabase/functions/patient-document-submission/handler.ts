@@ -1,4 +1,9 @@
-import { parseUpload, submitUpload, UploadError, type UploadStore } from '@/lib/documents/uploadSubmission';
+import {
+  parseUpload,
+  submitUpload,
+  UploadError,
+  type UploadStore,
+} from "@/lib/documents/uploadSubmission";
 // Shared with the web app: the same files src/app/(dashboard)/patient/templates
 // imports, mapped by deno.json. Never copy them into this folder.
 import { CLINIC_TEMPLATES } from "@/lib/documentTemplates";
@@ -129,7 +134,8 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 const uuid =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const messages: Record<Code, string> = {
-  ASSESSMENT_NOT_FOUND: "The assessment is unavailable or already used. Contact the clinic before submitting again.",
+  ASSESSMENT_NOT_FOUND:
+    "The assessment is unavailable or already used. Contact the clinic before submitting again.",
   METHOD_NOT_ALLOWED: "Use POST or OPTIONS.",
   SERVER_DATA_INVALID:
     "Account information needs correction. Please contact the clinic. Do not retry until corrected.",
@@ -156,7 +162,12 @@ const messages: Record<Code, string> = {
 };
 
 export function createHandler(
-  deps: { identity: Identity; store?: SubmissionStore; uploads?: UploadStore; now?: () => Date },
+  deps: {
+    identity: Identity;
+    store?: SubmissionStore;
+    uploads?: UploadStore;
+    now?: () => Date;
+  },
 ) {
   return async (req: Request): Promise<Response> => {
     if (req.method === "OPTIONS") {
@@ -209,16 +220,33 @@ export function createHandler(
       }
       if (!isObject(raw)) throw new SubmissionError("FIELD_INVALID", "body");
       const path = new URL(req.url).pathname;
-      if (path.endsWith('/upload') || path.endsWith('/upload/status')) {
-        if (!deps.uploads) throw new SubmissionError('SERVER_ERROR');
-        if (path.endsWith('/upload/status')) {
-          if (Object.keys(raw).some(k => k !== 'request_id')) throw new SubmissionError('UNKNOWN_FIELD', 'body');
-          if (typeof raw.request_id !== 'string' || !uuid.test(raw.request_id)) throw new SubmissionError('FIELD_INVALID', 'request_id');
-          const known = await deps.uploads.lookup(user.id, raw.request_id.toLowerCase());
-          if (!['committed', 'withdrawn', 'not_found'].includes(known?.state)) throw new SubmissionError('SERVER_ERROR');
+      if (path.endsWith("/upload") || path.endsWith("/upload/status")) {
+        if (!deps.uploads) throw new SubmissionError("SERVER_ERROR");
+        if (path.endsWith("/upload/status")) {
+          if (Object.keys(raw).some((k) => k !== "request_id")) {
+            throw new SubmissionError("UNKNOWN_FIELD", "body");
+          }
+          if (
+            typeof raw.request_id !== "string" || !uuid.test(raw.request_id)
+          ) throw new SubmissionError("FIELD_INVALID", "request_id");
+          const known = await deps.uploads.lookup(
+            user.id,
+            raw.request_id.toLowerCase(),
+          );
+          if (!["committed", "withdrawn", "not_found"].includes(known?.state)) {
+            throw new SubmissionError("SERVER_ERROR");
+          }
           return reply(known);
         }
-        return reply(await submitUpload(deps.uploads, user.id, patient.id, parseUpload(raw)));
+        return reply(
+          await submitUpload(
+            deps.uploads,
+            user.id,
+            patient.id,
+            parseUpload(raw),
+            "client_ocr_catalog_match",
+          ),
+        );
       }
       // POST .../patient-document-submission/status: outcome lookup, same gates.
       const isStatus = new URL(req.url).pathname.endsWith("/status");
@@ -344,9 +372,10 @@ export function createHandler(
           throw new SubmissionError("SERVER_ERROR");
       }
     } catch (error) {
-      const safe = error instanceof SubmissionError || error instanceof UploadError
-        ? error
-        : new SubmissionError("SERVER_ERROR");
+      const safe =
+        error instanceof SubmissionError || error instanceof UploadError
+          ? error
+          : new SubmissionError("SERVER_ERROR");
       return reply({
         error_code: safe.code,
         message: messages[safe.code],
