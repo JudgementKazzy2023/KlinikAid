@@ -37,11 +37,16 @@ begin
   if old.bucket_id = 'patient-documents' and exists (
        select 1 from public.documents d where d.file_path = old.name
      ) then
-    -- Storage may update access timestamps during reads. Those bookkeeping
-    -- fields cannot change the object identity, metadata or physical version.
+    -- Only the columns that identify the file are frozen. Storage may touch
+    -- bookkeeping (access timestamps) or backfill columns a later Storage
+    -- release adds; refusing those would break Storage's own upgrades.
     if tg_op = 'UPDATE' and
-       (to_jsonb(new) - 'last_accessed_at' - 'updated_at') =
-       (to_jsonb(old) - 'last_accessed_at' - 'updated_at') then return new; end if;
+       (new.id, new.bucket_id, new.name, new.owner, new.owner_id, new.version,
+        new.metadata, new.user_metadata, new.archived_at, new.is_delete_marker)
+       is not distinct from
+       (old.id, old.bucket_id, old.name, old.owner, old.owner_id, old.version,
+        old.metadata, old.user_metadata, old.archived_at, old.is_delete_marker)
+       then return new; end if;
     raise exception 'submitted document file is immutable' using errcode = '42501';
   end if;
   if tg_op = 'DELETE' then return old; end if;
