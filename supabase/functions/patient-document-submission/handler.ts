@@ -92,7 +92,20 @@ export interface SubmissionStore {
   // Receipt check, duplicate rule, document, DOCUMENT_SUBMITTED event and
   // receipt commit or roll back together. Failures throw.
   submitTemplate(input: TemplateSubmission): Promise<Outcome>;
+  // public.submit_patient_template_outcome (migration_41): reads only, scoped
+  // to the caller, waits for an in-flight submit of the same request.
+  lookupTemplate(userId: string, requestId: string): Promise<Lookup>;
 }
+export type Lookup =
+  | {
+    state: "committed";
+    document_id: string;
+    status: string;
+    first_accepted_at: string;
+    replayable: boolean;
+  }
+  | { state: "withdrawn"; first_accepted_at: string }
+  | { state: "not_found" };
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -192,13 +205,27 @@ export function createHandler(
         throw new SubmissionError("FIELD_INVALID", "body");
       }
       if (!isObject(raw)) throw new SubmissionError("FIELD_INVALID", "body");
-      const unknown = Object.keys(raw).find((k) =>
-        !["request_id", "template_id", "fields"].includes(k)
-      );
+      // POST .../patient-document-submission/status: outcome lookup, same gates.
+      const isStatus = new URL(req.url).pathname.endsWith("/status");
+      const allowed = isStatus
+        ? ["request_id"]
+        : ["request_id", "template_id", "fields"];
+      const unknown = Object.keys(raw).find((k) => !allowed.includes(k));
       // Never echo arbitrary user-provided key names (they may contain PII).
       if (unknown) throw new SubmissionError("UNKNOWN_FIELD", "body");
       if (typeof raw.request_id !== "string" || !uuid.test(raw.request_id)) {
         throw new SubmissionError("FIELD_INVALID", "request_id");
+      }
+      if (isStatus) {
+        if (!deps.store) throw new SubmissionError("SERVER_ERROR");
+        const found = await deps.store.lookupTemplate(
+          user.id,
+          raw.request_id.toLowerCase(),
+        );
+        if (!["committed", "withdrawn", "not_found"].includes(found?.state)) {
+          throw new SubmissionError("SERVER_ERROR");
+        }
+        return reply(found);
       }
       const template = CLINIC_TEMPLATES.find((t) => t.id === raw.template_id);
       if (!template) {

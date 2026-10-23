@@ -305,9 +305,12 @@ What the file adds when it is applied:
 
 - **`public.submission_receipts`** — one row per accepted request, keyed
   `(user_id, operation, request_id)`, with the request fingerprint and
-  `document_id`. Kept 30 days (`expires_at`); rows are never deleted by the
-  migration. `document_id` is set to null when the patient cancels the
-  document. RLS on with no policies: only `service_role` reads or inserts.
+  `document_id`. A receipt can be replayed for 30 days (`expires_at`) and is
+  then kept indefinitely as audit evidence; nothing deletes receipts, which is
+  what makes "no receipt" a definite answer. Any future retention needs its
+  own migration with tombstones. `document_id` is set to null when the
+  patient cancels the document. RLS on with no policies: only `service_role`
+  reads or inserts.
 - **`public.submit_patient_template(...)`** — `service_role` only. In one
   transaction it checks the receipt, applies the duplicate rule (one pending
   document per patient and category: `template_id` for templates,
@@ -325,6 +328,18 @@ Outcomes, returned as `jsonb` rather than raised:
 | `expired` | Receipt past `expires_at`; reconciliation, never a fresh insert |
 | `withdrawn` | The patient cancelled that document |
 | `duplicate` | A pending document of that category exists; its `document_id` and `status` |
+
+- **`public.submit_patient_template_outcome(user_id, request_id)`** —
+  `service_role` only, writes nothing. The owner-scoped outcome lookup behind
+  `POST /functions/v1/patient-document-submission/status`: what happened to a
+  request, without resending it. It takes the same per-request advisory lock as
+  the submit, so a lookup during an in-flight submit waits for it to finish.
+
+| `state` | Meaning |
+|---|---|
+| `committed` | The request created `document_id`; `status` is its **current** status, `replayable` is false at or after `expires_at` |
+| `withdrawn` | It committed, then the patient cancelled the document |
+| `not_found` | No receipt for this caller: the request never committed (another user's id is also `not_found`) |
 
 **Ordering:** apply before deploying the `patient-document-submission` Edge
 function or the web deploy whose `patient/templates` action calls it. Nothing

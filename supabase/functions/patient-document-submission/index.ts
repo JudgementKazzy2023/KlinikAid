@@ -2,7 +2,9 @@
  * Supabase Edge Function: patient-document-submission
  * Runtime: Deno. Caller: the mobile app (JWT Bearer auth).
  *
- * Stage 1: form templates only (operation submit_template). Uploads stay on
+ * Stage 1: form templates only (operation submit_template), plus
+ * POST .../patient-document-submission/status { request_id } to look up a
+ * request's outcome without resending it. Uploads stay on
  * the mobile containment until Stage 2. Contract: mobile PR #3, decisions in
  * JudgementKazzy2023/Klinikaid-Mobile-App#36.
  *
@@ -126,6 +128,14 @@ export async function handler(req: Request): Promise<Response> {
           p_metadata: input.metadata,
           p_description: input.description,
         });
+        if (error || !data) throw new SubmissionError("SERVER_ERROR");
+        return data;
+      },
+      async lookupTemplate(userId, requestId) {
+        const { data, error } = await admin.rpc(
+          "submit_patient_template_outcome",
+          { p_user_id: userId, p_request_id: requestId },
+        );
         if (error || !data) throw new SubmissionError("SERVER_ERROR");
         return data;
       },

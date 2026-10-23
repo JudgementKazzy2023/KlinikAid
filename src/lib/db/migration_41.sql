@@ -12,9 +12,11 @@
 --   public.submission_receipts
 --     One row per accepted request, keyed (user_id, operation, request_id).
 --     A retry with the same request_id returns the original document instead
---     of inserting a second one. Receipts are kept 30 days (accepted in #36:
---     the 7-day client retry horizon plus a reconciliation margin). Rows are
---     never deleted here; an expired receipt is reported, never reused. A
+--     of inserting a second one. A receipt can be replayed for 30 days
+--     (accepted in #36: the 7-day client retry horizon plus a reconciliation
+--     margin) and is kept indefinitely after that as audit evidence (#215):
+--     nothing deletes receipts, so "no receipt" is a definite answer. An
+--     expired receipt is reported, never reused. A
 --     patient cancelling the pending document (web patient/submissions)
 --     clears document_id, so a late retry cannot resubmit what they withdrew.
 --     RLS on, no policies: only the service role reads or writes it.
@@ -26,6 +28,16 @@
 --     so there is never a document without its audit event or receipt.
 --     Callers: supabase/functions/patient-document-submission (mobile) and
 --     src/app/(dashboard)/patient/templates/actions.ts (web).
+--
+--   public.submit_patient_template_outcome(user_id, request_id)
+--     The owner-scoped outcome lookup (#215): what happened to a request,
+--     without resending it. Writes nothing. It takes the same per-request lock
+--     as the submit, so a lookup during an in-flight submit waits for it.
+--     Called by patient-document-submission /status.
+--       {"state":"committed","document_id":...,"status":<current status>,
+--        "first_accepted_at":...,"replayable":<before expires_at>}
+--       {"state":"withdrawn","first_accepted_at":...}  patient cancelled it
+--       {"state":"not_found"}                          never committed
 --
 -- Duplicate rule (accepted in #36): a patient may have one pending document
 -- per category. The category of a template is its template_id; of an upload,
@@ -54,6 +66,7 @@
 --
 -- ROLLBACK (only before any client calls it; receipts are audit evidence):
 --   begin;
+--   drop function if exists public.submit_patient_template_outcome(uuid, uuid);
 --   drop function if exists public.submit_patient_template(uuid, uuid, text, uuid, text, text, jsonb, text);
 --   drop table if exists public.submission_receipts;
 --   commit;
@@ -173,5 +186,57 @@ $$;
 
 revoke all on function public.submit_patient_template(uuid, uuid, text, uuid, text, text, jsonb, text) from public, anon, authenticated;
 grant execute on function public.submit_patient_template(uuid, uuid, text, uuid, text, text, jsonb, text) to service_role;
+
+create or replace function public.submit_patient_template_outcome(
+  p_user_id uuid,
+  p_request_id uuid
+)
+returns jsonb
+language plpgsql
+security invoker
+set search_path = ''
+as $$
+declare
+  v_receipt public.submission_receipts;
+  v_status text;
+begin
+  if p_user_id is null or p_request_id is null then
+    raise exception 'missing argument' using errcode = '22023';
+  end if;
+
+  -- Same key as submit_patient_template: wait out an in-flight submit.
+  perform pg_advisory_xact_lock(
+    hashtextextended('submit_template:' || p_user_id::text || ':' || p_request_id::text, 0));
+
+  -- Scoped to the caller, so another user's request_id is simply not found.
+  select * into v_receipt
+    from public.submission_receipts r
+   where r.user_id = p_user_id
+     and r.operation = 'submit_template'
+     and r.request_id = p_request_id;
+
+  if not found then
+    return jsonb_build_object('state', 'not_found');
+  end if;
+
+  if v_receipt.document_id is null then
+    return jsonb_build_object('state', 'withdrawn', 'first_accepted_at', v_receipt.first_accepted_at);
+  end if;
+
+  select d.status into v_status
+    from public.documents d
+   where d.id = v_receipt.document_id;
+
+  return jsonb_build_object(
+    'state', 'committed',
+    'document_id', v_receipt.document_id,
+    'status', v_status,
+    'first_accepted_at', v_receipt.first_accepted_at,
+    'replayable', now() < v_receipt.expires_at);
+end;
+$$;
+
+revoke all on function public.submit_patient_template_outcome(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.submit_patient_template_outcome(uuid, uuid) to service_role;
 
 commit;

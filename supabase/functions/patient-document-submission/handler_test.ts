@@ -3,6 +3,7 @@
 import {
   createHandler,
   type Identity,
+  type Lookup,
   type Outcome,
   type Patient,
   type Profile,
@@ -78,6 +79,19 @@ class FakeStore implements SubmissionStore {
     }
     return { outcome: "created", document_id };
   }
+  async lookupTemplate(userId: string, requestId: string): Promise<Lookup> {
+    const receipt = this.receipts.get(receiptKey(userId, requestId));
+    if (!receipt) return { state: "not_found" };
+    const first_accepted_at = "2026-10-23T00:00:00.000Z";
+    if (!receipt.document_id) return { state: "withdrawn", first_accepted_at };
+    return {
+      state: "committed",
+      document_id: receipt.document_id,
+      status: "pending",
+      first_accepted_at,
+      replayable: !receipt.expired,
+    };
+  }
 }
 
 function fixture() {
@@ -139,11 +153,12 @@ function body(
 }
 async function call(
   f: ReturnType<typeof fixture>,
-  input = body(),
+  input: Record<string, unknown> = body(),
   token = "fixture",
+  path = "/patient-document-submission",
 ) {
   const response = await f.handler(
-    new Request("https://example.invalid/submit-template", {
+    new Request(`https://example.invalid${path}`, {
       method: "POST",
       headers: {
         authorization: `Bearer ${token}`,
@@ -553,4 +568,71 @@ Deno.test("patient role resolves through role_id, not the legacy column", () => 
     "",
   );
   equal(resolvedRole(null), "");
+});
+
+const status = (
+  f: ReturnType<typeof fixture>,
+  input: Record<string, unknown>,
+) => call(f, input, "fixture", "/patient-document-submission/status");
+
+Deno.test("status reports a committed request without resending it", async () => {
+  const f = fixture();
+  const submitted = await call(f);
+  const found = await status(f, { request_id: id.toUpperCase() });
+  equal(found.status, 200);
+  equal(found.body.state, "committed");
+  equal(found.body.document_id, submitted.body.document_id);
+  equal(found.body.status, "pending");
+  equal(found.body.replayable, true);
+  equal(f.store.documents.length, 1);
+  equal(f.store.audits.length, 1);
+});
+Deno.test("status: not_found, withdrawn, and expired still committed", async () => {
+  const f = fixture();
+  equal((await status(f, { request_id: id })).body, { state: "not_found" });
+  f.store.receipts.set(receiptKey("profile-uuid", id), {
+    fingerprint: "x",
+    document_id: null,
+  });
+  equal((await status(f, { request_id: id })).body.state, "withdrawn");
+  f.store.receipts.set(receiptKey("profile-uuid", id), {
+    fingerprint: "x",
+    document_id: "doc",
+    expired: true,
+  });
+  const expired = await status(f, { request_id: id });
+  equal(expired.body.state, "committed");
+  equal(expired.body.replayable, false);
+});
+Deno.test("status is scoped to the caller: another user's request is not_found", async () => {
+  const f = fixture();
+  f.store.receipts.set(receiptKey("someone-else", id), {
+    fingerprint: "x",
+    document_id: "their-doc",
+  });
+  equal((await status(f, { request_id: id })).body, { state: "not_found" });
+});
+Deno.test("status keeps every submit gate and accepts only request_id", async () => {
+  const f = fixture();
+  f.state.user!.app_metadata.must_change_password = true;
+  equal(
+    (await status(f, { request_id: id })).body.error_code,
+    "PASSWORD_CHANGE_REQUIRED",
+  );
+  f.state.user!.app_metadata.must_change_password = false;
+  f.state.profile!.role = "admin";
+  equal(
+    (await status(f, { request_id: id })).body.error_code,
+    "PATIENT_ACCOUNT_REQUIRED",
+  );
+  f.state.profile!.role = "patient";
+  equal(
+    (await status(f, { request_id: id, template_id: "lab-request" })).body
+      .error_code,
+    "UNKNOWN_FIELD",
+  );
+  equal((await status(f, { request_id: "bad" })).body.field, "request_id");
+  f.handler = createHandler({ identity: f.identity });
+  equal((await status(f, { request_id: id })).status, 503);
+  equal(f.store.documents.length, 0);
 });
