@@ -1,3 +1,4 @@
+import { uploadStore } from '@/lib/documents/uploadStore';
 /**
  * Supabase Edge Function: patient-document-submission
  * Runtime: Deno. Caller: the mobile app (JWT Bearer auth).
@@ -116,6 +117,7 @@ export async function handler(req: Request): Promise<Response> {
         };
       },
     },
+    uploads: uploadStore(admin),
     store: {
       async submitTemplate(input) {
         const { data, error } = await admin.rpc("submit_patient_template", {

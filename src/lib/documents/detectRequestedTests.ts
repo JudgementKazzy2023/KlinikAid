@@ -1,4 +1,4 @@
-import { CLINIC_TEST_CATALOG, type ClinicTestCatalogItem } from "@/lib/constants";
+import { CLINIC_TEST_CATALOG, type ClinicTestCatalogItem } from "@/lib/documents/clinicTestCatalog";
 
 export type DetectedClinicTest = Pick<ClinicTestCatalogItem, "id" | "label">;
 

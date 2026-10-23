@@ -4,6 +4,13 @@
     "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.8",
     "@/lib/documentTemplates": "../../../src/lib/documentTemplates.ts",
     "@/lib/documents/templateChecks": "../../../src/lib/documents/templateChecks.ts",
-    "@/lib/validation": "../../../src/lib/validation.ts"
+    "@/lib/validation": "../../../src/lib/validation.ts",
+    "@/lib/documents/uploadSubmission": "../../../src/lib/documents/uploadSubmission.ts",
+    "@/lib/documents/uploadStore": "../../../src/lib/documents/uploadStore.ts",
+    "@/lib/documents/detectRequestedTests": "../../../src/lib/documents/detectRequestedTests.ts",
+    "@/lib/constants": "../../../src/lib/constants.ts",
+    "@/types": "../../../src/types/index.ts",
+    "./uploadSubmission": "../../../src/lib/documents/uploadSubmission.ts",
+    "@/lib/documents/clinicTestCatalog": "../../../src/lib/documents/clinicTestCatalog.ts"
   }
 }
