@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { CLINIC_TEMPLATES, type DocumentTemplate } from "@/lib/documentTemplates";
-import { latestTemplateDate, reviewTemplateSubmission, validateTemplateSubmission } from "./templateChecks";
+import {
+  latestTemplateDate,
+  reviewTemplateSubmission,
+  templateDocument,
+  templateRequestFingerprint,
+  validateTemplateSubmission,
+} from "./templateChecks";
 
 /**
  * Issue #62: reception showed every template as "100% Validated", including a
@@ -237,5 +243,35 @@ describe("reviewTemplateSubmission", () => {
 
   it.each([[null], [undefined], ["text"], [[1, 2]]])("returns attention, not a crash, for metadata %j", (metadata) => {
     expect(reviewTemplateSubmission(metadata, TODAY).status).toBe("attention");
+  });
+});
+
+describe("templateDocument and templateRequestFingerprint (migration_41 submit paths)", () => {
+  const patient = {
+    first_name: "Juan",
+    last_name: "Dela Cruz",
+    date_of_birth: "1990-01-01",
+    contact_number: "09171234567",
+    address: "Manila",
+  };
+  const now = new Date("2026-10-18T01:00:00.000Z");
+
+  it("writes the stored shape reception reviews, with intake identity only on intake", () => {
+    const referral = templateDocument(template("referral-form"), VALID_REFERRAL, patient, now);
+    expect(referral.file_path).toBe(`template://referral-form-${now.getTime()}`);
+    expect(referral.extracted_metadata).toEqual(storedRow("referral-form", VALID_REFERRAL));
+    expect(reviewTemplateSubmission(referral.extracted_metadata, TODAY).status).toBe("passed");
+
+    const intake = templateDocument(template("patient-intake"), { chief_complaint: "Cough" }, patient, now);
+    expect(intake.extracted_metadata).toMatchObject({ date_of_birth: "1990-01-01", address: "Manila" });
+  });
+
+  it("fingerprints answers independent of key order, and differs when an answer does", async () => {
+    const reordered = Object.fromEntries(Object.entries(VALID_REFERRAL).reverse());
+    const base = await templateRequestFingerprint("referral-form", VALID_REFERRAL);
+    expect(await templateRequestFingerprint("referral-form", reordered)).toBe(base);
+    expect(base).toMatch(/^[0-9a-f]{64}$/);
+    expect(await templateRequestFingerprint("referral-form", { ...VALID_REFERRAL, referring_clinic: "X" })).not.toBe(base);
+    expect(await templateRequestFingerprint("lab-request", VALID_REFERRAL)).not.toBe(base);
   });
 });

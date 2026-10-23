@@ -214,10 +214,11 @@ migration 38 adds no index for it.
 
 ## Migration History
 
-Historical migrations are retained under `src/lib/db/` through migration 40.
+Historical migrations are retained under `src/lib/db/` through migration 41.
 Migration 39 (one patient row per profile) was applied to production on
 2026-10-22, and migration 40 (lab plausibility guard) on 2026-10-23; both are
-included in the `schema.sql` snapshot.
+included in the `schema.sql` snapshot. Migration 41 (patient template submission) is
+**written but not applied**.
 
 The following are early milestones, not a fresh-project execution sequence:
 
@@ -291,6 +292,69 @@ Migration 40 was applied to production on 2026-10-23 and is in the `schema.sql`
 snapshot. `src/lib/db/migration40LabLimits.test.ts` checks that the limits seeded
 in the migration still equal `constants.ts`; if a bound in `constants.ts` changes,
 the database row needs a new migration too.
+
+### Migration 41 — patient template submission (**written but not applied**)
+
+`src/lib/db/migration_41.sql` gives patient form templates one server
+operation shared by web and mobile (Stage 1 of the patient submission
+contract, JudgementKazzy2023/Klinikaid-Mobile-App#36). Patients hold no INSERT
+policy on `documents` (migration_23), so mobile has no other route.
+
+What the file adds when it is applied:
+
+- **`public.submission_receipts`** — one row per accepted request, keyed
+  `(user_id, operation, request_id)`, with the request fingerprint and
+  `document_id`. A receipt can be replayed for 30 days (`expires_at`) and is
+  then kept indefinitely as audit evidence; nothing deletes receipts, which is
+  what makes "no receipt" a definite answer. Any future retention needs its
+  own migration with tombstones. `document_id` is set to null when the
+  patient cancels the document. RLS on with no policies: only `service_role`
+  reads or inserts.
+- **`public.submit_patient_template(...)`** — `service_role` only. In one
+  transaction it checks the receipt, applies the duplicate rule (one pending
+  document per patient and category: `template_id` for templates,
+  `extracted_metadata.document_type` for uploads, `other` exempt), and inserts
+  the document, the attributed `DOCUMENT_SUBMITTED` row in `system_logs` and
+  the receipt. Any failure rolls back all of it.
+
+Outcomes, returned as `jsonb` rather than raised:
+
+| `outcome` | Meaning |
+|---|---|
+| `created` | New document; `document_id` returned |
+| `replayed` | Same request id and content; the original `document_id`, nothing inserted |
+| `conflict` | Same request id, different content |
+| `expired` | Receipt past `expires_at`; reconciliation, never a fresh insert |
+| `withdrawn` | The patient cancelled that document |
+| `duplicate` | A pending document of that category exists; its `document_id` and `status` |
+
+- **`public.submit_patient_template_outcome(user_id, request_id)`** —
+  `service_role` only, writes nothing. The owner-scoped outcome lookup behind
+  `POST /functions/v1/patient-document-submission/status`: what happened to a
+  request, without resending it. It takes the same per-request advisory lock as
+  the submit, so a lookup during an in-flight submit waits for it to finish.
+
+| `state` | Meaning |
+|---|---|
+| `committed` | The request created `document_id`; `status` is its **current** status, `replayable` is false at or after `expires_at` |
+| `withdrawn` | It committed, then the patient cancelled the document |
+| `not_found` | No receipt for this caller: the request never committed (another user's id is also `not_found`) |
+
+**Ordering:** apply before deploying the `patient-document-submission` Edge
+function or the web deploy whose `patient/templates` action calls it. Nothing
+calls the function before then, so applying it alone changes no behaviour.
+Regenerate `schema.sql` after applying.
+
+**Legacy duplicate report.** Rows written before migration 41 may already have
+more than one pending document per category; the rule applies only to new
+submissions and never changes existing rows. Before template submission is
+re-enabled on mobile, run `src/lib/db/reports/pending_document_duplicates.sql`.
+It is read-only (each part runs in a `READ ONLY` transaction) and uses the
+migration's own category rule, in three parts: a summary per category, the
+patient/category conflicts with their document ids, and rows whose category is
+unknown or silently `other`. Parts 2 and 3 list ids; keep their results
+private. `src/lib/db/reports/pendingDocumentDuplicates.test.ts` keeps its known
+categories equal to `CLINIC_TEMPLATES` plus `other`.
 
 ---
 
