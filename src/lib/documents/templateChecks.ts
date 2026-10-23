@@ -199,7 +199,7 @@ export function templateDocument(
 
 /**
  * SHA-256 of the template and normalized answers, stored on the submission
- * receipt (migration_40). A retry with the same request_id must produce the
+ * receipt (migration_41). A retry with the same request_id must produce the
  * same value; clocks and demographics are deliberately not part of it.
  */
 export async function templateRequestFingerprint(templateId: string, fields: Record<string, string>): Promise<string> {

@@ -72,7 +72,7 @@ export async function submitTemplateDocumentAction(
     }
 
     // 3. Document, DOCUMENT_SUBMITTED event, receipt and the one-pending-per-
-    // category rule in one transaction (migration_40), shared with the mobile
+    // category rule in one transaction (migration_41), shared with the mobile
     // patient-document-submission function. Service role: patients hold no
     // INSERT policy on documents (migration_23). Each web submit is a new
     // request; the duplicate rule is what stops a double click.

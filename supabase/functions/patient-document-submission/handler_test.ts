@@ -6,6 +6,7 @@ import {
   type Outcome,
   type Patient,
   type Profile,
+  resolvedRole,
   statuses,
   type SubmissionStore,
   type TemplateSubmission,
@@ -31,7 +32,7 @@ const receiptKey = (userId: string, requestId: string) =>
   JSON.stringify([userId, requestId]);
 
 // TEST ONLY: returns the outcomes of public.submit_patient_template
-// (migration_40) without a database. The SQL itself is checked separately.
+// (migration_41) without a database. The SQL itself is checked separately.
 class FakeStore implements SubmissionStore {
   receipts = new Map<
     string,
@@ -529,4 +530,27 @@ Deno.test("atomic commit failure leaves no fixture document, event, or receipt",
   equal(f.store.documents.length, 0);
   equal(f.store.audits.length, 0);
   equal(f.store.receipts.size, 0);
+});
+Deno.test("patient role resolves through role_id, not the legacy column", () => {
+  equal(
+    resolvedRole({ name: "patient", is_system: true, base_role: null }),
+    "patient",
+  );
+  equal(
+    resolvedRole({ name: "Walk-in", is_system: false, base_role: "patient" }),
+    "patient",
+  );
+  equal(
+    resolvedRole({
+      name: "Lab Lead",
+      is_system: false,
+      base_role: "department_staff",
+    }),
+    "department_staff",
+  );
+  equal(
+    resolvedRole({ name: "Custom", is_system: false, base_role: null }),
+    "",
+  );
+  equal(resolvedRole(null), "");
 });

@@ -49,6 +49,14 @@ export type Profile = {
   is_active: boolean;
   accepted_privacy_at: string | null;
 };
+// Same rule as sync_profile_legacy_role(): a system role is its name, a
+// custom role its base_role; no role (role_id null) is no patient.
+export function resolvedRole(
+  role: { name: string; is_system: boolean; base_role: string | null } | null,
+): string {
+  if (!role) return "";
+  return role.is_system ? role.name : role.base_role ?? "";
+}
 export type Patient = {
   id: string;
   profile_id: string;
@@ -80,7 +88,7 @@ export type Outcome =
   | { outcome: "duplicate"; document_id: string; status: string }
   | { outcome: "conflict" | "expired" | "withdrawn" };
 export interface SubmissionStore {
-  // One database transaction: public.submit_patient_template (migration_40).
+  // One database transaction: public.submit_patient_template (migration_41).
   // Receipt check, duplicate rule, document, DOCUMENT_SUBMITTED event and
   // receipt commit or roll back together. Failures throw.
   submitTemplate(input: TemplateSubmission): Promise<Outcome>;

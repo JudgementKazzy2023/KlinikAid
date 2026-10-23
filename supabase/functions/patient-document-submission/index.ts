@@ -6,14 +6,19 @@
  * the mobile containment until Stage 2. Contract: mobile PR #3, decisions in
  * JudgementKazzy2023/Klinikaid-Mobile-App#36.
  *
- * Requires migration_40 (public.submit_patient_template) applied first.
+ * Requires migration_41 (public.submit_patient_template) applied first.
  *
  * Web counterpart: src/app/(dashboard)/patient/templates/actions.ts calls the
  * same database function, and both use src/lib/documents/templateChecks.ts.
  */
 import { serve } from "std/http/server.ts";
 import { createClient } from "@supabase/supabase-js";
-import { corsHeaders, createHandler, SubmissionError } from "./handler.ts";
+import {
+  corsHeaders,
+  createHandler,
+  resolvedRole,
+  SubmissionError,
+} from "./handler.ts";
 
 export async function handler(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") {
@@ -84,11 +89,29 @@ export async function handler(req: Request): Promise<Response> {
         return data;
       },
       async profile(userId) {
+        // Role through role_id -> roles, as app authorization resolves it, not
+        // the legacy profiles.role text: that column is left stale when the
+        // role is deleted (role_id set null) or has no base_role.
         const { data, error } = await admin.from("profiles")
-          .select("role, is_active, accepted_privacy_at").eq("id", userId)
-          .maybeSingle();
+          .select(
+            "is_active, accepted_privacy_at, roles:role_id(name, is_system, base_role)",
+          ).eq("id", userId)
+          .maybeSingle<{
+            is_active: boolean;
+            accepted_privacy_at: string | null;
+            roles: {
+              name: string;
+              is_system: boolean;
+              base_role: string | null;
+            } | null;
+          }>();
         if (error) throw new SubmissionError("SERVER_ERROR");
-        return data;
+        if (!data) return null;
+        return {
+          role: resolvedRole(data.roles),
+          is_active: data.is_active,
+          accepted_privacy_at: data.accepted_privacy_at,
+        };
       },
     },
     store: {

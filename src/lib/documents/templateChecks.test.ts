@@ -246,7 +246,7 @@ describe("reviewTemplateSubmission", () => {
   });
 });
 
-describe("templateDocument and templateRequestFingerprint (migration_40 submit paths)", () => {
+describe("templateDocument and templateRequestFingerprint (migration_41 submit paths)", () => {
   const patient = {
     first_name: "Juan",
     last_name: "Dela Cruz",
