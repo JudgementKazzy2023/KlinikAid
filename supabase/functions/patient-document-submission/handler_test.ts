@@ -752,3 +752,20 @@ Deno.test('upload storage errors are uncertain and leak no backend details', asy
   equal(out.status,503); equal(out.body.error_code,'SERVER_ERROR');
   equal(JSON.stringify(out.body).includes('private detail'),false);
 });
+
+for (const [mime, ext, bytes] of [
+  ['application/pdf', 'pdf', new TextEncoder().encode('%PDF-1.7 fixture')],
+  ['image/jpeg', 'jpg', new Uint8Array([255,216,255,224])],
+] as const) {
+  Deno.test(`upload accepts ${mime} at its canonical owned path`, async () => {
+    const u = uploadFixture();
+    u.setRow({...u.row()!,file_type:mime,file_name:`fixture.${ext}`,file_path:`profile-uuid/pending-submissions/${id}/source.${ext}`});
+    u.setFile(new Blob([bytes],{type:mime}));
+    equal((await call(u.f,uploadBody(),'fixture','/patient-document-submission/upload')).status,200);
+  });
+}
+Deno.test('upload accepts the exact five-MiB size boundary', async () => {
+  const u=uploadFixture();const bytes=new Uint8Array(5*1024*1024);bytes.set([137,80,78,71,13,10,26,10]);
+  u.setFile(new Blob([bytes],{type:'image/png'}));
+  equal((await call(u.f,uploadBody(),'fixture','/patient-document-submission/upload')).status,200);
+});
