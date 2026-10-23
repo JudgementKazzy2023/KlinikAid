@@ -156,6 +156,58 @@ export function validateTemplateSubmission(
   return { valid: true, fields: normalizedFields };
 }
 
+export interface TemplatePatient {
+  first_name: string | null;
+  last_name: string | null;
+  date_of_birth: string | null;
+  contact_number: string | null;
+  address: string | null;
+}
+
+/**
+ * The documents row both submit paths store for validated answers: the web
+ * action and the patient-document-submission Edge function (mobile). One
+ * builder, so reception sees the same shape whichever client submitted.
+ */
+export function templateDocument(
+  template: DocumentTemplate,
+  fields: Record<string, string>,
+  patient: TemplatePatient,
+  now: Date = new Date()
+): { file_name: string; file_path: string; extracted_metadata: Record<string, string> } {
+  const formattedDate = now.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" });
+  return {
+    file_name: `${template.name} - ${formattedDate}`,
+    file_path: `template://${template.id}-${now.getTime()}`,
+    extracted_metadata: {
+      ...fields,
+      patient_name: `${patient.first_name || ""} ${patient.last_name || ""}`.trim(),
+      ...(template.id === "patient-intake"
+        ? {
+            date_of_birth: patient.date_of_birth || "",
+            contact_number: patient.contact_number || "",
+            address: patient.address || "",
+          }
+        : {}),
+      template_id: template.id,
+      template_name: template.name,
+      submission_type: "template",
+      submitted_at: now.toISOString(),
+    },
+  };
+}
+
+/**
+ * SHA-256 of the template and normalized answers, stored on the submission
+ * receipt (migration_40). A retry with the same request_id must produce the
+ * same value; clocks and demographics are deliberately not part of it.
+ */
+export async function templateRequestFingerprint(templateId: string, fields: Record<string, string>): Promise<string> {
+  const canonical = JSON.stringify([templateId, Object.keys(fields).sort().map((key) => [key, fields[key]])]);
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export interface TemplateReviewIssue {
   /** Stored key the issue is about, or null for the form as a whole. */
   field: string | null;

@@ -3,12 +3,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { privacyConsentError } from "@/lib/auth/privacy-consent";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logEvent } from "@/lib/logger";
 import { revalidatePath } from "next/cache";
-import { SYSTEM_EVENT_TYPES } from "@/lib/constants";
 import { validateAge } from "@/lib/validation";
 import { CLINIC_TEMPLATES } from "@/lib/documentTemplates";
-import { validateTemplateSubmission } from "@/lib/documents/templateChecks";
+import {
+  templateDocument,
+  templateRequestFingerprint,
+  validateTemplateSubmission
+} from "@/lib/documents/templateChecks";
 
 export interface TemplateSubmitResult {
   success: boolean;
@@ -47,7 +49,6 @@ export async function submitTemplateDocumentAction(
     }
 
     const patientDob = patient.date_of_birth || "";
-    const fullName = `${patient.first_name || ""} ${patient.last_name || ""}`.trim();
 
     const template = CLINIC_TEMPLATES.find((item) => item.id === templateId);
     if (!template) {
@@ -70,65 +71,41 @@ export async function submitTemplateDocumentAction(
       }
     }
 
-    // 3. Format dynamic file details
-    const timestamp = Date.now();
-    const formattedDate = new Date().toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "2-digit"
+    // 3. Document, DOCUMENT_SUBMITTED event, receipt and the one-pending-per-
+    // category rule in one transaction (migration_40), shared with the mobile
+    // patient-document-submission function. Service role: patients hold no
+    // INSERT policy on documents (migration_23). Each web submit is a new
+    // request; the duplicate rule is what stops a double click.
+    const built = templateDocument(template, fieldsValidation.fields, patient);
+    const { data: outcome, error: submitError } = await createAdminClient().rpc("submit_patient_template", {
+      p_user_id: user.id,
+      p_request_id: crypto.randomUUID(),
+      p_fingerprint: await templateRequestFingerprint(template.id, fieldsValidation.fields),
+      p_patient_id: patient.id,
+      p_file_name: built.file_name,
+      p_file_path: built.file_path,
+      p_metadata: built.extracted_metadata,
+      p_description: `Patient submitted form template: ${template.name}`
     });
-    
-    const fileName = `${template.name} - ${formattedDate}`;
-    const filePath = `template://${templateId}-${timestamp}`;
 
-    // Combine payload for extracted_metadata and force-inject authenticated user credentials
-    const extractedMetadata = {
-      ...fieldsValidation.fields,
-      patient_name: fullName,
-      ...(templateId === "patient-intake" ? {
-        date_of_birth: patientDob,
-        contact_number: patient.contact_number || "",
-        address: patient.address || ""
-      } : {}),
-      template_id: templateId,
-      template_name: template.name,
-      submission_type: "template",
-      submitted_at: new Date().toISOString()
-    };
-
-    // 4. Save into documents table. Service role, not the patient's session:
-    // patients hold no INSERT policy on documents (migration_23), so the
-    // identity fields injected above cannot be replaced by a direct REST insert.
-    const { data: docRow, error: insertError } = await createAdminClient()
-      .from("documents")
-      .insert({
-        patient_id: patient.id,
-        uploader_id: user.id,
-        file_name: fileName,
-        file_path: filePath,
-        file_type: "template",
-        status: "pending",
-        extracted_metadata: extractedMetadata
-      })
-      .select("id")
-      .single();
-
-    if (insertError) {
-      throw insertError;
+    if (submitError) {
+      throw submitError;
     }
 
-    // 5. Audit event logging (no PII in metadata)
-    await logEvent(
-      supabase,
-      user.id,
-      SYSTEM_EVENT_TYPES.DOCUMENT_SUBMITTED,
-      `Patient submitted form template: ${template.name}`,
-      null,
-      { document_id: docRow.id }
-    );
+    if (outcome?.outcome === "duplicate") {
+      return {
+        success: false,
+        error: `You already have a pending ${template.name}. Wait for the clinic to review it, or cancel it from My Submissions.`,
+        documentId: outcome.document_id
+      };
+    }
+
+    if (outcome?.outcome !== "created" || !outcome.document_id) {
+      throw new Error("Unexpected template submission outcome.");
+    }
 
     revalidatePath("/patient/submissions");
-    return { success: true, documentId: docRow.id };
+    return { success: true, documentId: outcome.document_id };
   } catch (err: unknown) {
     console.error("Failed to submit form template:", err);
     return {
