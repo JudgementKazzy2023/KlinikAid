@@ -331,6 +331,17 @@ function or the web deploy whose `patient/templates` action calls it. Nothing
 calls the function before then, so applying it alone changes no behaviour.
 Regenerate `schema.sql` after applying.
 
+**Legacy duplicate report.** Rows written before migration 41 may already have
+more than one pending document per category; the rule applies only to new
+submissions and never changes existing rows. Before template submission is
+re-enabled on mobile, run `src/lib/db/reports/pending_document_duplicates.sql`.
+It is read-only (each part runs in a `READ ONLY` transaction) and uses the
+migration's own category rule, in three parts: a summary per category, the
+patient/category conflicts with their document ids, and rows whose category is
+unknown or silently `other`. Parts 2 and 3 list ids; keep their results
+private. `src/lib/db/reports/pendingDocumentDuplicates.test.ts` keeps its known
+categories equal to `CLINIC_TEMPLATES` plus `other`.
+
 ---
 
 ## RPCs and Trigger Functions
