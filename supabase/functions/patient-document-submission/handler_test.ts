@@ -14,6 +14,7 @@ import {
   type User,
 } from "./handler.ts";
 import { CLINIC_TEMPLATES } from "@/lib/documentTemplates";
+import { uploadStore } from "@/lib/documents/uploadStore";
 import {
   latestTemplateDate,
   reviewTemplateSubmission,
@@ -635,4 +636,433 @@ Deno.test("status keeps every submit gate and accepts only request_id", async ()
   f.handler = createHandler({ identity: f.identity });
   equal((await status(f, { request_id: id })).status, 503);
   equal(f.store.documents.length, 0);
+});
+
+// Upload coverage shares all account gates with the template routes.
+import type {
+  PendingUpload,
+  StoredUploadFile,
+  UploadLookup,
+  UploadOutcome,
+  UploadStore,
+} from "@/lib/documents/uploadSubmission";
+function uploadFixture() {
+  const f = fixture();
+  let result: UploadOutcome = { outcome: "created", document_id: id2 };
+  let known: UploadLookup = { state: "not_found" };
+  let row: PendingUpload | null = {
+    id: id,
+    user_id: "profile-uuid",
+    patient_id: "DIFFERENT-patient-row-uuid",
+    file_name: "fixture.png",
+    file_type: "image/png",
+    file_path: `profile-uuid/pending-submissions/${id}/source.png`,
+    ocr_text: "CBC",
+  };
+  let file: StoredUploadFile | null = Object.assign(
+    new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], {
+      type: "image/png",
+    }),
+    {
+      objectSnapshot: { id: id2, metadata: { size: 8, mimetype: "image/png" } },
+    },
+  );
+  const calls: unknown[] = [];
+  const uploads: UploadStore = {
+    async pending(owner, assessment) {
+      calls.push(["pending", owner, assessment]);
+      return row;
+    },
+    async file(path) {
+      calls.push(["file", path]);
+      return file;
+    },
+    async submit(input) {
+      calls.push(["submit", input]);
+      return result;
+    },
+    async lookup(owner, request) {
+      calls.push(["lookup", owner, request]);
+      return known;
+    },
+  };
+  f.handler = createHandler({ identity: f.identity, uploads });
+  return {
+    f,
+    calls,
+    setResult(value: UploadOutcome) {
+      result = value;
+    },
+    setLookup(value: UploadLookup) {
+      known = value;
+    },
+    setRow(value: PendingUpload | null) {
+      row = value;
+    },
+    setFile(value: Blob | null) {
+      file = value
+        ? Object.assign(value, {
+          objectSnapshot: {
+            id: id2,
+            metadata: { size: value.size, mimetype: value.type },
+          },
+        })
+        : null;
+    },
+    row: () => row,
+  };
+}
+const uploadBody = () => ({
+  request_id: id2,
+  assessment_id: id,
+  document_type: "lab-request",
+  selected_test_ids: ["cbc"],
+});
+Deno.test("upload derives owner/path/tests and sends no caller identity or final path to storage", async () => {
+  const u = uploadFixture();
+  const out = await call(
+    u.f,
+    uploadBody(),
+    "fixture",
+    "/patient-document-submission/upload",
+  );
+  equal(out.status, 200);
+  equal(out.body, { document_id: id2, status: "pending", replayed: false });
+  const last = u.calls.at(-1) as [
+    string,
+    { user_id: string; patient_id: string; metadata: Record<string, unknown> },
+  ];
+  equal(last[1].user_id, "profile-uuid");
+  equal(last[1].patient_id, "DIFFERENT-patient-row-uuid");
+  equal(last[1].metadata.document_type, "lab-request");
+  equal(last[1].metadata.selected_tests, [{
+    id: "cbc",
+    label: "Complete Blood Count (CBC)",
+  }]);
+  // Mobile writes its own pending row, so its OCR is labelled client-side.
+  equal(last[1].metadata.test_detection_source, "client_ocr_catalog_match");
+});
+Deno.test("uploadStore refuses an oversized object without downloading it", async () => {
+  let downloads = 0;
+  for (const size of [0, 5 * 1024 * 1024 + 1, "not-a-number"]) {
+    const bucket = {
+      list: async () => ({
+        data: [{
+          id: "obj",
+          name: "source.png",
+          metadata: { size, mimetype: "image/png" },
+        }],
+        error: null,
+      }),
+      download: async () => {
+        downloads++;
+        return { data: new Blob([new Uint8Array(1)]), error: null };
+      },
+    };
+    const admin = { storage: { from: () => bucket } } as unknown as Parameters<
+      typeof uploadStore
+    >[0];
+    equal(
+      await uploadStore(admin).file("owner/pending-submissions/a/source.png"),
+      null,
+    );
+  }
+  equal(downloads, 0);
+});
+for (
+  const [outcome, code] of [
+    ["replayed", null],
+    ["conflict", "IDEMPOTENCY_CONFLICT"],
+    ["expired", "RECONCILIATION_REQUIRED"],
+    ["withdrawn", "RECONCILIATION_REQUIRED"],
+    ["duplicate", "DUPLICATE_PENDING"],
+    ["assessment_not_found", "ASSESSMENT_NOT_FOUND"],
+    ["file_invalid", "FIELD_INVALID"],
+  ] as const
+) {
+  Deno.test(`upload outcome ${outcome}`, async () => {
+    const u = uploadFixture();
+    u.setResult(
+      outcome === "replayed"
+        ? { outcome, document_id: id2 }
+        : outcome === "duplicate"
+        ? { outcome, document_id: id2, status: "pending" }
+        : { outcome },
+    );
+    const out = await call(
+      u.f,
+      uploadBody(),
+      "fixture",
+      "/patient-document-submission/upload",
+    );
+    if (!code) {
+      equal(out.status, 200);
+      equal(out.body.replayed, true);
+    } else {
+      equal(out.body.error_code, code);
+      equal(out.status, statuses[code]);
+    }
+    if (outcome === "duplicate") {
+      equal(out.body.document_id, id2);
+      equal(out.body.status, "pending");
+    }
+  });
+}
+Deno.test("upload replay with consumed assessment still reaches receipt check", async () => {
+  const u = uploadFixture();
+  u.setRow(null);
+  u.setResult({ outcome: "replayed", document_id: id2 });
+  equal(
+    (await call(
+      u.f,
+      uploadBody(),
+      "fixture",
+      "/patient-document-submission/upload",
+    )).body.replayed,
+    true,
+  );
+  equal(u.calls.length, 2);
+});
+Deno.test("upload and upload/status enforce every account gate before assessment/file/store", async () => {
+  for (
+    const path of [
+      "/patient-document-submission/upload",
+      "/patient-document-submission/upload/status",
+    ]
+  ) {
+    for (
+      const code of [
+        "UNAUTHENTICATED",
+        "PROFILE_INACTIVE",
+        "PATIENT_ACCOUNT_REQUIRED",
+        "NO_PATIENT_RECORD",
+        "EMAIL_NOT_CONFIRMED",
+        "CONSENT_REQUIRED",
+        "PASSWORD_CHANGE_REQUIRED",
+      ] as const
+    ) {
+      const u = uploadFixture();
+      switch (code) {
+        case "UNAUTHENTICATED":
+          u.f.state.user = null;
+          break;
+        case "PROFILE_INACTIVE":
+          u.f.state.profile!.is_active = false;
+          break;
+        case "PATIENT_ACCOUNT_REQUIRED":
+          u.f.state.profile!.role = "receptionist";
+          break;
+        case "NO_PATIENT_RECORD":
+          u.f.state.patient = null;
+          break;
+        case "EMAIL_NOT_CONFIRMED":
+          delete u.f.state.user!.email_confirmed_at;
+          break;
+        case "CONSENT_REQUIRED":
+          u.f.state.profile!.accepted_privacy_at = null;
+          break;
+        case "PASSWORD_CHANGE_REQUIRED":
+          u.f.state.user!.app_metadata.must_change_password = true;
+          break;
+      }
+      equal(
+        (await call(
+          u.f,
+          path.endsWith("/status") ? { request_id: id } : uploadBody(),
+          "fixture",
+          path,
+        )).body.error_code,
+        code,
+      );
+      equal(u.calls.length, 0);
+    }
+  }
+});
+Deno.test("upload unknown keys, request IDs, categories and selections fail before reads", async () => {
+  for (
+    const body of [
+      { ...uploadBody(), patient_id: id },
+      { ...uploadBody(), file_path: "chosen/final" },
+      { ...uploadBody(), assessment_id: "invalid" },
+      { ...uploadBody(), request_id: "invalid" },
+      { ...uploadBody(), document_type: "invalid" },
+      { ...uploadBody(), selected_test_ids: [42] },
+    ]
+  ) {
+    const u = uploadFixture();
+    const out = await call(
+      u.f,
+      body,
+      "fixture",
+      "/patient-document-submission/upload",
+    );
+    equal(out.status, 400);
+    equal(u.calls.length, 0);
+  }
+});
+Deno.test("upload file size, type, signature, path and ownership validation", async () => {
+  for (
+    const kind of [
+      "large",
+      "empty",
+      "type",
+      "signature",
+      "path",
+      "owner",
+      "patient",
+    ]
+  ) {
+    const u = uploadFixture();
+    if (kind === "large") {
+      u.setFile(
+        new Blob([new Uint8Array(5 * 1024 * 1024 + 1)], { type: "image/png" }),
+      );
+    }
+    if (kind === "empty") u.setFile(new Blob([], { type: "image/png" }));
+    if (kind === "type") u.setFile(new Blob(["x"], { type: "text/plain" }));
+    if (kind === "signature") {
+      u.setFile(new Blob(["not png"], { type: "image/png" }));
+    }
+    if (kind === "path") {
+      u.setRow({ ...u.row()!, file_path: "outside/file.png" });
+    }
+    if (kind === "owner") u.setRow({ ...u.row()!, user_id: "someone-else" });
+    if (kind === "patient") {
+      u.setRow({ ...u.row()!, patient_id: "someone-else" });
+    }
+    const out = await call(
+      u.f,
+      uploadBody(),
+      "fixture",
+      "/patient-document-submission/upload",
+    );
+    equal(
+      out.body.error_code,
+      ["owner", "patient"].includes(kind)
+        ? "ASSESSMENT_NOT_FOUND"
+        : "FIELD_INVALID",
+    );
+    equal(u.calls.some((c) => (c as string[])[0] === "submit"), false);
+  }
+});
+Deno.test("upload requires at least one detected selection; absent selection means all", async () => {
+  const u = uploadFixture();
+  const out = await call(
+    u.f,
+    { ...uploadBody(), selected_test_ids: [] },
+    "fixture",
+    "/patient-document-submission/upload",
+  );
+  equal(out.body.error_code, "FIELD_REQUIRED");
+  equal(out.body.field, "selected_test_ids");
+  const all = uploadBody() as Record<string, unknown>;
+  delete all.selected_test_ids;
+  equal(
+    (await call(
+      uploadFixture().f,
+      all,
+      "fixture",
+      "/patient-document-submission/upload",
+    )).status,
+    200,
+  );
+});
+Deno.test("upload/status is owner-scoped, permits only request_id and never submits", async () => {
+  for (
+    const known of [{ state: "not_found" }, {
+      state: "withdrawn",
+      first_accepted_at: "2026-10-23",
+    }, {
+      state: "committed",
+      document_id: id2,
+      status: "approved",
+      first_accepted_at: "2026-10-23",
+      replayable: false,
+    }] as UploadLookup[]
+  ) {
+    const u = uploadFixture();
+    u.setLookup(known);
+    equal(
+      (await call(
+        u.f,
+        { request_id: id },
+        "fixture",
+        "/patient-document-submission/upload/status",
+      )).body,
+      known,
+    );
+    equal(u.calls, [["lookup", "profile-uuid", id]]);
+    equal(
+      (await call(
+        u.f,
+        { request_id: id, assessment_id: id },
+        "fixture",
+        "/patient-document-submission/upload/status",
+      )).status,
+      400,
+    );
+  }
+});
+Deno.test("upload storage errors are uncertain and leak no backend details", async () => {
+  const u = uploadFixture();
+  u.f.handler = createHandler({
+    identity: u.f.identity,
+    uploads: {
+      pending: () => Promise.reject(new Error("private detail")),
+      file: () => Promise.resolve(null),
+      submit: () => Promise.reject(new Error("unused")),
+      lookup: () => Promise.reject(new Error("private detail")),
+    },
+  });
+  const out = await call(
+    u.f,
+    uploadBody(),
+    "fixture",
+    "/patient-document-submission/upload",
+  );
+  equal(out.status, 503);
+  equal(out.body.error_code, "SERVER_ERROR");
+  equal(JSON.stringify(out.body).includes("private detail"), false);
+});
+
+for (
+  const [mime, ext, bytes] of [
+    ["application/pdf", "pdf", new TextEncoder().encode("%PDF-1.7 fixture")],
+    ["image/jpeg", "jpg", new Uint8Array([255, 216, 255, 224])],
+  ] as const
+) {
+  Deno.test(`upload accepts ${mime} at its canonical owned path`, async () => {
+    const u = uploadFixture();
+    u.setRow({
+      ...u.row()!,
+      file_type: mime,
+      file_name: `fixture.${ext}`,
+      file_path: `profile-uuid/pending-submissions/${id}/source.${ext}`,
+    });
+    u.setFile(new Blob([bytes], { type: mime }));
+    equal(
+      (await call(
+        u.f,
+        uploadBody(),
+        "fixture",
+        "/patient-document-submission/upload",
+      )).status,
+      200,
+    );
+  });
+}
+Deno.test("upload accepts the exact five-MiB size boundary", async () => {
+  const u = uploadFixture();
+  const bytes = new Uint8Array(5 * 1024 * 1024);
+  bytes.set([137, 80, 78, 71, 13, 10, 26, 10]);
+  u.setFile(new Blob([bytes], { type: "image/png" }));
+  equal(
+    (await call(
+      u.f,
+      uploadBody(),
+      "fixture",
+      "/patient-document-submission/upload",
+    )).status,
+    200,
+  );
 });

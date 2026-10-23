@@ -395,3 +395,40 @@ Devs must use these exact values to prevent database inserts from failing the co
 - **Priority Levels**: `'routine'`, `'urgent'`, `'emergency'`.
 - **Queue Status**: `'waiting'`, `'in_progress'`, `'completed'`, `'cancelled'`.
 - **Document Status**: `'pending'`, `'approved'`, `'rejected'`.
+
+### Migration 42 — patient upload submission (written but not applied)
+
+`src/lib/db/migration_42.sql` extends migration 41's retained receipts to
+`submit_upload`. `submit_patient_upload(...)` and `submit_patient_upload_outcome`
+are SECURITY INVOKER, empty search_path, and executable only by service_role.
+Web confirmation and the Edge Function upload routes share these operations.
+
+The transaction checks replay/conflict/expiry/withdrawal, consumes the owner's
+assessment once, takes the same patient/category lock as templates, and creates
+the document, attributed DOCUMENT_SUBMITTED event and receipt atomically.
+`other` and missing categories remain exempt. Duplicate rejection leaves the
+existing document and the new assessment untouched. Additional outcomes are
+`assessment_not_found` and `file_invalid`.
+
+The assessed pending object is promoted in place, without a copy. The transaction
+locks and validates its Storage metadata and seals it before recording the
+document. A trigger rejects deletion/replacement of an object while a document
+references it, including cleanup attempts. When the patient cancels a pending
+document (web patient/submissions deletes the row first), the file can be
+removed as before. The seal keeps a delete that raced the commit from passing
+the patient's delete policy. Rollback restores the pending row and removes the
+seal; no second/final orphan object exists. This changes the pending path's
+lifecycle, not the existing permitted upload prefix. Deploy the migration before
+the new web confirmation and Edge routes. Keep receipts indefinitely. Do not
+regenerate schema.sql or claim deployment until the owner applies it. Revert
+callers before rollback; retain seals/trigger for submitted files and retained
+upload receipts. Physical Storage behavior still requires isolated deployment
+verification by the owner; SQL fixtures and mocked Storage do not prove it. The
+trigger on `storage.objects` and the metadata write touch a table owned by
+Supabase Storage: confirm both are permitted and do not disturb the Storage API
+in an isolated project before applying.
+
+Detected tests on mobile uploads come from OCR the client wrote into its own
+pending row, so they carry `test_detection_source: "client_ocr_catalog_match"`;
+web's server-side OCR keeps `"ocr_text_catalog_match"`. Reception sees the
+original file either way.
