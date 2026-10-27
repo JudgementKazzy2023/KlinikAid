@@ -447,3 +447,18 @@ once per row. Left bare, `user_has_permission` made counting `system_logs` take
 expressions are unchanged apart from those wrappers, and that the plan has an
 InitPlan. Function volatility is unchanged. Apply after merge, then regenerate
 `schema.sql`.
+
+### Migration 46 — patients can update their own profile again (not yet applied)
+
+Every patient update of their own `profiles` row has failed since 2026-10-02
+with `infinite recursion detected in policy for relation "profiles"`, so a new
+patient cannot record the privacy consent (web's privacy agreement and the
+mobile sign-up both write `accepted_privacy_at` with the patient's session).
+The cause is that "Users can update own profile details" checked the protected
+columns with sub-selects on `profiles` itself. `src/lib/db/migration_46.sql`
+reduces that WITH CHECK to `(select auth.uid()) = id` and moves the guard into
+`protect_profile_columns()`, a SECURITY INVOKER `BEFORE UPDATE` trigger that
+compares NEW with OLD: `role`, `role_id`, `department`, `is_active` and
+`email_verified_at` change only for `profiles.manage` holders, `service_role`,
+and SECURITY DEFINER functions such as `sync_email_verified_at`. Independent of
+other migrations; apply as soon as possible, then regenerate `schema.sql`.
